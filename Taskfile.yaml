@@ -1,0 +1,8 @@
+version: '3'
+
+tasks:
+  buf:
+    desc: "Generate event go code from proto files"
+    dir: "events"
+    cmds:
+      - buf generate

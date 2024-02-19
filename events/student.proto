@@ -1,0 +1,60 @@
+syntax = "proto3";
+package events.student;
+option go_package = "geevly/events/student";
+
+message StudentAggregate {
+    string first_name = 2;
+    string last_name = 3;
+    Date date_of_birth = 4;
+    string school_id = 5;
+    Date date_of_enrollment = 6;
+    StudentStatus status = 7;
+}
+
+message AddStudentEvent {
+    string first_name = 1;
+    string last_name = 2;
+    Date date_of_birth = 3;
+    string school_id = 4;
+    Date date_of_enrollment = 5;
+    StudentStatus status = 6;
+}
+
+message SetStudentStatusEvent {
+    string student_id = 1;
+    StudentStatus status = 2;
+}
+
+enum StudentStatus {
+    UNKNOWN = 0;
+    ACTIVE = 1;
+    INACTIVE = 2;
+}
+
+// Represents a whole or partial calendar date, such as a birthday. The time of
+// day and time zone are either specified elsewhere or are insignificant. The
+// date is relative to the Gregorian Calendar. This can represent one of the
+// following:
+//
+// * A full date, with non-zero year, month, and day values
+// * A month and day value, with a zero year, such as an anniversary
+// * A year on its own, with zero month and day values
+// * A year and month value, with a zero day, such as a credit card expiration
+// date
+//
+// Related types are [google.type.TimeOfDay][google.type.TimeOfDay] and
+// `google.protobuf.Timestamp`.
+message Date {
+  // Year of the date. Must be from 1 to 9999, or 0 to specify a date without
+  // a year.
+  int32 year = 1;
+
+  // Month of a year. Must be from 1 to 12, or 0 to specify a year without a
+  // month and day.
+  int32 month = 2;
+
+  // Day of a month. Must be from 1 to 31 and valid for the year and month, or 0
+  // to specify a year by itself or a year and month where the day isn't
+  // significant.
+  int32 day = 3;
+}
