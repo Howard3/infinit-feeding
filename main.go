@@ -20,7 +20,7 @@ func createAggTable(db *sql.DB) {
 		type VARCHAR(255) NOT NULL,
 		data BYTEA NOT NULL,
 		version INT NOT NULL,
-		timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+		timestamp INT NOT NULL,
 		aggregate_id VARCHAR(255) NOT NULL,
 		UNIQUE (aggregate_id, version)
 	 );`
@@ -57,6 +57,11 @@ func main() {
 	evt, err := agg.CreateStudent(&student.AddStudentEvent{
 		FirstName: "John",
 		LastName:  "Doe",
+		DateOfBirth: &student.Date{
+			Year:  1990,
+			Month: 11,
+			Day:   1,
+		},
 	})
 
 	if err != nil {
@@ -78,9 +83,12 @@ func main() {
 		panic(fmt.Sprintf("Error storing aggregate: %s", err))
 	}
 
-	if err := repo.Load(ctx, agg.GetID(), &agg, nil); err != nil {
+	newAgg := StudentAggregate{}
+	if err := repo.Load(ctx, agg.GetID(), &newAgg, nil); err != nil {
 		panic(fmt.Sprintf("Error loading aggregate: %s", err))
 	}
+
+	fmt.Printf("Aggregate: %+v %v\n", newAgg.String())
 }
 
 func subscribeSampleEvent(ctx context.Context, mq *queue.MemoryQueue) {
