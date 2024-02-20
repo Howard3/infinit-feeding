@@ -77,8 +77,30 @@ func main() {
 		panic(fmt.Sprintf("Error setting student status: %s", err))
 	}
 
+	evt3, err := agg.UpdateStudent(&student.UpdateStudentEvent{
+		FirstName: "Jane",
+		LastName:  "Doe",
+	})
+
+	if err != nil {
+		panic(fmt.Sprintf("Error updating student: %s", err))
+	}
+
+	evt4, err := agg.EnrollStudent(&student.EnrollStudentEvent{
+		SchoolId: "123",
+		DateOfEnrollment: &student.Date{
+			Year:  2020,
+			Month: 1,
+			Day:   1,
+		},
+	})
+
+	if err != nil {
+		panic(fmt.Sprintf("Error enrolling student: %s", err))
+	}
+
 	// add event
-	err = repo.Store(ctx, []gosignal.Event{*evt, *evt2})
+	err = repo.Store(ctx, []gosignal.Event{*evt, *evt2, *evt3, *evt4})
 	if err != nil {
 		panic(fmt.Sprintf("Error storing aggregate: %s", err))
 	}
@@ -88,7 +110,7 @@ func main() {
 		panic(fmt.Sprintf("Error loading aggregate: %s", err))
 	}
 
-	fmt.Printf("Aggregate: %+v %v\n", newAgg.String())
+	fmt.Printf("Aggregate: %+v \n", newAgg.String())
 }
 
 func subscribeSampleEvent(ctx context.Context, mq *queue.MemoryQueue) {

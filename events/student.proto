@@ -20,9 +20,24 @@ message AddStudentEvent {
     StudentStatus status = 6;
 }
 
+message UpdateStudentEvent {
+    string student_id = 1;
+    string first_name = 2;
+    string last_name = 3;
+    Date date_of_birth = 4;
+    string school_id = 5;
+    Date date_of_enrollment = 6;
+    StudentStatus status = 7;
+}
+
 message SetStudentStatusEvent {
     string student_id = 1;
     StudentStatus status = 2;
+}
+
+message EnrollStudentEvent {
+    string school_id = 1;
+    Date date_of_enrollment = 2;
 }
 
 enum StudentStatus {
