@@ -33,13 +33,13 @@ type StudentData struct {
 
 // Apply is called when an event is applied to the aggregate, it should be called from the
 // repository when applying new events or from commands as they're issued
-func (sa *StudentData) Apply(evt gosignal.Event) error {
-	return sourcing.SafeApply(evt, sa, sa.routeEvent)
+func (sd *StudentData) Apply(evt gosignal.Event) error {
+	return sourcing.SafeApply(evt, sd, sd.routeEvent)
 }
 
 // Apply is called when an event is applied to the aggregate, it should be called from the
 // root aggregate's Apply method, where checks for versioning are done
-func (sa *StudentData) routeEvent(evt gosignal.Event) (err error) {
+func (sd *StudentData) routeEvent(evt gosignal.Event) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic: %v", e)
@@ -56,16 +56,16 @@ func (sa *StudentData) routeEvent(evt gosignal.Event) (err error) {
 	switch evt.Type {
 	case EVENT_ADD_STUDENT:
 		eventData = &student.AddStudentEvent{}
-		handler = sa.HandleCreateStudent
+		handler = sd.HandleCreateStudent
 	case EVENT_SET_STUDENT_STATUS:
 		eventData = &student.SetStudentStatusEvent{}
-		handler = sa.HandleSetStudentStatus
+		handler = sd.HandleSetStudentStatus
 	case EVENT_UPDATE_STUDENT:
 		eventData = &student.UpdateStudentEvent{}
-		handler = sa.HandleUpdateStudent
+		handler = sd.HandleUpdateStudent
 	case EVENT_ENROLL_STUDENT:
 		eventData = &student.EnrollStudentEvent{}
-		handler = sa.HandleEnrollStudent
+		handler = sd.HandleEnrollStudent
 	default:
 		return ErrEventNotFound
 	}
@@ -79,43 +79,43 @@ func (sa *StudentData) routeEvent(evt gosignal.Event) (err error) {
 	return handler(wevt)
 }
 
-func (sa *StudentData) CreateStudent(student *student.AddStudentEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(StudentEvent{eventType: EVENT_ADD_STUDENT, data: student, version: 0})
+func (sd *StudentData) CreateStudent(student *student.AddStudentEvent) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ADD_STUDENT, data: student, version: 0})
 }
 
-func (sa *StudentData) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: uint(status.Version)})
+func (sd *StudentData) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: uint(status.Version)})
 }
 
-func (sa *StudentData) UpdateStudent(upd *student.UpdateStudentEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(StudentEvent{eventType: EVENT_UPDATE_STUDENT, data: upd, version: uint(upd.Version)})
+func (sd *StudentData) UpdateStudent(upd *student.UpdateStudentEvent) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_UPDATE_STUDENT, data: upd, version: uint(upd.Version)})
 }
 
-func (sa *StudentData) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(StudentEvent{eventType: EVENT_ENROLL_STUDENT, data: enrollment, version: uint(enrollment.Version)})
+func (sd *StudentData) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ENROLL_STUDENT, data: enrollment, version: uint(enrollment.Version)})
 }
 
 // HandleSetStudentStatus handles the SetStudentStatus event
-func (sa *StudentData) HandleSetStudentStatus(evt wrappedEvent) error {
+func (sd *StudentData) HandleSetStudentStatus(evt wrappedEvent) error {
 	data := evt.data.(*student.SetStudentStatusEvent)
 
-	if sa.data == nil {
+	if sd.data == nil {
 		return fmt.Errorf("student not found")
 	}
 
-	sa.data.Status = data.Status
+	sd.data.Status = data.Status
 
 	return nil
 }
 
-func (sa *StudentData) HandleCreateStudent(evt wrappedEvent) error {
+func (sd *StudentData) HandleCreateStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.AddStudentEvent)
 
-	if sa.data != nil {
+	if sd.data != nil {
 		return fmt.Errorf("student already exists")
 	}
 
-	sa.data = &student.StudentAggregate{
+	sd.data = &student.StudentAggregate{
 		FirstName:        data.FirstName,
 		LastName:         data.LastName,
 		DateOfBirth:      data.DateOfBirth,
@@ -126,31 +126,31 @@ func (sa *StudentData) HandleCreateStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sa *StudentData) HandleUpdateStudent(evt wrappedEvent) error {
+func (sd *StudentData) HandleUpdateStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.UpdateStudentEvent)
 
-	if sa.data == nil {
+	if sd.data == nil {
 		return fmt.Errorf("student not found")
 	}
 
-	sa.data.FirstName = data.FirstName
-	sa.data.LastName = data.LastName
-	sa.data.DateOfBirth = data.DateOfBirth
-	sa.data.SchoolId = data.SchoolId
-	sa.data.DateOfEnrollment = data.DateOfEnrollment
+	sd.data.FirstName = data.FirstName
+	sd.data.LastName = data.LastName
+	sd.data.DateOfBirth = data.DateOfBirth
+	sd.data.SchoolId = data.SchoolId
+	sd.data.DateOfEnrollment = data.DateOfEnrollment
 
 	return nil
 }
 
-func (sa *StudentData) HandleEnrollStudent(evt wrappedEvent) error {
+func (sd *StudentData) HandleEnrollStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.EnrollStudentEvent)
 
-	if sa.data == nil {
+	if sd.data == nil {
 		return fmt.Errorf("student not found")
 	}
 
-	sa.data.SchoolId = data.SchoolId
-	sa.data.DateOfEnrollment = data.DateOfEnrollment
+	sd.data.SchoolId = data.SchoolId
+	sd.data.DateOfEnrollment = data.DateOfEnrollment
 
 	return nil
 }
