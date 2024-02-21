@@ -59,5 +59,11 @@ func main() {
 		panic(err)
 	}
 
-	_ = updatedStudent
+	_, err = studentService.SetStatus(ctx, &studentpb.SetStatusRequest{
+		Data: &studentpb.SetStudentStatusEvent{
+			StudentId: updatedStudent.GetStudentId(),
+			Status:    studentpb.StudentStatus_ACTIVE,
+		},
+		Version: updatedStudent.GetVersion(),
+	})
 }

@@ -37,3 +37,9 @@ func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, evt *gosigna
 func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, evt *gosignal.Event) {
 	eh.HandleNewStudentEvent(ctx, evt)
 }
+
+// HandleSetStatusEvent is a method that handles the SetStatusEvent
+// functionally the same as HandleNewStudentEvent, thus it just aliases it
+func (eh *eventHandlers) HandleSetStatusEvent(ctx context.Context, evt *gosignal.Event) {
+	eh.HandleNewStudentEvent(ctx, evt)
+}

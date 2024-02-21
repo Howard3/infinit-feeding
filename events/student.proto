@@ -47,9 +47,20 @@ message UpdateStudentResponse {
     StudentAggregate student = 3;
 }
 
+message SetStatusRequest {
+    SetStudentStatusEvent data = 1;
+    uint64 version = 2;
+}
+
 message SetStudentStatusEvent {
     string student_id = 1;
     StudentStatus status = 2;
+}
+
+message SetStatusResponse {
+    string student_id = 1;
+    uint64 version = 2;
+    StudentAggregate student = 3;
 }
 
 message EnrollStudentEvent {

@@ -83,7 +83,7 @@ func (sd *Student) AddStudent(student *student.AddStudentEvent) (*gosignal.Event
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ADD_STUDENT, data: student, version: 0})
 }
 
-func (sd *Student) SetStudentStatus(status *student.SetStudentStatusEvent, ver uint64) (*gosignal.Event, error) {
+func (sd *Student) SetStatus(status *student.SetStudentStatusEvent, ver uint64) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: ver})
 }
 
