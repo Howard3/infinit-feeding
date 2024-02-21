@@ -20,6 +20,10 @@ message AddStudentEvent {
     StudentStatus status = 6;
 }
 
+message AddStudentResponse {
+    string student_id = 1;
+}
+
 message UpdateStudentEvent {
     string student_id = 1;
     string first_name = 2;

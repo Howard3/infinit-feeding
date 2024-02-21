@@ -1,4 +1,4 @@
-package main
+package student
 
 import (
 	"errors"
@@ -26,20 +26,20 @@ type wrappedEvent struct {
 	data  proto.Message
 }
 
-type StudentData struct {
+type Student struct {
 	sourcing.DefaultAggregate
 	data *student.StudentAggregate
 }
 
 // Apply is called when an event is applied to the aggregate, it should be called from the
 // repository when applying new events or from commands as they're issued
-func (sd *StudentData) Apply(evt gosignal.Event) error {
+func (sd *Student) Apply(evt gosignal.Event) error {
 	return sourcing.SafeApply(evt, sd, sd.routeEvent)
 }
 
 // Apply is called when an event is applied to the aggregate, it should be called from the
 // root aggregate's Apply method, where checks for versioning are done
-func (sd *StudentData) routeEvent(evt gosignal.Event) (err error) {
+func (sd *Student) routeEvent(evt gosignal.Event) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic: %v", e)
@@ -79,24 +79,24 @@ func (sd *StudentData) routeEvent(evt gosignal.Event) (err error) {
 	return handler(wevt)
 }
 
-func (sd *StudentData) CreateStudent(student *student.AddStudentEvent) (*gosignal.Event, error) {
+func (sd *Student) AddStudent(student *student.AddStudentEvent) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ADD_STUDENT, data: student, version: 0})
 }
 
-func (sd *StudentData) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
+func (sd *Student) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: uint(status.Version)})
 }
 
-func (sd *StudentData) UpdateStudent(upd *student.UpdateStudentEvent) (*gosignal.Event, error) {
+func (sd *Student) UpdateStudent(upd *student.UpdateStudentEvent) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_UPDATE_STUDENT, data: upd, version: uint(upd.Version)})
 }
 
-func (sd *StudentData) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
+func (sd *Student) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ENROLL_STUDENT, data: enrollment, version: uint(enrollment.Version)})
 }
 
 // HandleSetStudentStatus handles the SetStudentStatus event
-func (sd *StudentData) HandleSetStudentStatus(evt wrappedEvent) error {
+func (sd *Student) HandleSetStudentStatus(evt wrappedEvent) error {
 	data := evt.data.(*student.SetStudentStatusEvent)
 
 	if sd.data == nil {
@@ -108,7 +108,7 @@ func (sd *StudentData) HandleSetStudentStatus(evt wrappedEvent) error {
 	return nil
 }
 
-func (sd *StudentData) HandleCreateStudent(evt wrappedEvent) error {
+func (sd *Student) HandleCreateStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.AddStudentEvent)
 
 	if sd.data != nil {
@@ -126,7 +126,7 @@ func (sd *StudentData) HandleCreateStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sd *StudentData) HandleUpdateStudent(evt wrappedEvent) error {
+func (sd *Student) HandleUpdateStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.UpdateStudentEvent)
 
 	if sd.data == nil {
@@ -142,7 +142,7 @@ func (sd *StudentData) HandleUpdateStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sd *StudentData) HandleEnrollStudent(evt wrappedEvent) error {
+func (sd *Student) HandleEnrollStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.EnrollStudentEvent)
 
 	if sd.data == nil {
@@ -163,7 +163,7 @@ type StudentEvent struct {
 }
 
 // ApplyEvent is a function that applies an event to the aggregate
-func (sd *StudentData) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
+func (sd *Student) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
 	sBytes, marshalErr := proto.Marshal(sEvt.data)
 
 	evt := gosignal.Event{
@@ -177,7 +177,7 @@ func (sd *StudentData) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
 	return &evt, errors.Join(sd.Apply(evt), marshalErr)
 }
 
-func (sd *StudentData) ImportState(data []byte) error {
+func (sd *Student) ImportState(data []byte) error {
 	student := student.StudentAggregate{}
 
 	if err := proto.Unmarshal(data, &student); err != nil {
@@ -188,11 +188,11 @@ func (sd *StudentData) ImportState(data []byte) error {
 
 	return nil
 }
-func (sd *StudentData) ExportState() ([]byte, error) {
+func (sd *Student) ExportState() ([]byte, error) {
 	return proto.Marshal(sd.data)
 }
 
-func (sd StudentData) String() string {
+func (sd Student) String() string {
 	id := sd.GetID()
 	ver := sd.GetVersion()
 

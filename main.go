@@ -2,140 +2,39 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 
-	"github.com/Howard3/gosignal"
-	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/drivers/queue"
-	src "github.com/Howard3/gosignal/sourcing"
-	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 
-	student "geevly/events/gen/proto/go"
+	"geevly/internal/infrastructure"
+	"geevly/internal/student"
+
+	studentpb "geevly/events/gen/proto/go"
 )
-
-func createAggTable(db *sql.DB) {
-	// TODO: move to migration system
-	createTable := `CREATE TABLE IF NOT EXISTS sampleagg_events (
-		id SERIAL PRIMARY KEY,
-		type VARCHAR(255) NOT NULL,
-		data BYTEA NOT NULL,
-		version INT NOT NULL,
-		timestamp INT NOT NULL,
-		aggregate_id VARCHAR(255) NOT NULL,
-		UNIQUE (aggregate_id, version)
-	 );`
-
-	_, err := db.Exec(createTable)
-	if err != nil {
-		panic(fmt.Sprintf("Error creating table: %s", err))
-	}
-}
 
 func main() {
 	mq := queue.MemoryQueue{}
 
-	go subscribeSampleEvent(context.Background(), &mq)
-
 	// configure a sqlite connection
-	db, err := sql.Open("sqlite3", "test.db")
-	if err != nil {
-		panic(fmt.Sprintf("Error opening database: %s", err))
+	studentConn := infrastructure.SQLConnection{
+		Type: "sqlite3",
+		URI:  "./student.db",
 	}
 
-	// create the table
-	createAggTable(db)
-
-	// configure event store
-	es := eventstore.SQLStore{DB: db, TableName: "sampleagg_events"}
-
-	// configure repo
-	repo := src.NewRepository(src.WithEventStore(es), src.WithQueue(&mq))
+	// setup the repositories
+	studentRepo := student.NewRepository(studentConn, &mq)
+	studentService := student.NewStudentService(studentRepo)
 
 	ctx := context.Background()
 
-	studentAgg := &StudentData{}
-	studentAgg.SetID(uuid.New().String())
-
-	fmt.Println("aggregate : ", studentAgg.String())
-
-	evt, err := studentAgg.CreateStudent(&student.AddStudentEvent{
+	studentService.CreateStudent(ctx, &studentpb.AddStudentEvent{
 		FirstName: "John",
 		LastName:  "Doe",
-		DateOfBirth: &student.Date{
+		DateOfBirth: &studentpb.Date{
 			Year:  1990,
 			Month: 11,
 			Day:   1,
 		},
 	})
 
-	if err != nil {
-		panic(fmt.Sprintf("Error creating student: %s", err))
-	}
-
-	fmt.Println("aggregate : ", studentAgg.String())
-
-	evt2, err := studentAgg.SetStudentStatus(&student.SetStudentStatusEvent{
-		Version: uint32(studentAgg.GetVersion()),
-		Status:  student.StudentStatus_ACTIVE,
-	})
-
-	if err != nil {
-		panic(fmt.Sprintf("Error setting student status: %s", err))
-	}
-
-	evt3, err := studentAgg.UpdateStudent(&student.UpdateStudentEvent{
-		FirstName: "Jane",
-		LastName:  "Doe",
-		Version:   uint32(studentAgg.GetVersion()),
-	})
-
-	if err != nil {
-		panic(fmt.Sprintf("Error updating student: %s", err))
-	}
-
-	evt4, err := studentAgg.EnrollStudent(&student.EnrollStudentEvent{
-		Version:  uint32(studentAgg.GetVersion()),
-		SchoolId: "123",
-		DateOfEnrollment: &student.Date{
-			Year:  2020,
-			Month: 1,
-			Day:   1,
-		},
-	})
-
-	if err != nil {
-		panic(fmt.Sprintf("Error enrolling student: %s", err))
-	}
-
-	// add event
-	err = repo.Store(ctx, []gosignal.Event{*evt, *evt2, *evt3, *evt4})
-	if err != nil {
-		panic(fmt.Sprintf("Error storing aggregate: %s", err))
-	}
-
-	loadedStudent := StudentData{}
-	loadedStudent.SetID(studentAgg.GetID())
-	if err := repo.Load(ctx, &loadedStudent, nil); err != nil {
-		panic(fmt.Sprintf("Error loading aggregate: %s", err))
-	}
-
-	fmt.Printf("Aggregate: %+v \n", loadedStudent.String())
-}
-
-func subscribeSampleEvent(ctx context.Context, mq *queue.MemoryQueue) {
-	_, ch, err := mq.Subscribe(EVENT_ADD_STUDENT)
-	if err != nil {
-		panic(fmt.Sprintf("Error subscribing to queue: %s", err))
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-ch:
-			fmt.Println("received event data: " + string(msg.Message()))
-		}
-	}
 }
