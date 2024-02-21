@@ -8,7 +8,6 @@ import (
 
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/sourcing"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -27,21 +26,20 @@ type wrappedEvent struct {
 	data  proto.Message
 }
 
-type StudentAggregate struct {
-	data    *student.StudentAggregate
-	version uint
-	id      string
+type StudentData struct {
+	sourcing.DefaultAggregate
+	data *student.StudentAggregate
 }
 
-func (sa *StudentAggregate) GetID() string {
-	return sa.id
+// Apply is called when an event is applied to the aggregate, it should be called from the
+// repository when applying new events or from commands as they're issued
+func (sa *StudentData) Apply(evt gosignal.Event) error {
+	return sourcing.SafeApply(evt, sa, sa.routeEvent)
 }
 
-func (sa *StudentAggregate) GetVersion() uint {
-	return sa.version
-}
-
-func (sa *StudentAggregate) Apply(evt gosignal.Event) (err error) {
+// Apply is called when an event is applied to the aggregate, it should be called from the
+// root aggregate's Apply method, where checks for versioning are done
+func (sa *StudentData) routeEvent(evt gosignal.Event) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic: %v", e)
@@ -51,12 +49,6 @@ func (sa *StudentAggregate) Apply(evt gosignal.Event) (err error) {
 			err = fmt.Errorf("when processing event %q student aggregate %q: %w", evt.Type, evt.AggregateID, err)
 		}
 	}()
-
-	if evt.Version != sa.version+1 {
-		return fmt.Errorf("expected version %d, got %d: %w", sa.version+1, evt.Version, ErrVersionMismatch)
-	}
-
-	sa.version = evt.Version
 
 	var eventData proto.Message
 	var handler func(wrappedEvent) error
@@ -87,25 +79,24 @@ func (sa *StudentAggregate) Apply(evt gosignal.Event) (err error) {
 	return handler(wevt)
 }
 
-func (sa *StudentAggregate) CreateStudent(student *student.AddStudentEvent) (*gosignal.Event, error) {
-	sa.id = uuid.New().String()
-	return sa.ApplyEvent(EVENT_ADD_STUDENT, student)
+func (sa *StudentData) CreateStudent(student *student.AddStudentEvent) (*gosignal.Event, error) {
+	return sa.ApplyEvent(StudentEvent{eventType: EVENT_ADD_STUDENT, data: student, version: 0})
 }
 
-func (sa *StudentAggregate) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(EVENT_SET_STUDENT_STATUS, status)
+func (sa *StudentData) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
+	return sa.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: uint(status.Version)})
 }
 
-func (sa *StudentAggregate) UpdateStudent(student *student.UpdateStudentEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(EVENT_UPDATE_STUDENT, student)
+func (sa *StudentData) UpdateStudent(upd *student.UpdateStudentEvent) (*gosignal.Event, error) {
+	return sa.ApplyEvent(StudentEvent{eventType: EVENT_UPDATE_STUDENT, data: upd, version: uint(upd.Version)})
 }
 
-func (sa *StudentAggregate) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
-	return sa.ApplyEvent(EVENT_ENROLL_STUDENT, enrollment)
+func (sa *StudentData) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
+	return sa.ApplyEvent(StudentEvent{eventType: EVENT_ENROLL_STUDENT, data: enrollment, version: uint(enrollment.Version)})
 }
 
 // HandleSetStudentStatus handles the SetStudentStatus event
-func (sa *StudentAggregate) HandleSetStudentStatus(evt wrappedEvent) error {
+func (sa *StudentData) HandleSetStudentStatus(evt wrappedEvent) error {
 	data := evt.data.(*student.SetStudentStatusEvent)
 
 	if sa.data == nil {
@@ -117,7 +108,7 @@ func (sa *StudentAggregate) HandleSetStudentStatus(evt wrappedEvent) error {
 	return nil
 }
 
-func (sa *StudentAggregate) HandleCreateStudent(evt wrappedEvent) error {
+func (sa *StudentData) HandleCreateStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.AddStudentEvent)
 
 	if sa.data != nil {
@@ -132,12 +123,10 @@ func (sa *StudentAggregate) HandleCreateStudent(evt wrappedEvent) error {
 		DateOfEnrollment: data.DateOfEnrollment,
 	}
 
-	sa.id = evt.event.AggregateID
-
 	return nil
 }
 
-func (sa *StudentAggregate) HandleUpdateStudent(evt wrappedEvent) error {
+func (sa *StudentData) HandleUpdateStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.UpdateStudentEvent)
 
 	if sa.data == nil {
@@ -153,7 +142,7 @@ func (sa *StudentAggregate) HandleUpdateStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sa *StudentAggregate) HandleEnrollStudent(evt wrappedEvent) error {
+func (sa *StudentData) HandleEnrollStudent(evt wrappedEvent) error {
 	data := evt.data.(*student.EnrollStudentEvent)
 
 	if sa.data == nil {
@@ -166,48 +155,46 @@ func (sa *StudentAggregate) HandleEnrollStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sa *StudentAggregate) ApplyEvent(evtType string, msg proto.Message) (*gosignal.Event, error) {
-	sBytes, err := proto.Marshal(msg)
-	if err != nil {
-		return nil, errors.Join(ErrMarshallingEvent, err)
-	}
-
-	evt := gosignal.Event{
-		Type:        evtType,
-		Timestamp:   time.Now(),
-		Data:        sBytes,
-		Version:     sa.version + 1,
-		AggregateID: sa.id,
-	}
-
-	return &evt, sa.Apply(evt)
+// StudentEvent is a struct that holds the event type and the data
+type StudentEvent struct {
+	eventType string
+	data      proto.Message
+	version   uint
 }
 
-func (sa *StudentAggregate) ImportState(snap *sourcing.Snapshot) error {
-	sa.id = snap.AggregateID
-	sa.version = snap.Version
-	data := student.StudentAggregate{}
+// ApplyEvent is a function that applies an event to the aggregate
+func (sd *StudentData) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
+	sBytes, marshalErr := proto.Marshal(sEvt.data)
 
-	err := proto.Unmarshal(snap.Data, &data)
-	if err != nil {
+	evt := gosignal.Event{
+		Type:        sEvt.eventType,
+		Timestamp:   time.Now(),
+		Data:        sBytes,
+		Version:     sEvt.version,
+		AggregateID: sd.GetID(),
+	}
+
+	return &evt, errors.Join(sd.Apply(evt), marshalErr)
+}
+
+func (sd *StudentData) ImportState(data []byte) error {
+	student := student.StudentAggregate{}
+
+	if err := proto.Unmarshal(data, &student); err != nil {
 		return fmt.Errorf("error unmarshalling snapshot data: %s", err)
 	}
 
-	sa.data = &data
+	sd.data = &student
 
 	return nil
 }
-func (sa *StudentAggregate) ExportState() ([]byte, error) {
-	return proto.Marshal(sa.data)
-}
-func (sa StudentAggregate) ID() string {
-	return sa.id
+func (sd *StudentData) ExportState() ([]byte, error) {
+	return proto.Marshal(sd.data)
 }
 
-func (sa StudentAggregate) String() string {
-	return fmt.Sprintf("ID: %s, Version: %d, Data: %+v", sa.id, sa.version, sa.data.String())
-}
+func (sd StudentData) String() string {
+	id := sd.GetID()
+	ver := sd.GetVersion()
 
-func (StudentAggregate) Version() uint {
-	panic("not implemented") // TODO: Implement
+	return fmt.Sprintf("ID: %s, Version: %d, Data: %+v", id, ver, sd.data.String())
 }

@@ -4,13 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	student "geevly/events/gen/proto/go"
 
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/drivers/queue"
 	src "github.com/Howard3/gosignal/sourcing"
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
+
+	student "geevly/events/gen/proto/go"
 )
 
 func createAggTable(db *sql.DB) {
@@ -52,9 +54,13 @@ func main() {
 	repo := src.NewRepository(src.WithEventStore(es), src.WithQueue(&mq))
 
 	ctx := context.Background()
-	agg := StudentAggregate{}
 
-	evt, err := agg.CreateStudent(&student.AddStudentEvent{
+	studentAgg := &StudentData{}
+	studentAgg.SetID(uuid.New().String())
+
+	fmt.Println("aggregate : ", studentAgg.String())
+
+	evt, err := studentAgg.CreateStudent(&student.AddStudentEvent{
 		FirstName: "John",
 		LastName:  "Doe",
 		DateOfBirth: &student.Date{
@@ -65,28 +71,32 @@ func main() {
 	})
 
 	if err != nil {
-		// TODO: handle error
 		panic(fmt.Sprintf("Error creating student: %s", err))
 	}
 
-	evt2, err := agg.SetStudentStatus(&student.SetStudentStatusEvent{
-		Status: student.StudentStatus_ACTIVE,
+	fmt.Println("aggregate : ", studentAgg.String())
+
+	evt2, err := studentAgg.SetStudentStatus(&student.SetStudentStatusEvent{
+		Version: uint32(studentAgg.GetVersion()),
+		Status:  student.StudentStatus_ACTIVE,
 	})
 
 	if err != nil {
 		panic(fmt.Sprintf("Error setting student status: %s", err))
 	}
 
-	evt3, err := agg.UpdateStudent(&student.UpdateStudentEvent{
+	evt3, err := studentAgg.UpdateStudent(&student.UpdateStudentEvent{
 		FirstName: "Jane",
 		LastName:  "Doe",
+		Version:   uint32(studentAgg.GetVersion()),
 	})
 
 	if err != nil {
 		panic(fmt.Sprintf("Error updating student: %s", err))
 	}
 
-	evt4, err := agg.EnrollStudent(&student.EnrollStudentEvent{
+	evt4, err := studentAgg.EnrollStudent(&student.EnrollStudentEvent{
+		Version:  uint32(studentAgg.GetVersion()),
 		SchoolId: "123",
 		DateOfEnrollment: &student.Date{
 			Year:  2020,
@@ -105,12 +115,13 @@ func main() {
 		panic(fmt.Sprintf("Error storing aggregate: %s", err))
 	}
 
-	newAgg := StudentAggregate{}
-	if err := repo.Load(ctx, agg.GetID(), &newAgg, nil); err != nil {
+	loadedStudent := StudentData{}
+	loadedStudent.SetID(studentAgg.GetID())
+	if err := repo.Load(ctx, &loadedStudent, nil); err != nil {
 		panic(fmt.Sprintf("Error loading aggregate: %s", err))
 	}
 
-	fmt.Printf("Aggregate: %+v \n", newAgg.String())
+	fmt.Printf("Aggregate: %+v \n", loadedStudent.String())
 }
 
 func subscribeSampleEvent(ctx context.Context, mq *queue.MemoryQueue) {
