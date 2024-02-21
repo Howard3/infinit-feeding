@@ -83,16 +83,16 @@ func (sd *Student) AddStudent(student *student.AddStudentEvent) (*gosignal.Event
 	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ADD_STUDENT, data: student, version: 0})
 }
 
-func (sd *Student) SetStudentStatus(status *student.SetStudentStatusEvent) (*gosignal.Event, error) {
-	return sd.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: uint(status.Version)})
+func (sd *Student) SetStudentStatus(status *student.SetStudentStatusEvent, ver uint64) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_SET_STUDENT_STATUS, data: status, version: ver})
 }
 
-func (sd *Student) UpdateStudent(upd *student.UpdateStudentEvent) (*gosignal.Event, error) {
-	return sd.ApplyEvent(StudentEvent{eventType: EVENT_UPDATE_STUDENT, data: upd, version: uint(upd.Version)})
+func (sd *Student) UpdateStudent(upd *student.UpdateStudentEvent, ver uint64) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_UPDATE_STUDENT, data: upd, version: ver})
 }
 
-func (sd *Student) EnrollStudent(enrollment *student.EnrollStudentEvent) (*gosignal.Event, error) {
-	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ENROLL_STUDENT, data: enrollment, version: uint(enrollment.Version)})
+func (sd *Student) EnrollStudent(enrollment *student.EnrollStudentEvent, ver uint64) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{eventType: EVENT_ENROLL_STUDENT, data: enrollment, version: ver})
 }
 
 // HandleSetStudentStatus handles the SetStudentStatus event
@@ -159,7 +159,7 @@ func (sd *Student) HandleEnrollStudent(evt wrappedEvent) error {
 type StudentEvent struct {
 	eventType string
 	data      proto.Message
-	version   uint
+	version   uint64
 }
 
 // ApplyEvent is a function that applies an event to the aggregate
@@ -197,4 +197,8 @@ func (sd Student) String() string {
 	ver := sd.GetVersion()
 
 	return fmt.Sprintf("ID: %s, Version: %d, Data: %+v", id, ver, sd.data.String())
+}
+
+func (sd Student) GetStudent() *student.StudentAggregate {
+	return sd.data
 }

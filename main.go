@@ -27,7 +27,7 @@ func main() {
 
 	ctx := context.Background()
 
-	studentService.CreateStudent(ctx, &studentpb.AddStudentEvent{
+	newStudent, err := studentService.CreateStudent(ctx, &studentpb.AddStudentEvent{
 		FirstName: "John",
 		LastName:  "Doe",
 		DateOfBirth: &studentpb.Date{
@@ -37,4 +37,27 @@ func main() {
 		},
 	})
 
+	if err != nil {
+		panic(err)
+	}
+
+	updatedStudent, err := studentService.UpdateStudent(ctx, &studentpb.UpdateStudentRequest{
+		Data: &studentpb.UpdateStudentEvent{
+			StudentId: newStudent.GetStudentId(),
+			FirstName: "John",
+			LastName:  "Smith",
+			DateOfBirth: &studentpb.Date{
+				Year:  1992,
+				Month: 11,
+				Day:   1,
+			},
+		},
+		Version: newStudent.GetVersion(),
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	_ = updatedStudent
 }

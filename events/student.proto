@@ -22,6 +22,8 @@ message AddStudentEvent {
 
 message AddStudentResponse {
     string student_id = 1;
+    uint64 version = 2;
+    StudentAggregate student = 3;
 }
 
 message UpdateStudentEvent {
@@ -32,19 +34,27 @@ message UpdateStudentEvent {
     string school_id = 5;
     Date date_of_enrollment = 6;
     StudentStatus status = 7;
-    uint32 version = 8;
+}
+
+message UpdateStudentRequest {
+    UpdateStudentEvent data = 1;
+    uint64 version = 2;
+}
+
+message UpdateStudentResponse {
+    string student_id = 1;
+    uint64 version = 2;
+    StudentAggregate student = 3;
 }
 
 message SetStudentStatusEvent {
     string student_id = 1;
     StudentStatus status = 2;
-    uint32 version = 3;
 }
 
 message EnrollStudentEvent {
     string school_id = 1;
     Date date_of_enrollment = 2;
-    uint32 version = 3;
 }
 
 enum StudentStatus {

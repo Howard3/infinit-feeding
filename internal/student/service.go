@@ -37,5 +37,31 @@ func (s *studentService) CreateStudent(ctx context.Context, req *student.AddStud
 
 	return &student.AddStudentResponse{
 		StudentId: studentAgg.GetID(),
+		Version:   studentAgg.GetVersion(),
+		Student:   studentAgg.GetStudent(),
+	}, nil
+}
+
+func (s *studentService) UpdateStudent(ctx context.Context, req *student.UpdateStudentRequest) (*student.UpdateStudentResponse, error) {
+	studentAgg, err := s.repo.loadStudent(ctx, req.GetData().GetStudentId())
+	if err != nil {
+		return nil, err
+	}
+
+	evt, err := studentAgg.UpdateStudent(req.GetData(), req.GetVersion())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
+		return nil, err
+	}
+
+	s.eventHandlers.HandleUpdateStudentEvent(ctx, evt)
+
+	return &student.UpdateStudentResponse{
+		StudentId: studentAgg.GetID(),
+		Version:   studentAgg.GetVersion(),
+		Student:   studentAgg.GetStudent(),
 	}, nil
 }

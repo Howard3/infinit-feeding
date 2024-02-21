@@ -17,6 +17,8 @@ func NewEventHandlers(repo Repository) *eventHandlers {
 	}
 }
 
+// HandleNewStudentEvent is a method that handles the NewStudentEvent
+// it loads the student aggregate from the repository and projects it to the database
 func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, evt *gosignal.Event) {
 	student, err := eh.repo.loadStudent(ctx, evt.AggregateID)
 	if err != nil {
@@ -28,4 +30,10 @@ func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, evt *gosigna
 		slog.Error("failed to upsert student", "error", err)
 		return
 	}
+}
+
+// HandleUpdateStudentEvent is a method that handles the UpdateStudentEvent
+// functionally the same as HandleNewStudentEvent, thus it just aliases it
+func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, evt *gosignal.Event) {
+	eh.HandleNewStudentEvent(ctx, evt)
 }

@@ -19,18 +19,21 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// Repository incorporates the methods for persisting and loading student aggregates and projections
 type Repository interface {
 	upsertStudent(student *Student) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
 	loadStudent(ctx context.Context, id string) (*Student, error)
 }
 
+// sqlRepository is the implementation of the Repository interface using SQL
 type sqlRepository struct {
 	db            *sql.DB
 	eventSourcing *src.Repository
 	queue         gosignal.Queue
 }
 
+// NewRepository creates a new instance of the sqlRepository
 func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repository {
 	db, err := sql.Open(string(conn.Type), conn.URI)
 	if err != nil {
@@ -60,6 +63,7 @@ func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) e
 	return r.eventSourcing.Store(ctx, evts)
 }
 
+// upsertStudent - persists the student projection to the database
 func (r *sqlRepository) upsertStudent(agg *Student) error {
 	query := `INSERT INTO student_projections
 		(id, first_name, last_name, school_id, date_of_birth, date_of_enrollment, version, active)
@@ -104,6 +108,7 @@ func (r *sqlRepository) upsertStudent(agg *Student) error {
 	return nil
 }
 
+// loadStudent - loads the student aggregate from the event store
 func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Student, error) {
 	studentAgg := &Student{}
 	studentAgg.SetID(id)
