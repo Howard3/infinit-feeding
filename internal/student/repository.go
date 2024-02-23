@@ -6,7 +6,7 @@ import (
 	"embed"
 	_ "embed"
 	"fmt"
-	student "geevly/events/gen/proto/go"
+	"geevly/gen/go/eda"
 	"geevly/internal/infrastructure"
 	"time"
 
@@ -145,7 +145,7 @@ func (r *sqlRepository) upsertStudent(agg *Student) error {
 			updated_at = CURRENT_TIMESTAMP;
 	`
 
-	active := agg.data.Status == student.Student_ACTIVE
+	active := agg.data.Status == eda.Student_ACTIVE
 	dob := agg.data.DateOfBirth
 	dateOfBirth := time.Date(int(dob.Year), time.Month(dob.Month), int(dob.Day), 0, 0, 0, 0, time.UTC)
 	doe := agg.data.DateOfEnrollment

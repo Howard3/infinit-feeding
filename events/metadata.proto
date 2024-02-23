@@ -1,0 +1,9 @@
+syntax = "proto3";
+package events.metadata;
+option go_package = "geevly/eda";
+
+import "google/protobuf/timestamp.proto";
+
+message Metadata {
+    string ActorID = 1; // The ID of the actor that caused the event 
+}

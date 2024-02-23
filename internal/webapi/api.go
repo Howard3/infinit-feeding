@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
@@ -19,15 +20,15 @@ type Server struct {
 	ctx           context.Context
 	ListenAddress string
 	StaticFS      fs.FS
-	StudentRepo   student.Repository
+	StudentSvc    *student.StudentService
 }
 
 func (s *Server) verifyConfig() {
 	if s.StaticFS == nil {
 		panic("StaticFS is required")
 	}
-	if s.StudentRepo == nil {
-		panic("StudentRepo is required")
+	if s.StudentSvc == nil {
+		panic("StudentSvc is required")
 	}
 }
 
@@ -61,6 +62,34 @@ func (s *Server) renderInlayout(w http.ResponseWriter, r *http.Request, componen
 	}
 }
 
+func (s *Server) pageQuery(r *http.Request) uint {
+	sPage := r.URL.Query().Get("page")
+	if sPage == "" {
+		return 1
+	}
+
+	page, err := strconv.ParseUint(sPage, 10, 32)
+	if err != nil {
+		return 1
+	}
+
+	return uint(page)
+}
+
+func (s *Server) limitQuery(r *http.Request) uint {
+	sLimit := r.URL.Query().Get("limit")
+	if sLimit == "" {
+		return 10
+	}
+
+	limit, err := strconv.ParseUint(sLimit, 10, 32)
+	if err != nil {
+		return 10
+	}
+
+	return uint(limit)
+}
+
 func (s *Server) Start(ctx context.Context) {
 	s.ctx = ctx
 
@@ -77,19 +106,13 @@ func (s *Server) Start(ctx context.Context) {
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
 
 	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		// TODO: run in parallel
-		students, err := s.StudentRepo.ListStudents(r.Context(), 10, 0)
+		students, err := s.StudentSvc.ListStudents(r.Context(), s.pageQuery(r), s.limitQuery(r))
 		if err != nil {
-			s.errorPage(w, r, "Failed to list students", err)
-			return
-		}
-		count, err := s.StudentRepo.CountStudents(r.Context())
-		if err != nil {
-			s.errorPage(w, r, "Failed to count students", err)
+			s.errorPage(w, r, "Error listing students", err)
 			return
 		}
 
-		s.renderInlayout(w, r, templates.StudentList(students, count))
+		s.renderInlayout(w, r, templates.StudentList(students))
 	})
 
 	c.Get("/admin/student/create", func(w http.ResponseWriter, r *http.Request) {

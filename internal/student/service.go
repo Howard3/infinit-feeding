@@ -2,25 +2,47 @@ package student
 
 import (
 	"context"
-	student "geevly/events/gen/proto/go"
+	"fmt"
+	"geevly/gen/go/eda"
 
 	"github.com/Howard3/gosignal"
 	"github.com/google/uuid"
 )
 
-type studentService struct {
+type StudentService struct {
 	repo          Repository
 	eventHandlers *eventHandlers
 }
 
-func NewStudentService(repo Repository) *studentService {
-	return &studentService{
+func NewStudentService(repo Repository) *StudentService {
+	return &StudentService{
 		repo:          repo,
 		eventHandlers: NewEventHandlers(repo),
 	}
 }
 
-func (s *studentService) CreateStudent(ctx context.Context, req *student.Student_Create) (*student.Student_Create_Response, error) {
+type ListStudentsResponse struct {
+	Students []*ProjectedStudent
+	Count    uint
+}
+
+func (s *StudentService) ListStudents(ctx context.Context, limit, offset uint) (*ListStudentsResponse, error) {
+	students, err := s.repo.ListStudents(ctx, 10, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list students: %w", err)
+	}
+
+	count, err := s.repo.CountStudents(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count students: %w", err)
+	}
+
+	return &ListStudentsResponse{
+		Students: students,
+		Count:    count,
+	}, nil
+}
+func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Create) (*eda.Student_Create_Response, error) {
 	studentAgg := &Student{}
 	studentAgg.SetID(uuid.New().String())
 
@@ -35,14 +57,14 @@ func (s *studentService) CreateStudent(ctx context.Context, req *student.Student
 
 	s.eventHandlers.HandleNewStudentEvent(ctx, evt)
 
-	return &student.Student_Create_Response{
+	return &eda.Student_Create_Response{
 		StudentId: studentAgg.GetID(),
 		Version:   studentAgg.GetVersion(),
 		Student:   studentAgg.GetStudent(),
 	}, nil
 }
 
-func (s *studentService) UpdateStudent(ctx context.Context, cmd *student.Student_Update) (*student.Student_Update_Response, error) {
+func (s *StudentService) UpdateStudent(ctx context.Context, cmd *eda.Student_Update) (*eda.Student_Update_Response, error) {
 	studentAgg, err := s.repo.loadStudent(ctx, cmd.GetStudentId())
 	if err != nil {
 		return nil, err
@@ -59,14 +81,14 @@ func (s *studentService) UpdateStudent(ctx context.Context, cmd *student.Student
 
 	s.eventHandlers.HandleUpdateStudentEvent(ctx, evt)
 
-	return &student.Student_Update_Response{
+	return &eda.Student_Update_Response{
 		StudentId: studentAgg.GetID(),
 		Version:   studentAgg.GetVersion(),
 		Student:   studentAgg.GetStudent(),
 	}, nil
 }
 
-func (s *studentService) SetStatus(ctx context.Context, cmd *student.Student_SetStatus) (*student.Student_SetStatus_Response, error) {
+func (s *StudentService) SetStatus(ctx context.Context, cmd *eda.Student_SetStatus) (*eda.Student_SetStatus_Response, error) {
 	studentAgg, err := s.repo.loadStudent(ctx, cmd.GetStudentId())
 	if err != nil {
 		return nil, err
@@ -83,7 +105,7 @@ func (s *studentService) SetStatus(ctx context.Context, cmd *student.Student_Set
 
 	s.eventHandlers.HandleSetStatusEvent(ctx, evt)
 
-	return &student.Student_SetStatus_Response{
+	return &eda.Student_SetStatus_Response{
 		StudentId: studentAgg.GetID(),
 		Version:   studentAgg.GetVersion(),
 		Student:   studentAgg.GetStudent(),

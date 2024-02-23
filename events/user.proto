@@ -1,0 +1,25 @@
+syntax = "proto3";
+package events.user;
+option go_package = "geevly/eda";
+
+import "metadata.proto";
+
+message User {
+    string email = 1;
+    Name name = 2;
+    events.metadata.Metadata metadata = 3;
+
+    message Name {
+        string first = 1;
+        string last = 2;
+    }
+
+    message Created {
+        string email = 1;
+        string first = 2;
+        string last = 3;
+
+
+    }
+}
+

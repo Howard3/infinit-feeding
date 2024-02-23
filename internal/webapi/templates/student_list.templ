@@ -4,7 +4,7 @@ import (
     "geevly/internal/student"
 )
 
-templ StudentList(students []*student.ProjectedStudent, count uint) {
+templ StudentList(students *student.ListStudentsResponse) {
   <main class="flex-1 overflow-y-auto pb-4">
     <div class="container px-4 mx-auto sm:px-6">
       <div class="flex items-center gap-4 mt-4">
@@ -107,7 +107,7 @@ templ StudentList(students []*student.ProjectedStudent, count uint) {
             </div>
           </div>
           <!-- list users -->
-          for _, student := range students {
+          for _, student := range students.Students {
             <div class="flex items-center justify-between w-full px-4 py-3 text-sm font-medium sm:grid-cols-5 sm:gap-4">
               <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
                 <div class="flex items-center gap-2">
