@@ -3,23 +3,119 @@ package events.user;
 option go_package = "geevly/eda";
 
 import "metadata.proto";
+import "google/protobuf/timestamp.proto";
 
+
+// User Represents a user in the systems and commands, events, and responses that are associated with users.
 message User {
-    string email = 1;
-    Name name = 2;
+    string email = 1; // The email address of the user
+    Name name = 2; // The name of the user
     events.metadata.Metadata metadata = 3;
+
+    repeated Role roles = 4;
+    uint64 next_role_id = 5; // The next role id to use when adding a role to the user
+
+    google.protobuf.Timestamp LastPasswordChange = 6; // The last time the user changed their PasswordChange
+    bool active = 7; // Whether the user is active or not
+
+    message Role {
+        uint64 id = 1;
+        Type type = 2;
+        string school_id = 3; // Only for SCHOOL_ADMIN and FEEDER_USER
+
+        enum Type {
+            UNKNOWN = 0;
+            SYSTEM_ADMIN = 1;
+            SCHOOL_ADMIN = 2;
+            FEEDER_USER = 3;
+        }
+    }
 
     message Name {
         string first = 1;
         string last = 2;
     }
 
-    message Created {
+    message Create {
+        string email = 1;
+        string first = 2;
+        string last = 3;
+        string password = 4; // Not stored in the user object, for security reasons
+
+        events.metadata.Metadata metadata = 5;
+
+        message Event {
+            string email = 1;
+            string first = 2;
+            string last = 3;
+        } 
+
+        message Response {
+            string user_id = 1;
+        }
+    }
+
+    message PasswordChange {
+        string password = 1; // Not stored in the user object, for security reasons
+
+        events.metadata.Metadata metadata = 2;
+
+        message Event {} 
+        message Response {}
+    }
+
+    message Update {
         string email = 1;
         string first = 2;
         string last = 3;
 
+        events.metadata.Metadata metadata = 4;
 
+        message Event {
+            string email = 1;
+            string first = 2;
+            string last = 3;
+        } 
+
+        message Response {}
+    }
+
+    message SetActiveState {
+        bool active = 1;
+        events.metadata.Metadata metadata = 2;
+
+        message Event {
+            bool active = 1;
+        } 
+
+        message Response {}
+    }
+
+    message AddRole {
+        Role role = 1;
+
+        events.metadata.Metadata metadata = 2;
+
+        message Event {
+            Role role = 1;
+            uint64 role_id = 2;
+        } 
+
+        message Response {
+            string role_id = 1;
+        }
+    }
+
+    message RemoveRole {
+        uint64 role_id = 1;
+
+        events.metadata.Metadata metadata = 2;
+
+        message Event {
+            uint64 role_id = 1;
+        } 
+
+        message Response {}
     }
 }
 
