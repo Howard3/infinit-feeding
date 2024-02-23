@@ -1,0 +1,202 @@
+package templates
+
+import (
+    "geevly/internal/student"
+)
+
+templ StudentList(students []*student.ProjectedStudent, count uint) {
+  <main class="flex-1 overflow-y-auto pb-4">
+    <div class="container px-4 mx-auto sm:px-6">
+      <div class="flex items-center gap-4 mt-4">
+        <h1 class="text-2xl font-semibold">Students</h1>
+        <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-3">
+          Create Student
+        </button>
+        <div class="ml-auto w-[300px]">
+          <input
+            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="Search..."
+            type="search"
+          />
+        </div>
+      </div>
+      <div class="mt-4 border rounded-lg">
+        <div class="grid w-full grid-cols-1 border-t last:border-t-0 border-gray-200 dark:border-gray-800">
+          <div class="flex items-center justify-between w-full px-4 py-3 text-sm font-medium sm:grid-cols-5 sm:gap-4">
+            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+              <div class="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="w-4 h-4"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span class="">First Name</span>
+              </div>
+            </div>
+            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+              <div class="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="w-4 h-4"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span class="">Last Name</span>
+              </div>
+            </div>
+            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+              <div class="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="w-4 h-4"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span class="">Date of Birth</span>
+              </div>
+            </div>
+            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+              <div class="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="w-4 h-4"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span class="">Status</span>
+              </div>
+            </div>
+          </div>
+          <!-- list users -->
+          for _, student := range students {
+            <div class="flex items-center justify-between w-full px-4 py-3 text-sm font-medium sm:grid-cols-5 sm:gap-4">
+              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="w-4 h-4"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span class="">{student.FirstName}</span>
+                </div>
+              </div>
+              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="w-4 h-4"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span class="">{student.LastName}</span>
+                </div>
+              </div>
+              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="w-4 h-4"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span class="">{student.DateOfBirth.Format("2006-01-02")}</span>
+                </div>
+              </div>
+              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="w-4 h-4"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span class="">
+                    if student.Active {
+                        <span class="text-green-500">Active</span>
+                    } else {
+                        <span class="text-red-500">Inactive</span>
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </main>
+}

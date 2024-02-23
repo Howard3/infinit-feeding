@@ -16,6 +16,8 @@ import (
 	src "github.com/Howard3/gosignal/sourcing"
 )
 
+const MaxPageSize = 100
+
 //go:embed migrations/*.sql
 var migrations embed.FS
 
@@ -24,6 +26,19 @@ type Repository interface {
 	upsertStudent(student *Student) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
 	loadStudent(ctx context.Context, id string) (*Student, error)
+	CountStudents(ctx context.Context) (uint, error)
+	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
+}
+
+type ProjectedStudent struct {
+	ID               string
+	FirstName        string
+	LastName         string
+	SchoolID         string
+	DateOfBirth      time.Time
+	DateOfEnrollment time.Time
+	Version          uint
+	Active           bool
 }
 
 // sqlRepository is the implementation of the Repository interface using SQL
@@ -61,6 +76,57 @@ func (r *sqlRepository) setupEventSourcing() {
 // SaveEvents - persists the generated events to the event store
 func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) error {
 	return r.eventSourcing.Store(ctx, evts)
+}
+
+func (r *sqlRepository) CountStudents(ctx context.Context) (uint, error) {
+	query := `SELECT COUNT(*) FROM student_projections`
+	var count uint
+	if err := r.db.QueryRow(query).Scan(&count); err != nil {
+		return 0, fmt.Errorf("failed to count students: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error) {
+	query := `SELECT
+		id, first_name, last_name, school_id, date_of_birth, date_of_enrollment, version, active
+		FROM student_projections
+		LIMIT ? OFFSET ?;
+	`
+
+	if limit > MaxPageSize {
+		limit = MaxPageSize
+	}
+
+	rows, err := r.db.Query(query, limit, limit*page)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list students: %w", err)
+	}
+	defer rows.Close()
+
+	students := []*ProjectedStudent{}
+	for rows.Next() {
+		student := &ProjectedStudent{}
+		var dateOfBirth, dateOfEnrollment sql.NullTime
+
+		if err := rows.Scan(
+			&student.ID,
+			&student.FirstName,
+			&student.LastName,
+			&student.SchoolID,
+			&dateOfBirth,
+			&dateOfEnrollment,
+			&student.Version,
+			&student.Active,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan student: %w", err)
+		}
+
+		students = append(students, student)
+	}
+
+	return students, nil
 }
 
 // upsertStudent - persists the student projection to the database
