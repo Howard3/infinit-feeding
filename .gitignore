@@ -1,3 +1,5 @@
 *.work*
 tmp
 *.db
+*_templ.go
+static/output.css
