@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -37,11 +38,26 @@ func (s *Server) getListenAddress() string {
 	return s.ListenAddress
 }
 
+// TODO: more secure error page, anything could be dumped here!
 func (s *Server) errorPage(w http.ResponseWriter, r *http.Request, title string, err error) {
-	// TODO: more secure error page, anything could be dumped here!
 	page := templates.Layout(templates.SystemError(title, err.Error()))
 	if err := page.Render(r.Context(), w); err != nil {
 		slog.Error("failed to render error page", "error", err)
+	}
+}
+
+func (s *Server) renderInlayout(w http.ResponseWriter, r *http.Request, component templ.Component) {
+	var page templ.Component
+
+	isHTMX := r.Header.Get("HX-Request") == "true"
+
+	if isHTMX {
+		page = templates.HTMXLayout(component)
+	} else {
+		page = templates.Layout(component)
+	}
+	if err := page.Render(r.Context(), w); err != nil {
+		slog.Error("failed to render component", "error", err)
 	}
 }
 
@@ -73,11 +89,11 @@ func (s *Server) Start(ctx context.Context) {
 			return
 		}
 
-		component := templates.StudentList(students, count)
-		component = templates.Layout(component)
-		if err := component.Render(r.Context(), w); err != nil {
-			slog.Error("failed to render component", "error", err)
-		}
+		s.renderInlayout(w, r, templates.StudentList(students, count))
+	})
+
+	c.Get("/admin/student/create", func(w http.ResponseWriter, r *http.Request) {
+		s.renderInlayout(w, r, templates.CreateStudent())
 	})
 
 	slog.Info("Starting server", "listen_address", s.getListenAddress())
