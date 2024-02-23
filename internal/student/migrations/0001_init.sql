@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS student_projections (
     date_of_birth DATE NOT NULL,
     date_of_enrollment DATE,
     version INT NOT NULL,
-    active BOOLEAN NOT NULL 
+    active BOOLEAN NOT NULL, 
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- +goose Down 

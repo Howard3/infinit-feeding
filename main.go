@@ -27,7 +27,7 @@ func main() {
 
 	ctx := context.Background()
 
-	newStudent, err := studentService.CreateStudent(ctx, &studentpb.AddStudentEvent{
+	newStudent, err := studentService.CreateStudent(ctx, &studentpb.Student_Create{
 		FirstName: "John",
 		LastName:  "Doe",
 		DateOfBirth: &studentpb.Date{
@@ -41,16 +41,14 @@ func main() {
 		panic(err)
 	}
 
-	updatedStudent, err := studentService.UpdateStudent(ctx, &studentpb.UpdateStudentRequest{
-		Data: &studentpb.UpdateStudentEvent{
-			StudentId: newStudent.GetStudentId(),
-			FirstName: "John",
-			LastName:  "Smith",
-			DateOfBirth: &studentpb.Date{
-				Year:  1992,
-				Month: 11,
-				Day:   1,
-			},
+	updatedStudent, err := studentService.UpdateStudent(ctx, &studentpb.Student_Update{
+		StudentId: newStudent.GetStudentId(),
+		FirstName: "John",
+		LastName:  "Smith",
+		DateOfBirth: &studentpb.Date{
+			Year:  1992,
+			Month: 11,
+			Day:   1,
 		},
 		Version: newStudent.GetVersion(),
 	})
@@ -59,11 +57,9 @@ func main() {
 		panic(err)
 	}
 
-	_, err = studentService.SetStatus(ctx, &studentpb.SetStatusRequest{
-		Data: &studentpb.SetStudentStatusEvent{
-			StudentId: updatedStudent.GetStudentId(),
-			Status:    studentpb.StudentStatus_ACTIVE,
-		},
-		Version: updatedStudent.GetVersion(),
+	_, err = studentService.SetStatus(ctx, &studentpb.Student_SetStatus{
+		StudentId: updatedStudent.GetStudentId(),
+		Status:    studentpb.Student_ACTIVE,
+		Version:   updatedStudent.GetVersion(),
 	})
 }

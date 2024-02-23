@@ -2,77 +2,107 @@ syntax = "proto3";
 package events.student;
 option go_package = "geevly/events/student";
 
-message StudentAggregate {
-    string first_name = 2;
-    string last_name = 3;
-    Date date_of_birth = 4;
-    string school_id = 5;
-    Date date_of_enrollment = 6;
-    StudentStatus status = 7;
-}
-
-message AddStudentEvent {
+message Student {
     string first_name = 1;
     string last_name = 2;
     Date date_of_birth = 3;
     string school_id = 4;
     Date date_of_enrollment = 5;
-    StudentStatus status = 6;
+    Status status = 6;
+
+    enum Status {
+        UNKNOWN = 0;
+        ACTIVE = 1;
+        INACTIVE = 2;
+    }
+
+    //
+    // Commands, Events, and Responses 
+    //
+
+    // Create a new student
+    message Create {
+        string first_name = 1;
+        string last_name = 2;
+        Date date_of_birth = 3;
+        string school_id = 4;
+        Date date_of_enrollment = 5;
+        Status status = 6;
+        message Event {
+            string student_id = 1;
+            string first_name = 2;
+            string last_name = 3;
+            Date date_of_birth = 4;
+            string school_id = 5;
+            Date date_of_enrollment = 6;
+            Status status = 7;
+            uint64 version = 8;
+        }
+        message Response {
+            string student_id = 1;
+            uint64 version = 2;
+            Student student = 3;
+        }
+    }
+    // Update a student's information
+    message Update {
+        string student_id = 1;
+        string first_name = 2;
+        string last_name = 3;
+        Date date_of_birth = 4;
+        uint64 version = 5;
+        message Event {
+            string student_id = 1;
+            string first_name = 2;
+            string last_name = 3;
+            Date date_of_birth = 4;
+            uint64 version = 5;
+        }
+        message Response {
+            string student_id = 1;
+            uint64 version = 2;
+            Student student = 3;
+        }
+    }
+
+    // Set a student's status
+    message SetStatus {
+        string student_id = 1;
+        Status status = 2;
+        uint64 version = 3;
+        message Event {
+            string student_id = 1;
+            Status status = 2;
+            uint64 version = 3;
+        }
+        message Response {
+            string student_id = 1;
+            uint64 version = 2;
+            Student student = 3;
+        }
+    }
+
+    // Enroll a student
+    message Enroll {
+        string student_id = 1;
+        string school_id = 2;
+        Date date_of_enrollment = 3;
+        uint64 version = 4;
+        message Event {
+            string student_id = 1;
+            string school_id = 2;
+            Date date_of_enrollment = 3;
+            uint64 version = 4;
+        }
+        message Response {
+            string student_id = 1;
+            uint64 version = 2;
+            Student student = 3;
+        }
+    }
 }
 
-message AddStudentResponse {
-    string student_id = 1;
-    uint64 version = 2;
-    StudentAggregate student = 3;
-}
 
-message UpdateStudentEvent {
-    string student_id = 1;
-    string first_name = 2;
-    string last_name = 3;
-    Date date_of_birth = 4;
-    string school_id = 5;
-    Date date_of_enrollment = 6;
-    StudentStatus status = 7;
-}
-
-message UpdateStudentRequest {
-    UpdateStudentEvent data = 1;
-    uint64 version = 2;
-}
-
-message UpdateStudentResponse {
-    string student_id = 1;
-    uint64 version = 2;
-    StudentAggregate student = 3;
-}
-
-message SetStatusRequest {
-    SetStudentStatusEvent data = 1;
-    uint64 version = 2;
-}
-
-message SetStudentStatusEvent {
-    string student_id = 1;
-    StudentStatus status = 2;
-}
-
-message SetStatusResponse {
-    string student_id = 1;
-    uint64 version = 2;
-    StudentAggregate student = 3;
-}
-
-message EnrollStudentEvent {
-    string school_id = 1;
-    Date date_of_enrollment = 2;
-}
-
-enum StudentStatus {
-    UNKNOWN = 0;
-    ACTIVE = 1;
-    INACTIVE = 2;
-}
 
 // Represents a whole or partial calendar date, such as a birthday. The time of
 // day and time zone are either specified elsewhere or are insignificant. The

@@ -75,10 +75,11 @@ func (r *sqlRepository) upsertStudent(agg *Student) error {
 			date_of_birth = excluded.date_of_birth,
 			date_of_enrollment = excluded.date_of_enrollment,
 			version = excluded.version,
-			active = excluded.active;
+			active = excluded.active,
+			updated_at = CURRENT_TIMESTAMP;
 	`
 
-	active := agg.data.Status == student.StudentStatus_ACTIVE
+	active := agg.data.Status == student.Student_ACTIVE
 	dob := agg.data.DateOfBirth
 	dateOfBirth := time.Date(int(dob.Year), time.Month(dob.Month), int(dob.Day), 0, 0, 0, 0, time.UTC)
 	doe := agg.data.DateOfEnrollment

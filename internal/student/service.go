@@ -20,11 +20,11 @@ func NewStudentService(repo Repository) *studentService {
 	}
 }
 
-func (s *studentService) CreateStudent(ctx context.Context, req *student.AddStudentEvent) (*student.AddStudentResponse, error) {
+func (s *studentService) CreateStudent(ctx context.Context, req *student.Student_Create) (*student.Student_Create_Response, error) {
 	studentAgg := &Student{}
 	studentAgg.SetID(uuid.New().String())
 
-	evt, err := studentAgg.AddStudent(req)
+	evt, err := studentAgg.CreateStudent(req)
 	if err != nil {
 		return nil, err
 	}
@@ -35,20 +35,20 @@ func (s *studentService) CreateStudent(ctx context.Context, req *student.AddStud
 
 	s.eventHandlers.HandleNewStudentEvent(ctx, evt)
 
-	return &student.AddStudentResponse{
+	return &student.Student_Create_Response{
 		StudentId: studentAgg.GetID(),
 		Version:   studentAgg.GetVersion(),
 		Student:   studentAgg.GetStudent(),
 	}, nil
 }
 
-func (s *studentService) UpdateStudent(ctx context.Context, req *student.UpdateStudentRequest) (*student.UpdateStudentResponse, error) {
-	studentAgg, err := s.repo.loadStudent(ctx, req.GetData().GetStudentId())
+func (s *studentService) UpdateStudent(ctx context.Context, cmd *student.Student_Update) (*student.Student_Update_Response, error) {
+	studentAgg, err := s.repo.loadStudent(ctx, cmd.GetStudentId())
 	if err != nil {
 		return nil, err
 	}
 
-	evt, err := studentAgg.UpdateStudent(req.GetData(), req.GetVersion())
+	evt, err := studentAgg.UpdateStudent(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -59,20 +59,20 @@ func (s *studentService) UpdateStudent(ctx context.Context, req *student.UpdateS
 
 	s.eventHandlers.HandleUpdateStudentEvent(ctx, evt)
 
-	return &student.UpdateStudentResponse{
+	return &student.Student_Update_Response{
 		StudentId: studentAgg.GetID(),
 		Version:   studentAgg.GetVersion(),
 		Student:   studentAgg.GetStudent(),
 	}, nil
 }
 
-func (s *studentService) SetStatus(ctx context.Context, req *student.SetStatusRequest) (*student.SetStatusResponse, error) {
-	studentAgg, err := s.repo.loadStudent(ctx, req.GetData().GetStudentId())
+func (s *studentService) SetStatus(ctx context.Context, cmd *student.Student_SetStatus) (*student.Student_SetStatus_Response, error) {
+	studentAgg, err := s.repo.loadStudent(ctx, cmd.GetStudentId())
 	if err != nil {
 		return nil, err
 	}
 
-	evt, err := studentAgg.SetStatus(req.GetData(), req.GetVersion())
+	evt, err := studentAgg.SetStatus(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (s *studentService) SetStatus(ctx context.Context, req *student.SetStatusRe
 
 	s.eventHandlers.HandleSetStatusEvent(ctx, evt)
 
-	return &student.SetStatusResponse{
+	return &student.Student_SetStatus_Response{
 		StudentId: studentAgg.GetID(),
 		Version:   studentAgg.GetVersion(),
 		Student:   studentAgg.GetStudent(),
