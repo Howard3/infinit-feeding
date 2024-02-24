@@ -24,7 +24,7 @@ func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.AdminViewStudent(student))
+	s.renderInlayout(w, r, templates.AdminViewStudent(studentID, student))
 }
 
 func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
