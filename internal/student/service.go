@@ -111,3 +111,13 @@ func (s *StudentService) SetStatus(ctx context.Context, cmd *eda.Student_SetStat
 		Student:   studentAgg.GetStudent(),
 	}, nil
 }
+
+// GetStudent returns a student aggregate by ID
+func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*eda.Student, error) {
+	studentAgg, err := s.repo.loadStudent(ctx, studentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return studentAgg.GetStudent(), nil
+}

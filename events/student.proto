@@ -53,7 +53,6 @@ message Student {
         events.metadata.Metadata metadata = 6;
 
         message Event {
-            string student_id = 1;
             string first_name = 2;
             string last_name = 3;
             Date date_of_birth = 4;
@@ -74,7 +73,6 @@ message Student {
         events.metadata.Metadata metadata = 4;
 
         message Event {
-            string student_id = 1;
             Status status = 2;
             uint64 version = 3;
         }
@@ -94,7 +92,6 @@ message Student {
         events.metadata.Metadata metadata = 5;
 
         message Event {
-            string student_id = 1;
             string school_id = 2;
             Date date_of_enrollment = 3;
             uint64 version = 4;

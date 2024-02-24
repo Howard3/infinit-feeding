@@ -2,9 +2,9 @@ package templates
 
 templ CreateStudent() {
     @formWrapper("Create Student", "/admin/student/create", "/admin/student") {
-        @textField("First Name", "first_name", "Enter first name")
-        @textField("Last Name", "last_name", "Enter last name")
-        @dateField("Date of Birth", "date_of_birth")
+        @textField("First Name", "first_name", "Enter first name", "")
+        @textField("Last Name", "last_name", "Enter last name", "")
+        @dateField("Date of Birth", "date_of_birth", "")
         @submitButton("Create Student")
     }
 }

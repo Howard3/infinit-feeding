@@ -12,6 +12,19 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Get("/", s.adminListStudents)
 	r.Get("/create", s.adminCreateStudentForm)
 	r.Post("/create", s.adminCreateStudent)
+	r.Get("/{studentID}", s.adminViewStudent)
+}
+
+func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentID")
+
+	student, err := s.StudentSvc.GetStudent(r.Context(), studentID)
+	if err != nil {
+		s.errorPage(w, r, "Error getting student", err)
+		return
+	}
+
+	s.renderInlayout(w, r, templates.AdminViewStudent(student))
 }
 
 func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {

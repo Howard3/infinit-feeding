@@ -43,10 +43,7 @@ func (s *Server) getListenAddress() string {
 
 // TODO: more secure error page, anything could be dumped here!
 func (s *Server) errorPage(w http.ResponseWriter, r *http.Request, title string, err error) {
-	page := templates.Layout(templates.SystemError(title, err.Error()))
-	if err := page.Render(r.Context(), w); err != nil {
-		slog.Error("failed to render error page", "error", err)
-	}
+	s.renderInlayout(w, r, templates.SystemError(title, err.Error()))
 }
 
 func (s *Server) renderInlayout(w http.ResponseWriter, r *http.Request, component templ.Component) {
