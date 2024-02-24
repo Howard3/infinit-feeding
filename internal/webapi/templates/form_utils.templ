@@ -60,8 +60,17 @@ templ dateField(label, fieldName string) {
 
 templ submitButton(label string) {
     <button
-      class="w-full h-10 rounded-md bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      class="h-10 rounded-md bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       type="submit"
+    >
+      {label}
+    </button>
+}
+
+templ primaryButton(label string, attrs templ.Attributes) {
+    <button
+      { attrs... } 
+      class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
     >
       {label}
     </button>

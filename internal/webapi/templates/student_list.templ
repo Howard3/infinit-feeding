@@ -2,6 +2,7 @@ package templates
 
 import (
     "geevly/internal/student"
+    "fmt"
 )
 
 templ StudentList(students *student.ListStudentsResponse, pagination pagination) {
@@ -75,50 +76,40 @@ templ StudentList(students *student.ListStudentsResponse, pagination pagination)
             <thead class="[&amp;_tr]:border-b">
               <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                 <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                  Order
+                    Name
                 </th>
                 <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                  Status
+                    Date of Birth 
                 </th>
                 <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                  Method
+                    Active 
                 </th>
                 <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                  Amount
+                    Actions 
                 </th>
               </tr>
             </thead>
             <tbody class="[&amp;_tr:last-child]:border-0">
+            for _, student := range students.Students {
               <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV001</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Paid</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$250.00</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Credit Card</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    {student.FirstName} {student.LastName}
+                </td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    {student.DateOfBirth.Format("2006-01-02")}
+                </td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                if student.Active {
+                    <span class="text-green-500">Active</span>
+                } else {
+                    <span class="text-red-500">Inactive</span>
+                }
+                </td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    @primaryButton("View", templ.Attributes{"hx-get": fmt.Sprintf("/admin/student/%s", student.ID)})
+                </td>
               </tr>
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV002</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Pending</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$150.00</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">PayPal</td>
-              </tr>
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV003</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Unpaid</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$350.00</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Bank Transfer</td>
-              </tr>
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV004</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Paid</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$450.00</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Credit Card</td>
-              </tr>
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV005</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Paid</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$550.00</td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">PayPal</td>
-              </tr>
+            }
             </tbody>
           </table>
         </div>
