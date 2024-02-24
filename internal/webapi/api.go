@@ -7,11 +7,13 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"geevly/gen/go/eda"
 	"geevly/internal/student"
 	"geevly/internal/webapi/templates"
 )
@@ -90,6 +92,20 @@ func (s *Server) limitQuery(r *http.Request) uint {
 	return uint(limit)
 }
 
+func (s *Server) formAsDate(r *http.Request, key string) (*eda.Date, error) {
+	sDate := r.FormValue(key)
+	if sDate == "" {
+		return nil, fmt.Errorf("no date provided")
+	}
+
+	date, err := time.Parse("2006-01-02", sDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid date format")
+	}
+
+	return &eda.Date{Year: int32(date.Year()), Month: int32(date.Month()), Day: int32(date.Day())}, nil
+}
+
 func (s *Server) Start(ctx context.Context) {
 	s.ctx = ctx
 
@@ -105,18 +121,8 @@ func (s *Server) Start(ctx context.Context) {
 	// serve static files
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
 
-	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		students, err := s.StudentSvc.ListStudents(r.Context(), s.pageQuery(r), s.limitQuery(r))
-		if err != nil {
-			s.errorPage(w, r, "Error listing students", err)
-			return
-		}
-
-		s.renderInlayout(w, r, templates.StudentList(students))
-	})
-
-	c.Get("/admin/student/create", func(w http.ResponseWriter, r *http.Request) {
-		s.renderInlayout(w, r, templates.CreateStudent())
+	c.Route("/admin", func(r chi.Router) {
+		r.Route("/student", s.studentAdminRoutes)
 	})
 
 	slog.Info("Starting server", "listen_address", s.getListenAddress())

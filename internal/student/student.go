@@ -84,11 +84,10 @@ func (sd *Student) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, erro
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ADD_STUDENT,
 		data: &eda.Student_Create_Event{
-			FirstName:        cmd.FirstName,
-			LastName:         cmd.LastName,
-			DateOfBirth:      cmd.DateOfBirth,
-			SchoolId:         cmd.SchoolId,
-			DateOfEnrollment: cmd.DateOfEnrollment,
+			FirstName:   cmd.FirstName,
+			LastName:    cmd.LastName,
+			DateOfBirth: cmd.DateOfBirth,
+			Status:      eda.Student_INACTIVE,
 		},
 		version: 0,
 	})
@@ -147,11 +146,9 @@ func (sd *Student) HandleCreateStudent(evt wrappedEvent) error {
 	}
 
 	sd.data = &eda.Student{
-		FirstName:        data.FirstName,
-		LastName:         data.LastName,
-		DateOfBirth:      data.DateOfBirth,
-		SchoolId:         data.SchoolId,
-		DateOfEnrollment: data.DateOfEnrollment,
+		FirstName:   data.FirstName,
+		LastName:    data.LastName,
+		DateOfBirth: data.DateOfBirth,
 	}
 
 	return nil

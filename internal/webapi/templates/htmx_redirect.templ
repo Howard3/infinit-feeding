@@ -1,0 +1,10 @@
+package templates
+
+templ HTMXRedirect(to string, message string) {
+    <div hx-load="{to}" hx-target="#content" hx-swap="innerHTML">
+        <div class="alert alert-info">
+            {message}
+        </div>
+        Redirecting...
+    </div>
+}

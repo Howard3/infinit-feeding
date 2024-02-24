@@ -4,201 +4,184 @@ import (
     "geevly/internal/student"
 )
 
-templ StudentList(students *student.ListStudentsResponse) {
-  <main class="flex-1 overflow-y-auto pb-4">
-    <div class="container px-4 mx-auto sm:px-6">
-      <div class="flex items-center gap-4 mt-4">
-        <h1 class="text-2xl font-semibold">Students</h1>
-        <button 
-            hx-get="/admin/student/create"
-            class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-3">
-          Create Student
-        </button>
-        <div class="ml-auto w-[300px]">
+templ StudentList(students *student.ListStudentsResponse, pagination pagination) {
+    <div class="flex flex-col w-full border rounded-lg shadow mx-auto">
+      <div class="flex items-center justify-between p-4 border-b bg-gray-100">
+        <h1 class="text-lg font-medium">Students</h1>
+        <div class="flex gap-4 ml-auto">
+          <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-full w-8 h-8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4"
+            >
+              <path d="m15 18-6-6 6-6"></path>
+            </svg>
+            <span class="sr-only">Previous page</span>
+          </button>
+          <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-full w-8 h-8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4"
+            >
+              <path d="m9 18 6-6-6-6"></path>
+            </svg>
+            <span class="sr-only">Next page</span>
+          </button>
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="flex w-full max-w-sm rounded-lg shadow-sm">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="flex h-4 w-4 shrink-0 items-center justify-center m-2.5 text-gray-500"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
           <input
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Search..."
+            class="flex h-10 border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-lg w-full border-0 shadow-none appearance-none"
+            placeholder="Search students..."
             type="search"
           />
         </div>
       </div>
-      <div class="mt-4 border rounded-lg">
-        <div class="grid w-full grid-cols-1 border-t last:border-t-0 border-gray-200 dark:border-gray-800">
-          <div class="flex items-center justify-between w-full px-4 py-3 text-sm font-medium sm:grid-cols-5 sm:gap-4">
-            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-              <div class="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="w-4 h-4"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span class="">First Name</span>
-              </div>
-            </div>
-            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-              <div class="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="w-4 h-4"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span class="">Last Name</span>
-              </div>
-            </div>
-            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-              <div class="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="w-4 h-4"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span class="">Date of Birth</span>
-              </div>
-            </div>
-            <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-              <div class="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="w-4 h-4"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span class="">Status</span>
-              </div>
-            </div>
+      <div class="flex flex-col gap-2">
+        <div class="relative w-full overflow-auto">
+          <table class="w-full caption-bottom text-sm">
+            <thead class="[&amp;_tr]:border-b">
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                  Order
+                </th>
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                  Status
+                </th>
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                  Method
+                </th>
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody class="[&amp;_tr:last-child]:border-0">
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV001</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Paid</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$250.00</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Credit Card</td>
+              </tr>
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV002</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Pending</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$150.00</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">PayPal</td>
+              </tr>
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV003</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Unpaid</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$350.00</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Bank Transfer</td>
+              </tr>
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV004</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Paid</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$450.00</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Credit Card</td>
+              </tr>
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">INV005</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">Paid</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">$550.00</td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">PayPal</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="flex w-full min-w-0 items-center justify-between text-sm">
+        <div class="flex items-center gap-2">
+          @itemCounter(pagination)
+          <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4"
+            >
+              <path d="m15 18-6-6 6-6"></path>
+            </svg>
+            <span class="sr-only">Go to previous page</span>
+          </button>
+          <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4"
+            >
+              <path d="m9 18 6-6-6-6"></path>
+            </svg>
+            <span class="sr-only">Go to next page</span>
+          </button>
+        </div>
+        <div>
+          <div>
+            <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">
+              15 per page{" "}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-4 w-4"
+              >
+                <path d="m6 9 6 6 6-6"></path>
+              </svg>
+            </button>
           </div>
-          <!-- list users -->
-          for _, student := range students.Students {
-            <div class="flex items-center justify-between w-full px-4 py-3 text-sm font-medium sm:grid-cols-5 sm:gap-4">
-              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-                <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="w-4 h-4"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                  <span class="">{student.FirstName}</span>
-                </div>
-              </div>
-              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-                <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="w-4 h-4"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                  <span class="">{student.LastName}</span>
-                </div>
-              </div>
-              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-                <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="w-4 h-4"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                  <span class="">{student.DateOfBirth.Format("2006-01-02")}</span>
-                </div>
-              </div>
-              <div class="hidden font-medium sm:flex sm:gap-2 sm:justify-start">
-                <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="w-4 h-4"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                  <span class="">
-                    if student.Active {
-                        <span class="text-green-500">Active</span>
-                    } else {
-                        <span class="text-red-500">Inactive</span>
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-          }
         </div>
       </div>
     </div>
-  </main>
 }

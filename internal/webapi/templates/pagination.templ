@@ -1,0 +1,42 @@
+package templates
+
+import (
+    "fmt"
+)
+
+// NewPagination creates a new pagination struct for templates to render
+func NewPagination(page, limit, count uint) pagination {
+    return pagination{
+        page:  page,
+        Limit: limit,
+        Count: count,
+    }
+}
+
+type pagination struct {
+	page  uint
+	Limit uint
+	Count uint
+}
+
+// From
+func (p *pagination) from() uint {
+	return (p.page - 1) * p.Limit + 1
+}
+
+// To
+func (p *pagination) to() uint {
+	limit := p.page * p.Limit
+    if limit > p.Count {
+        return p.Count
+    }
+    return limit
+}
+
+func formatPagination(p pagination) string {
+    return fmt.Sprintf("%d-%d of %d", p.from(), p.to(), p.Count)
+}
+
+templ itemCounter(pagination pagination) {
+    <span class="font-medium">{ formatPagination(pagination) }</span>
+}

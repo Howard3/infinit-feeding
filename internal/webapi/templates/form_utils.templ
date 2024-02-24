@@ -1,0 +1,68 @@
+package templates
+
+templ formWrapper(title, postURL, returnURL string) {
+    <div class="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg space-y-6">
+      <div class="flex items-center">
+        <button
+            hx-get={ string(templ.URL(returnURL)) }
+            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-6 w-6 p-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            ></path>
+          </svg>
+        </button>
+        <h1 class="text-3xl font-bold ml-4">{title}</h1>
+      </div>
+      <form class="space-y-4" hx-post={ string(templ.URL(postURL)) }>
+        { children... } 
+      </form>
+    </div>
+}
+
+templ textField(label, fieldName, placeholder string) {
+    <div class="space-y-2">
+      <label
+        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        for="first-name"
+      >
+        {label}
+      </label>
+      <input
+        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        id={fieldName}
+        name={fieldName}
+        placeholder={placeholder}
+        required=""
+      />
+    </div>
+}
+
+templ dateField(label, fieldName string) {
+    <div class="space-y-2">
+      <label
+        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        for="dob"
+      >
+        {label}
+      </label>
+      <input
+        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        id={fieldName}
+        name={fieldName}
+        type="date"
+      />
+    </div>
+}
+
+templ submitButton(label string) {
+    <button
+      class="w-full h-10 rounded-md bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      type="submit"
+    >
+      {label}
+    </button>
+}
