@@ -29,6 +29,7 @@ type Repository interface {
 	CountStudents(ctx context.Context) (uint, error)
 	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
 	GetNewID(ctx context.Context) (uint64, error)
+	getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error)
 }
 
 type ProjectedStudent struct {
@@ -217,4 +218,9 @@ func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Student, e
 	}
 
 	return studentAgg, nil
+}
+
+// getEventHistory - returns the event history for a student aggregate
+func (r *sqlRepository) getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error) {
+	return r.eventSourcing.LoadEvents(ctx, id, nil)
 }

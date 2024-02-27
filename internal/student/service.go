@@ -125,3 +125,8 @@ func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*Stu
 
 	return studentAgg, nil
 }
+
+// GetHistory returns the event history for a student aggregate
+func (s *StudentService) GetHistory(ctx context.Context, studentID string) ([]gosignal.Event, error) {
+	return s.repo.getEventHistory(ctx, studentID)
+}

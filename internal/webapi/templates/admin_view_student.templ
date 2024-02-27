@@ -3,6 +3,8 @@ package templates
 import (
     "geevly/gen/go/eda"
     "fmt"
+	"github.com/Howard3/gosignal"
+    "geevly/internal/student"
 )
 
 templ AdminViewStudent(id string, student *eda.Student, ver uint64) {
@@ -21,7 +23,9 @@ templ AdminViewStudent(id string, student *eda.Student, ver uint64) {
     </div>
 
     // Embed History Section
-    @historySection()
+    <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%s/history", id)} hx-target="this">
+        Loading...
+    </div>
   </div>
 }
 
@@ -81,7 +85,7 @@ templ schoolEnrollmentSection() {
   </div>
 }
 
-templ historySection() {
+templ StudentHistorySection(evts []gosignal.Event) {
   <div class="grid gap-2 pt-2">
     <div class="rounded-lg border bg-card text-card-foreground shadow-sm" data-v0-t="card">
       <div class="flex flex-col space-y-1.5 p-6">
@@ -89,16 +93,21 @@ templ historySection() {
       </div>
       <div class="p-0">
         <div class="grid min-w-[400px] w-full divide-y">
+        for _, evt := range evts {
           <div class="grid grid-cols-3 items-center p-3 bg-gray-100">
-            <div class="text-sm font-medium">Enrolled</div>
-            <div class="text-sm text-gray-500">Enrolled in the school.</div>
-            <div class="text-sm text-gray-500 text-right">2 hours ago</div>
+            <div class="text-sm text-gray-500">
+            switch evt.Type {
+            case student.EVENT_ADD_STUDENT:
+                Student created 
+            case student.EVENT_UPDATE_STUDENT:
+                Student updated
+            case student.EVENT_SET_STUDENT_STATUS:
+                Student status changed
+            }
+            </div>
+            <div class="text-sm text-gray-500 text-right">{evt.Timestamp.Format("2006-01-02")}</div>
           </div>
-          <div class="grid grid-cols-3 items-center p-3">
-            <div class="text-sm font-medium">Created</div>
-            <div class="text-sm text-gray-500 dark:text-gray-400">User created in the system.</div>
-            <div class="text-sm text-gray-500 dark:text-gray-400 text-right">1 day ago</div>
-          </div>
+        }
         </div>
       </div>
     </div>

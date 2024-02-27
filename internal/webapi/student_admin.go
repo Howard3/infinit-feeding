@@ -15,6 +15,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Post("/create", s.adminCreateStudent)
 	r.Get("/{studentID}", s.adminViewStudent)
 	r.Post("/{studentID}", s.adminUpdateStudent)
+	r.Get("/{studentID}/history", s.adminStudentHistory)
 	r.Put("/{studentID}/toggleStatus", s.toggleStudentStatus)
 }
 
@@ -143,4 +144,16 @@ func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Status updated"))
+}
+
+func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentID")
+
+	history, err := s.StudentSvc.GetHistory(r.Context(), studentID)
+	if err != nil {
+		s.errorPage(w, r, "Error getting student history", err)
+		return
+	}
+
+	s.renderInlayout(w, r, templates.StudentHistorySection(history))
 }
