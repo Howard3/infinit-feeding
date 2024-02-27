@@ -1,7 +1,7 @@
 package templates
 
 templ HTMXRedirect(to string, message string) {
-    <div hx-load="{to}" hx-target="#content" hx-swap="innerHTML">
+    <div hx-get={to} hx-target="#content" hx-swap="innerHTML" hx-trigger="load">
         <div class="alert alert-info">
             {message}
         </div>

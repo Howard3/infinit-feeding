@@ -5,15 +5,15 @@ import (
     "fmt"
 )
 
-templ AdminViewStudent(id string, student *eda.Student) {
+templ AdminViewStudent(id string, student *eda.Student, ver uint64) {
   <div class="grid gap-6 md:grid-cols-2 m-3">
     <div class="space-y-4">
         <form>
           // Embed Personal Info Section
-          @personalInfoSection(student)
+          @StudentPersonalInfoSection(student, ver)
     
           // Embed Action Buttons Section
-          @actionButtonsSection(id)
+          @actionButtonsSection(id, student.Status, ver)
         </form>
 
       // Embed School Enrollment Section
@@ -25,22 +25,36 @@ templ AdminViewStudent(id string, student *eda.Student) {
   </div>
 }
 
-templ personalInfoSection(student *eda.Student) {
-  <div class="space-y-4">
+func toggleStatusURL(id string, ver uint64, status eda.Student_Status) (string) {
+  active := status == eda.Student_ACTIVE
+  return fmt.Sprintf("/admin/student/%s/toggleStatus?ver=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
+}
+
+
+templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
+  <div class="space-y-4" id="personal-info">
       @textField("First Name", "first_name", "Enter the first name", student.FirstName)
       @textField("Last Name", "last_name", "Enter the last name", student.LastName)
       @dateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+      @hiddenField("version", fmt.Sprintf("%d", ver))
   </div>
 }
 
-templ actionButtonsSection(id string) {
+templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
   <div class="flex items-center justify-between mt-4">
-    <div class="flex items-center space-x-2">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-      <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</button>
+    <div class="flex items-center space-x-2" hx-params="none">
+    if status == eda.Student_ACTIVE {
+       <span class="text-sm font-medium text-green-500">Active</span> 
+    } else {
+        <span class="text-sm font-medium text-red-500">Inactive</span>
+    }
+      <button
+      hx-put={toggleStatusURL(id, ver, status)} 
+      class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</button>
+      @hiddenField("version", fmt.Sprintf("%d", ver))
     </div>
     @primaryButton("Update", templ.Attributes{
-        "hx-post": fmt.Sprintf("/students/%s", id),
+        "hx-post": fmt.Sprintf("/admin/student/%s", id),
         })
   </div>
 }

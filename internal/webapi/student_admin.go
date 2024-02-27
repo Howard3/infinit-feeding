@@ -4,6 +4,7 @@ import (
 	"geevly/gen/go/eda"
 	"geevly/internal/webapi/templates"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -13,6 +14,8 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Get("/create", s.adminCreateStudentForm)
 	r.Post("/create", s.adminCreateStudent)
 	r.Get("/{studentID}", s.adminViewStudent)
+	r.Post("/{studentID}", s.adminUpdateStudent)
+	r.Put("/{studentID}/toggleStatus", s.toggleStudentStatus)
 }
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +27,7 @@ func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.AdminViewStudent(studentID, student))
+	s.renderInlayout(w, r, templates.AdminViewStudent(studentID, student.GetStudent(), student.GetVersion()))
 }
 
 func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
@@ -73,4 +76,71 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Student created"))
+}
+
+func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentID")
+
+	ver, err := s.formAsInt64(r, "version")
+	if err != nil {
+		s.errorPage(w, r, "Invalid version", nil)
+		return
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
+		return
+	}
+
+	dob, err := s.formAsDate(r, "date_of_birth")
+	if err != nil {
+		s.errorPage(w, r, "Error parsing date of birth", err)
+		return
+	}
+
+	student := eda.Student_Update{
+		StudentId:   studentID,
+		FirstName:   r.Form.Get("first_name"),
+		LastName:    r.Form.Get("last_name"),
+		DateOfBirth: dob,
+		Version:     uint64(ver),
+	}
+
+	res, err := s.StudentSvc.UpdateStudent(r.Context(), &student)
+	if err != nil {
+		s.errorPage(w, r, "Error updating student", err)
+		return
+	}
+
+	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Student updated"))
+}
+
+func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
+	sID := chi.URLParam(r, "studentID")
+	sVer := r.URL.Query().Get("ver")
+	active := r.URL.Query().Get("active") == "true"
+
+	ver, err := strconv.ParseInt(sVer, 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Invalid version", err)
+		return
+	}
+
+	newStatus := eda.Student_ACTIVE
+	if !active {
+		newStatus = eda.Student_INACTIVE
+	}
+
+	res, err := s.StudentSvc.SetStatus(r.Context(), &eda.Student_SetStatus{
+		StudentId: sID,
+		Version:   uint64(ver),
+		Status:    newStatus,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error setting status", err)
+		return
+	}
+
+	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Status updated"))
 }

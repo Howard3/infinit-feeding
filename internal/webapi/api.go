@@ -103,6 +103,21 @@ func (s *Server) formAsDate(r *http.Request, key string) (*eda.Date, error) {
 	return &eda.Date{Year: int32(date.Year()), Month: int32(date.Month()), Day: int32(date.Day())}, nil
 }
 
+// formAsInt32 returns the value of the form field as an int64.
+func (s *Server) formAsInt64(r *http.Request, key string) (int64, error) {
+	sValue := r.FormValue(key)
+	if sValue == "" {
+		return 0, fmt.Errorf("no value provided")
+	}
+
+	value, err := strconv.ParseInt(sValue, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number format")
+	}
+
+	return value, nil
+}
+
 func (s *Server) Start(ctx context.Context) {
 	s.ctx = ctx
 
