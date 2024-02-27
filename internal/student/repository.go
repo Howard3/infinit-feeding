@@ -28,10 +28,11 @@ type Repository interface {
 	loadStudent(ctx context.Context, id string) (*Student, error)
 	CountStudents(ctx context.Context) (uint, error)
 	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
+	GetNewID(ctx context.Context) (uint64, error)
 }
 
 type ProjectedStudent struct {
-	ID               string
+	ID               uint
 	FirstName        string
 	LastName         string
 	SchoolID         string
@@ -65,6 +66,31 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 	repo.setupEventSourcing()
 
 	return repo
+}
+
+// GetNewID - returns a new unique ID
+// given the table structure
+//
+//	CREATE TABLE IF NOT EXISTS aggregate_id_tracking (
+//		type VARCHAR(255) NOT NULL,
+//	 next_id INT NOT NULL,
+//	);
+//
+// get the next ID for the given type
+func (r *sqlRepository) GetNewID(ctx context.Context) (uint64, error) {
+	const typ = "student"
+	query := `INSERT INTO aggregate_id_tracking (type, next_id)
+		VALUES (?, 1)
+		ON CONFLICT (type) DO UPDATE SET next_id = aggregate_id_tracking.next_id + 1
+		RETURNING next_id;
+	`
+
+	var id uint64
+	if err := r.db.QueryRowContext(ctx, query, typ).Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to get new ID: %w", err)
+	}
+
+	return id, nil
 }
 
 func (r *sqlRepository) setupEventSourcing() {

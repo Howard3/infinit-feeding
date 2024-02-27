@@ -6,7 +6,6 @@ import (
 	"geevly/gen/go/eda"
 
 	"github.com/Howard3/gosignal"
-	"github.com/google/uuid"
 )
 
 type StudentService struct {
@@ -44,7 +43,12 @@ func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*L
 }
 func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Create) (*eda.Student_Create_Response, error) {
 	studentAgg := &Student{}
-	studentAgg.SetID(uuid.New().String())
+	newID, err := s.repo.GetNewID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get new ID: %w", err)
+	}
+
+	studentAgg.SetIDUint64(newID)
 
 	evt, err := studentAgg.CreateStudent(req)
 	if err != nil {

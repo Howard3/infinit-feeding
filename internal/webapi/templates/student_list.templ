@@ -8,7 +8,12 @@ import (
 templ StudentList(students *student.ListStudentsResponse, pagination pagination) {
     <div class="flex flex-col w-full border rounded-lg shadow mx-auto">
       <div class="flex items-center justify-between p-4 border-b bg-gray-100">
-        <h1 class="text-lg font-medium">Students</h1>
+        <h1 class="text-lg font-medium">
+            Students
+            <span class="pl-3">
+                @primaryButton("Add Student", templ.Attributes{"hx-get": "/admin/student/create"})
+            </span>
+        </h1>
         <div class="flex gap-4 ml-auto">
           <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-full w-8 h-8">
             <svg

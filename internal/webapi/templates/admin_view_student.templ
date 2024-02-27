@@ -48,9 +48,9 @@ templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
     } else {
         <span class="text-sm font-medium text-red-500">Inactive</span>
     }
-      <button
+      <a
       hx-put={toggleStatusURL(id, ver, status)} 
-      class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</button>
+      class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</a>
       @hiddenField("version", fmt.Sprintf("%d", ver))
     </div>
     @primaryButton("Update", templ.Attributes{

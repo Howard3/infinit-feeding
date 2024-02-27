@@ -28,7 +28,7 @@ type wrappedEvent struct {
 }
 
 type Student struct {
-	sourcing.DefaultAggregate
+	sourcing.DefaultAggregateUint64
 	data *eda.Student
 }
 
