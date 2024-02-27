@@ -31,7 +31,7 @@ func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
 
-	students, err := s.StudentSvc.ListStudents(r.Context(), page, limit)
+	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page)
 	if err != nil {
 		s.errorPage(w, r, "Error listing students", err)
 		return

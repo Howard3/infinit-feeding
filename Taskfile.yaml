@@ -3,7 +3,7 @@ version: '3'
 tasks:
   dev:
     cmds:
-      - task: watch:tailwind & air main.go
+      - task watch:tailwind & air main.go
   build:dependencies:
     desc: "run dependency builds"
     deps:

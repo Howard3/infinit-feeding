@@ -26,8 +26,8 @@ type ListStudentsResponse struct {
 	Count    uint
 }
 
-func (s *StudentService) ListStudents(ctx context.Context, limit, offset uint) (*ListStudentsResponse, error) {
-	students, err := s.repo.ListStudents(ctx, 10, 0)
+func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*ListStudentsResponse, error) {
+	students, err := s.repo.ListStudents(ctx, limit, page)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list students: %w", err)
 	}

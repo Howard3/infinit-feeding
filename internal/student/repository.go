@@ -99,6 +99,12 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 		limit = MaxPageSize
 	}
 
+	if page < 1 {
+		page = 1
+	}
+
+	page--
+
 	rows, err := r.db.Query(query, limit, limit*page)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list students: %w", err)
