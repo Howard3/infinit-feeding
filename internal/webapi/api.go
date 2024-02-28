@@ -16,6 +16,7 @@ import (
 	"geevly/gen/go/eda"
 	"geevly/internal/student"
 	"geevly/internal/webapi/templates"
+	"geevly/internal/webapi/templates/layouts"
 )
 
 type Server struct {
@@ -43,19 +44,12 @@ func (s *Server) getListenAddress() string {
 
 // TODO: more secure error page, anything could be dumped here!
 func (s *Server) errorPage(w http.ResponseWriter, r *http.Request, title string, err error) {
-	s.renderInlayout(w, r, templates.SystemError(title, err.Error()))
+	s.renderTempl(w, r, templates.SystemError(title, err.Error()))
 }
 
-func (s *Server) renderInlayout(w http.ResponseWriter, r *http.Request, component templ.Component) {
-	var page templ.Component
+func (s *Server) renderTempl(w http.ResponseWriter, r *http.Request, page templ.Component) {
+	page = layouts.Layout(r, page)
 
-	isHTMX := r.Header.Get("HX-Request") == "true"
-
-	if isHTMX {
-		page = templates.HTMXLayout(component)
-	} else {
-		page = templates.Layout(component)
-	}
 	if err := page.Render(r.Context(), w); err != nil {
 		slog.Error("failed to render component", "error", err)
 	}

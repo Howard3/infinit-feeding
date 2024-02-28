@@ -1,0 +1,15 @@
+package layouts
+
+import "net/http"
+
+func isHTMXRequest(r *http.Request) bool {
+    return r.Header.Get("HX-Request") != ""
+}
+
+templ Layout(r *http.Request, component templ.Component) {
+	if isHTMXRequest(r) {
+		@HTMXLayout(component)
+	} else {
+		@FullLayout(component)
+	}
+}

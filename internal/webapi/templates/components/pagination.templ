@@ -1,19 +1,19 @@
-package templates
+package components 
 
 import (
     "fmt"
 )
 
-// NewPagination creates a new pagination struct for templates to render
-func NewPagination(page, limit, count uint) pagination {
-    return pagination{
+// NewPagination creates a new Pagination struct for templates to render
+func NewPagination(page, limit, count uint) Pagination {
+    return Pagination{
         page:  page,
         limit: limit,
         count: count,
     }
 }
 
-type pagination struct {
+type Pagination struct {
 	page  uint
 	limit uint
 	count uint
@@ -21,12 +21,12 @@ type pagination struct {
 }
 
 // From
-func (p *pagination) from() uint {
+func (p *Pagination) from() uint {
 	return (p.page - 1) * p.limit + 1
 }
 
 // To
-func (p *pagination) to() uint {
+func (p *Pagination) to() uint {
 	limit := p.page * p.limit
     if limit > p.count {
         return p.count
@@ -34,15 +34,15 @@ func (p *pagination) to() uint {
     return limit
 }
 
-func (p *pagination) genURLForPage(page uint) string {
+func (p *Pagination) genURLForPage(page uint) string {
     return fmt.Sprintf("%s?page=%d&limit=%d", p.URL, page, p.limit)
 }
 
-func formatPagination(p pagination) string {
+func formatPagination(p Pagination) string {
     return fmt.Sprintf("%d-%d of %d", p.from(), p.to(), p.count)
 }
 
-templ itemCounter(pagination pagination) {
+templ ItemCounter(pagination Pagination) {
     <span class="font-medium">{ formatPagination(pagination) }</span>
     if pagination.page > 1 {
         <button 

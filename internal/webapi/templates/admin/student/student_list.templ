@@ -1,17 +1,18 @@
-package templates
+package studenttempl 
 
 import (
+    "geevly/internal/webapi/templates/components"
     "geevly/internal/student"
     "fmt"
 )
 
-templ StudentList(students *student.ListStudentsResponse, pagination pagination) {
+templ StudentList(students *student.ListStudentsResponse, pagination components.Pagination) {
     <div class="flex flex-col w-full border rounded-lg shadow mx-auto">
       <div class="flex items-center justify-between p-4 border-b bg-gray-100">
         <h1 class="text-lg font-medium">
             Students
             <span class="pl-3">
-                @primaryButton("Add Student", templ.Attributes{"hx-get": "/admin/student/create"})
+                @components.PrimaryButton("Add Student", templ.Attributes{"hx-get": "/admin/student/create"})
             </span>
         </h1>
       </div>
@@ -75,7 +76,7 @@ templ StudentList(students *student.ListStudentsResponse, pagination pagination)
                 }
                 </td>
                 <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    @primaryButton("View", templ.Attributes{"hx-get": fmt.Sprintf("/admin/student/%v", student.ID)})
+                    @components.PrimaryButton("View", templ.Attributes{"hx-get": fmt.Sprintf("/admin/student/%v", student.ID)})
                 </td>
               </tr>
             }
@@ -85,7 +86,7 @@ templ StudentList(students *student.ListStudentsResponse, pagination pagination)
       </div>
       <div class="flex w-full min-w-0 items-center justify-between text-sm">
         <div class="flex items-center gap-2">
-          @itemCounter(pagination)
+          @components.ItemCounter(pagination)
         </div>
       </div>
     </div>

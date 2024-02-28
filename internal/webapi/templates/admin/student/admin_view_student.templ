@@ -1,10 +1,11 @@
-package templates
+package studenttempl 
 
 import (
     "geevly/gen/go/eda"
     "fmt"
 	"github.com/Howard3/gosignal"
     "geevly/internal/student"
+    "geevly/internal/webapi/templates/components"
 )
 
 templ AdminViewStudent(id string, student *eda.Student, ver uint64) {
@@ -37,10 +38,10 @@ func toggleStatusURL(id string, ver uint64, status eda.Student_Status) (string) 
 
 templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
   <div class="space-y-4" id="personal-info">
-      @textField("First Name", "first_name", "Enter the first name", student.FirstName)
-      @textField("Last Name", "last_name", "Enter the last name", student.LastName)
-      @dateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
-      @hiddenField("version", fmt.Sprintf("%d", ver))
+      @components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
+      @components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
+      @components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+      @components.HiddenField("version", fmt.Sprintf("%d", ver))
   </div>
 }
 
@@ -55,9 +56,9 @@ templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
       <a
       hx-put={toggleStatusURL(id, ver, status)} 
       class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</a>
-      @hiddenField("version", fmt.Sprintf("%d", ver))
+      @components.HiddenField("version", fmt.Sprintf("%d", ver))
     </div>
-    @primaryButton("Update", templ.Attributes{
+    @components.PrimaryButton("Update", templ.Attributes{
         "hx-post": fmt.Sprintf("/admin/student/%s", id),
         })
   </div>

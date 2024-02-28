@@ -1,0 +1,11 @@
+package studenttempl 
+import "geevly/internal/webapi/templates/components"
+
+templ CreateStudent() {
+    @components.FormWrapper("Create Student", "/admin/student/create", "/admin/student") {
+        @components.TextField("First Name", "first_name", "Enter first name", "")
+        @components.TextField("Last Name", "last_name", "Enter last name", "")
+        @components.DateField("Date of Birth", "date_of_birth", "")
+        @components.SubmitButton("Create Student")
+    }
+}

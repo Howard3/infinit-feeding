@@ -2,9 +2,12 @@ package webapi
 
 import (
 	"geevly/gen/go/eda"
-	"geevly/internal/webapi/templates"
 	"net/http"
 	"strconv"
+
+	templates "geevly/internal/webapi/templates/admin/student"
+	components "geevly/internal/webapi/templates/components"
+	layouts "geevly/internal/webapi/templates/layouts"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -28,7 +31,7 @@ func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.AdminViewStudent(studentID, student.GetStudent(), student.GetVersion()))
+	s.renderTempl(w, r, templates.AdminViewStudent(studentID, student.GetStudent(), student.GetVersion()))
 }
 
 func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
@@ -41,13 +44,13 @@ func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pagination := templates.NewPagination(page, limit, students.Count)
+	pagination := components.NewPagination(page, limit, students.Count)
 
-	s.renderInlayout(w, r, templates.StudentList(students, pagination))
+	s.renderTempl(w, r, templates.StudentList(students, pagination))
 }
 
 func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) {
-	s.renderInlayout(w, r, templates.CreateStudent())
+	s.renderTempl(w, r, templates.CreateStudent())
 }
 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +79,7 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Student created"))
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+res.StudentId, "Student created"))
 }
 
 func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +117,7 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Student updated"))
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+res.StudentId, "Student updated"))
 }
 
 func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +146,7 @@ func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.HTMXRedirect("/admin/student/"+res.StudentId, "Status updated"))
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+res.StudentId, "Status updated"))
 }
 
 func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
@@ -155,5 +158,5 @@ func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderInlayout(w, r, templates.StudentHistorySection(history))
+	s.renderTempl(w, r, templates.StudentHistorySection(history))
 }
