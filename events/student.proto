@@ -102,6 +102,21 @@ message Student {
             Student student = 3;
         }
     }
+
+    message Unenroll {
+        string student_id = 1;
+        uint64 version = 2;
+        events.metadata.Metadata metadata = 3;
+
+        message Event {
+            uint64 version = 2;
+        }
+        message Response {
+            string student_id = 1;
+            uint64 version = 2;
+            Student student = 3;
+        }
+    }
 }
 
 

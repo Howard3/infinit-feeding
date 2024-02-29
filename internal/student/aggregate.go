@@ -16,31 +16,33 @@ var ErrEventNotFound = fmt.Errorf("event not found")
 var ErrApplyingEvent = fmt.Errorf("error applying event")
 var ErrMarshallingEvent = fmt.Errorf("error marshalling event")
 var ErrVersionMismatch = fmt.Errorf("version mismatch")
+var ErrStudentNotFound = fmt.Errorf("student not found")
 
 const EVENT_ADD_STUDENT = "AddStudent"
 const EVENT_SET_STUDENT_STATUS = "SetStudentStatus"
 const EVENT_UPDATE_STUDENT = "UpdateStudent"
 const EVENT_ENROLL_STUDENT = "EnrollStudent"
+const EVENT_UNENROLL_STUDENT = "UnenrollStudent"
 
 type wrappedEvent struct {
 	event gosignal.Event
 	data  proto.Message
 }
 
-type Student struct {
+type Aggregate struct {
 	sourcing.DefaultAggregateUint64
 	data *eda.Student
 }
 
 // Apply is called when an event is applied to the aggregate, it should be called from the
 // repository when applying new events or from commands as they're issued
-func (sd *Student) Apply(evt gosignal.Event) error {
+func (sd *Aggregate) Apply(evt gosignal.Event) error {
 	return sourcing.SafeApply(evt, sd, sd.routeEvent)
 }
 
 // Apply is called when an event is applied to the aggregate, it should be called from the
 // root aggregate's Apply method, where checks for versioning are done
-func (sd *Student) routeEvent(evt gosignal.Event) (err error) {
+func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic: %v", e)
@@ -67,6 +69,9 @@ func (sd *Student) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_ENROLL_STUDENT:
 		eventData = &eda.Student_Enroll_Event{}
 		handler = sd.HandleEnrollStudent
+	case EVENT_UNENROLL_STUDENT:
+		eventData = &eda.Student_Unenroll_Event{}
+		handler = sd.HandleUnenrollStudent
 	default:
 		return ErrEventNotFound
 	}
@@ -75,12 +80,17 @@ func (sd *Student) routeEvent(evt gosignal.Event) (err error) {
 		return fmt.Errorf("error unmarshalling event data: %s", err)
 	}
 
+	// if this is not a new student, we should expect there to be data.
+	if evt.Type != EVENT_ADD_STUDENT && sd.data == nil {
+		return fmt.Errorf("when processing event %q %w", evt.Type, ErrStudentNotFound)
+	}
+
 	wevt := wrappedEvent{event: evt, data: eventData}
 
 	return handler(wevt)
 }
 
-func (sd *Student) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, error) {
+func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ADD_STUDENT,
 		data: &eda.Student_Create_Event{
@@ -94,7 +104,7 @@ func (sd *Student) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, erro
 }
 
 // SetStatus is a function that sets the status of a student, active or inactive
-func (sd *Student) SetStatus(cmd *eda.Student_SetStatus) (*gosignal.Event, error) {
+func (sd *Aggregate) SetStatus(cmd *eda.Student_SetStatus) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_SET_STUDENT_STATUS,
 		data:      &eda.Student_SetStatus_Event{Status: cmd.GetStatus()},
@@ -102,7 +112,7 @@ func (sd *Student) SetStatus(cmd *eda.Student_SetStatus) (*gosignal.Event, error
 	})
 }
 
-func (sd *Student) UpdateStudent(cmd *eda.Student_Update) (*gosignal.Event, error) {
+func (sd *Aggregate) UpdateStudent(cmd *eda.Student_Update) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_UPDATE_STUDENT,
 		data: &eda.Student_Update_Event{
@@ -114,7 +124,7 @@ func (sd *Student) UpdateStudent(cmd *eda.Student_Update) (*gosignal.Event, erro
 	})
 }
 
-func (sd *Student) EnrollStudent(cmd *eda.Student_Enroll) (*gosignal.Event, error) {
+func (sd *Aggregate) EnrollStudent(cmd *eda.Student_Enroll) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ENROLL_STUDENT,
 		data: &eda.Student_Enroll_Event{
@@ -125,20 +135,24 @@ func (sd *Student) EnrollStudent(cmd *eda.Student_Enroll) (*gosignal.Event, erro
 	})
 }
 
-// HandleSetStudentStatus handles the SetStudentStatus event
-func (sd *Student) HandleSetStudentStatus(evt wrappedEvent) error {
-	data := evt.data.(*eda.Student_SetStatus_Event)
+func (sd *Aggregate) UnenrollStudent(cmd *eda.Student_Unenroll) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_UNENROLL_STUDENT,
+		data:      &eda.Student_Unenroll_Event{},
+		version:   cmd.GetVersion(),
+	})
+}
 
-	if sd.data == nil {
-		return fmt.Errorf("student not found")
-	}
+// HandleSetStudentStatus handles the SetStudentStatus event
+func (sd *Aggregate) HandleSetStudentStatus(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_SetStatus_Event)
 
 	sd.data.Status = data.Status
 
 	return nil
 }
 
-func (sd *Student) HandleCreateStudent(evt wrappedEvent) error {
+func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 	data := evt.data.(*eda.Student_Create_Event)
 
 	if sd.data != nil {
@@ -154,12 +168,8 @@ func (sd *Student) HandleCreateStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sd *Student) HandleUpdateStudent(evt wrappedEvent) error {
+func (sd *Aggregate) HandleUpdateStudent(evt wrappedEvent) error {
 	data := evt.data.(*eda.Student_Update_Event)
-
-	if sd.data == nil {
-		return fmt.Errorf("student not found")
-	}
 
 	sd.data.FirstName = data.FirstName
 	sd.data.LastName = data.LastName
@@ -168,15 +178,19 @@ func (sd *Student) HandleUpdateStudent(evt wrappedEvent) error {
 	return nil
 }
 
-func (sd *Student) HandleEnrollStudent(evt wrappedEvent) error {
+func (sd *Aggregate) HandleEnrollStudent(evt wrappedEvent) error {
 	data := evt.data.(*eda.Student_Enroll_Event)
-
-	if sd.data == nil {
-		return fmt.Errorf("student not found")
-	}
 
 	sd.data.SchoolId = data.SchoolId
 	sd.data.DateOfEnrollment = data.DateOfEnrollment
+
+	return nil
+}
+
+// HandleUnenrollStudent handles the UnenrollStudent event
+func (sd *Aggregate) HandleUnenrollStudent(evt wrappedEvent) error {
+	sd.data.SchoolId = ""
+	sd.data.DateOfEnrollment = nil
 
 	return nil
 }
@@ -189,7 +203,7 @@ type StudentEvent struct {
 }
 
 // ApplyEvent is a function that applies an event to the aggregate
-func (sd *Student) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
+func (sd *Aggregate) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
 	sBytes, marshalErr := proto.Marshal(sEvt.data)
 
 	evt := gosignal.Event{
@@ -203,7 +217,7 @@ func (sd *Student) ApplyEvent(sEvt StudentEvent) (*gosignal.Event, error) {
 	return &evt, errors.Join(sd.Apply(evt), marshalErr)
 }
 
-func (sd *Student) ImportState(data []byte) error {
+func (sd *Aggregate) ImportState(data []byte) error {
 	student := eda.Student{}
 
 	if err := proto.Unmarshal(data, &student); err != nil {
@@ -214,17 +228,17 @@ func (sd *Student) ImportState(data []byte) error {
 
 	return nil
 }
-func (sd *Student) ExportState() ([]byte, error) {
+func (sd *Aggregate) ExportState() ([]byte, error) {
 	return proto.Marshal(sd.data)
 }
 
-func (sd Student) String() string {
+func (sd Aggregate) String() string {
 	id := sd.GetID()
 	ver := sd.GetVersion()
 
 	return fmt.Sprintf("ID: %s, Version: %d, Data: %+v", id, ver, sd.data.String())
 }
 
-func (sd Student) GetStudent() *eda.Student {
+func (sd Aggregate) GetStudent() *eda.Student {
 	return sd.data
 }

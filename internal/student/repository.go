@@ -23,9 +23,9 @@ var migrations embed.FS
 
 // Repository incorporates the methods for persisting and loading student aggregates and projections
 type Repository interface {
-	upsertStudent(student *Student) error
+	upsertStudent(student *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
-	loadStudent(ctx context.Context, id string) (*Student, error)
+	loadStudent(ctx context.Context, id string) (*Aggregate, error)
 	CountStudents(ctx context.Context) (uint, error)
 	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
 	GetNewID(ctx context.Context) (uint64, error)
@@ -163,7 +163,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 }
 
 // upsertStudent - persists the student projection to the database
-func (r *sqlRepository) upsertStudent(agg *Student) error {
+func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 	query := `INSERT INTO student_projections
 		(id, first_name, last_name, school_id, date_of_birth, date_of_enrollment, version, active)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -209,8 +209,8 @@ func (r *sqlRepository) upsertStudent(agg *Student) error {
 }
 
 // loadStudent - loads the student aggregate from the event store
-func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Student, error) {
-	studentAgg := &Student{}
+func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Aggregate, error) {
+	studentAgg := &Aggregate{}
 	studentAgg.SetID(id)
 
 	if err := r.eventSourcing.Load(ctx, studentAgg, nil); err != nil {

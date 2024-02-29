@@ -42,7 +42,7 @@ func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*L
 	}, nil
 }
 func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Create) (*eda.Student_Create_Response, error) {
-	studentAgg := &Student{}
+	studentAgg := &Aggregate{}
 	newID, err := s.repo.GetNewID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new ID: %w", err)
@@ -117,7 +117,7 @@ func (s *StudentService) SetStatus(ctx context.Context, cmd *eda.Student_SetStat
 }
 
 // GetStudent returns a student aggregate by ID
-func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*Student, error) {
+func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*Aggregate, error) {
 	studentAgg, err := s.repo.loadStudent(ctx, studentID)
 	if err != nil {
 		return nil, err
