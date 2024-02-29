@@ -16,6 +16,7 @@ import (
 	"geevly/gen/go/eda"
 	"geevly/internal/student"
 	"geevly/internal/webapi/templates"
+	"geevly/internal/webapi/templates/admin"
 	"geevly/internal/webapi/templates/layouts"
 )
 
@@ -129,6 +130,9 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/admin", func(r chi.Router) {
 		r.Route("/student", s.studentAdminRoutes)
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			s.renderTempl(w, r, admin.AdminHome())
+		})
 	})
 
 	slog.Info("Starting server", "listen_address", s.getListenAddress())
