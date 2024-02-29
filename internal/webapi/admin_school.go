@@ -78,11 +78,19 @@ func (s *Server) adminViewSchool(w http.ResponseWriter, r *http.Request) {
 	s.renderTempl(w, r, schooltempl.View(uintID, agg.GetData(), agg.GetVersion()))
 }
 
-func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
+func (s *Server) readSchoolIDFromURL(w http.ResponseWriter, r *http.Request) (uint64, error) {
 	id := chi.URLParam(r, "ID")
 	uintID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		s.errorPage(w, r, "Invalid ID", err)
+		return 0, err
+	}
+	return uintID, nil
+}
+
+func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
+	id, err := s.readSchoolIDFromURL(w, r)
+	if err != nil {
 		return
 	}
 
@@ -98,7 +106,7 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cmd := eda.School_Update{
-		Id:        uintID,
+		Id:        id,
 		Name:      r.FormValue("name"),
 		Principal: r.FormValue("principal"),
 		Contact:   r.FormValue("contact"),
@@ -110,11 +118,22 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/school/%d", uintID), "School updated"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/school/%d", id), "School updated"))
 }
 
 func (s *Server) adminSchoolHistory(w http.ResponseWriter, r *http.Request) {
-	// ...
+	id, err := s.readSchoolIDFromURL(w, r)
+	if err != nil {
+		return
+	}
+
+	history, err := s.SchoolSvc.GetHistory(r.Context(), id)
+	if err != nil {
+		s.errorPage(w, r, "Error getting history", err)
+		return
+	}
+
+	s.renderTempl(w, r, schooltempl.EventHistory(history))
 }
 
 func (s *Server) toggleSchoolStatus(w http.ResponseWriter, r *http.Request) {
