@@ -26,6 +26,7 @@ type Repository interface {
 	countSchools(ctx context.Context) (uint, error)
 	getNewID(ctx context.Context) (uint64, error)
 	getAggregateEventHistory(ctx context.Context, id uint) ([]gosignal.Event, error)
+	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
 }
 
 // ProjectedSchool is a struct that represents a school projection
@@ -190,4 +191,10 @@ func (r *sqlRepository) getNewID(ctx context.Context) (uint64, error) {
 	}
 
 	return id, nil
+}
+
+// getEventHistory - returns the event history for a student aggregate
+func (r *sqlRepository) getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error) {
+	sID := fmt.Sprintf("%d", id)
+	return r.eventSourcing.LoadEvents(ctx, sID, nil)
 }

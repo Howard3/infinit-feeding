@@ -114,6 +114,7 @@ func (agg *Aggregate) UpdateSchool(cmd *eda.School_Update) (*gosignal.Event, err
 			Principal: cmd.Principal,
 			Contact:   cmd.Contact,
 		},
+		version: cmd.Version,
 	})
 }
 
@@ -162,4 +163,8 @@ func (agg *Aggregate) ImportState(data []byte) error {
 }
 func (agg *Aggregate) ExportState() ([]byte, error) {
 	return proto.Marshal(agg.data)
+}
+
+func (agg *Aggregate) GetData() *eda.School {
+	return agg.data
 }

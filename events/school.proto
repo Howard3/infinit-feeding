@@ -34,6 +34,7 @@ message School {
         string principal = 3;
         string contact = 4;
         events.metadata.Metadata metadata = 5;
+        uint64 version = 6;
 
         message Event {
             uint64 id = 1;

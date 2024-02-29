@@ -7,6 +7,7 @@ import (
 	components "geevly/internal/webapi/templates/components"
 	layouts "geevly/internal/webapi/templates/layouts"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,10 +16,9 @@ func (s *Server) schoolAdminRoutes(r chi.Router) {
 	r.Get("/", s.adminListSchools)
 	r.Get("/create", s.adminCreateSchoolForm)
 	r.Post("/create", s.adminCreateSchool)
-	r.Get("/{studentID}", s.adminViewSchool)
-	r.Post("/{studentID}", s.adminUpdateSchool)
-	r.Get("/{studentID}/history", s.adminSchoolHistory)
-	r.Put("/{studentID}/toggleStatus", s.toggleSchoolStatus)
+	r.Get("/{ID}", s.adminViewSchool)
+	r.Post("/{ID}", s.adminUpdateSchool)
+	r.Get("/{ID}/history", s.adminSchoolHistory)
 }
 
 func (s *Server) adminListSchools(w http.ResponseWriter, r *http.Request) {
@@ -62,11 +62,55 @@ func (s *Server) adminCreateSchool(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminViewSchool(w http.ResponseWriter, r *http.Request) {
-	// ...
+	id := chi.URLParam(r, "ID")
+	uintID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Invalid ID", err)
+		return
+	}
+
+	agg, err := s.SchoolSvc.Get(r.Context(), uintID)
+	if err != nil {
+		s.errorPage(w, r, "Error getting school", err)
+		return
+	}
+
+	s.renderTempl(w, r, schooltempl.View(uintID, agg.GetData(), agg.GetVersion()))
 }
 
 func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
-	// ...
+	id := chi.URLParam(r, "ID")
+	uintID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Invalid ID", err)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
+		return
+	}
+
+	version, err := s.formAsInt64(r, "version")
+	if err != nil {
+		s.errorPage(w, r, "Invalid version", err)
+		return
+	}
+
+	cmd := eda.School_Update{
+		Id:        uintID,
+		Name:      r.FormValue("name"),
+		Principal: r.FormValue("principal"),
+		Contact:   r.FormValue("contact"),
+		Version:   uint64(version),
+	}
+
+	if _, err = s.SchoolSvc.Update(r.Context(), &cmd); err != nil {
+		s.errorPage(w, r, "Error updating school", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/school/%d", uintID), "School updated"))
 }
 
 func (s *Server) adminSchoolHistory(w http.ResponseWriter, r *http.Request) {
