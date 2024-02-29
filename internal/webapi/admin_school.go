@@ -25,14 +25,14 @@ func (s *Server) adminListSchools(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
 
-	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page)
+	schools, err := s.SchoolSvc.List(r.Context(), limit, page)
 	if err != nil {
-		s.errorPage(w, r, "Error listing students", err)
+		s.errorPage(w, r, "Error listing schools", err)
 		return
 	}
 
-	pagination := components.NewPagination(page, limit, students.Count)
-	s.renderTempl(w, r, schooltempl.List(nil, pagination))
+	pagination := components.NewPagination(page, limit, schools.Count)
+	s.renderTempl(w, r, schooltempl.List(schools, pagination))
 }
 
 func (s *Server) adminCreateSchoolForm(w http.ResponseWriter, r *http.Request) {

@@ -84,6 +84,10 @@ templ List(schools *school.ListResponse, pagination components.Pagination) {
           @components.ItemCounter(pagination)
         </div>
       </div>
-      }
+      } else {
+        <div class="flex items-center justify-center p-4">
+            <p class="text-lg font-medium text-muted-foreground">No schools found</p>
+        </div>
+        }
     </div>
 }

@@ -20,7 +20,7 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-// ListSchoolsResponse is a struct that represents the response of the ListSchools method
+// ListResponse is a struct that represents the response of the ListSchools method
 type ListResponse struct {
 	Schools []*ProjectedSchool
 	Count   uint
@@ -50,5 +50,23 @@ func (s *Service) Create(ctx context.Context, cmd *eda.School_Create) (*eda.Scho
 	return &eda.School_Create_Response{
 		Id:     agg.GetIDUint64(),
 		School: agg.data,
+	}, nil
+}
+
+// List returns a list of schools from the projection
+func (s *Service) List(ctx context.Context, limit, page uint) (*ListResponse, error) {
+	schools, err := s.repo.listSchools(ctx, limit, page)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list students: %w", err)
+	}
+
+	count, err := s.repo.countSchools(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count students: %w", err)
+	}
+
+	return &ListResponse{
+		Schools: schools,
+		Count:   count,
 	}, nil
 }

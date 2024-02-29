@@ -6,11 +6,14 @@ import (
 	"embed"
 	"fmt"
 	"geevly/internal/infrastructure"
+	"time"
 
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/sourcing"
 )
+
+const MaxPageSize = 100
 
 //go:embed migrations/*.sql
 var migrations embed.FS
@@ -19,16 +22,19 @@ type Repository interface {
 	loadSchool(ctx context.Context, id uint64) (*Aggregate, error)
 	upsertProjection(school *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
-	listSchools(ctx context.Context, limit, page uint)
+	listSchools(ctx context.Context, limit, page uint) ([]*ProjectedSchool, error)
+	countSchools(ctx context.Context) (uint, error)
 	getNewID(ctx context.Context) (uint64, error)
 	getAggregateEventHistory(ctx context.Context, id uint) ([]gosignal.Event, error)
 }
 
 // ProjectedSchool is a struct that represents a school projection
 type ProjectedSchool struct {
-	ID     uint
-	Name   string // name of the school
-	Active bool   // is this scool currently active
+	ID        uint
+	Name      string // name of the school
+	Active    bool   // is this scool currently active
+	Version   int    // version of the school
+	UpdatedAt time.Time
 }
 
 type sqlRepository struct {
@@ -49,16 +55,6 @@ func (r *sqlRepository) loadSchool(ctx context.Context, id uint64) (*Aggregate, 
 }
 
 // upsertProjection - updates or inserts a projection
-// the source table is
-// CREATE TABLE IF NOT EXISTS schools (
-//
-//	id TEXT PRIMARY KEY,
-//	name TEXT NOT NULL,
-//	active BOOLEAN NOT NULL,
-//	version INT NOT NULL,
-//	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-//
-// );
 func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 	if agg == nil || agg.data == nil {
 		return fmt.Errorf("cannot upsert nil aggregate")
@@ -95,9 +91,54 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) (_ error) {
 	return r.eventSourcing.Store(ctx, evts)
 }
-func (sqlRepository) listSchools(ctx context.Context, limit uint, page uint) {
-	panic("not implemented") // TODO: Implement
+func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) ([]*ProjectedSchool, error) {
+	query := `SELECT id, name, active, version, updated_at FROM schools LIMIT ? OFFSET ?;`
+
+	if limit > MaxPageSize {
+		limit = MaxPageSize
+	}
+
+	if page < 1 {
+		page = 1
+	}
+
+	page--
+
+	rows, err := r.db.Query(query, limit, limit*page)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list schools: %w", err)
+	}
+	defer rows.Close()
+
+	schools := []*ProjectedSchool{}
+	for rows.Next() {
+		school := &ProjectedSchool{}
+		if err := rows.Scan(
+			&school.ID,
+			&school.Name,
+			&school.Active,
+			&school.Version,
+			&school.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan student: %w", err)
+		}
+
+		schools = append(schools, school)
+	}
+
+	return schools, nil
 }
+
+func (r *sqlRepository) countSchools(ctx context.Context) (uint, error) {
+	var count uint
+	query := `SELECT COUNT(*) FROM schools;`
+	if err := r.db.QueryRow(query).Scan(&count); err != nil {
+		return 0, fmt.Errorf("failed to count schools: %w", err)
+	}
+
+	return count, nil
+}
+
 func (sqlRepository) getAggregateEventHistory(ctx context.Context, id uint) (_ []gosignal.Event, _ error) {
 	panic("not implemented") // TODO: Implement
 }
