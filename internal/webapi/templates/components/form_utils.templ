@@ -69,12 +69,7 @@ templ HiddenField(fieldName, value string) {
 }
 
 templ SubmitButton(label string) {
-    <button
-      class="h-10 rounded-md bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      type="submit"
-    >
-      {label}
-    </button>
+    @PrimaryButton(label, nil)
 }
 
 templ PrimaryButton(label string, attrs templ.Attributes) {

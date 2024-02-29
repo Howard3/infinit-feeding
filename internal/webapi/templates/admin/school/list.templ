@@ -1,0 +1,89 @@
+package schooltempl 
+
+import (
+    "geevly/internal/webapi/templates/components"
+    "geevly/internal/school"
+    "fmt"
+)
+
+templ List(schools *school.ListResponse, pagination components.Pagination) {
+    <div class="flex flex-col w-full border rounded-lg shadow mx-auto">
+      <div class="flex items-center justify-between p-4 border-b bg-gray-100">
+        <h1 class="text-lg font-medium">
+            Schools
+            <span class="pl-3">
+                @components.PrimaryButton("Add School", templ.Attributes{"hx-get": "/admin/school/create"})
+            </span>
+        </h1>
+      </div>
+      if schools != nil {
+      <div class="p-4">
+        <div class="flex w-full max-w-sm rounded-lg shadow-sm">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="flex h-4 w-4 shrink-0 items-center justify-center m-2.5 text-gray-500"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+          <input
+            class="flex h-10 border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-lg w-full border-0 shadow-none appearance-none"
+            placeholder="Search schools..."
+            type="search"
+          />
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <div class="relative w-full overflow-auto">
+          <table class="w-full caption-bottom text-sm">
+            <thead class="[&amp;_tr]:border-b">
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    Name
+                </th>
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    Active 
+                </th>
+                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    Actions 
+                </th>
+              </tr>
+            </thead>
+            <tbody class="[&amp;_tr:last-child]:border-0">
+            for _, school := range schools.Schools {
+              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    {school.Name}
+                </td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                if school.Active {
+                    <span class="text-green-500">Active</span>
+                } else {
+                    <span class="text-red-500">Inactive</span>
+                }
+                </td>
+                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                    @components.PrimaryButton("View", templ.Attributes{"hx-get": fmt.Sprintf("/admin/school/%v", school.ID)})
+                </td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="flex w-full min-w-0 items-center justify-between text-sm">
+        <div class="flex items-center gap-2">
+          @components.ItemCounter(pagination)
+        </div>
+      </div>
+      }
+    </div>
+}

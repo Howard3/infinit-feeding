@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"geevly/gen/go/eda"
+	"geevly/internal/school"
 	"geevly/internal/student"
 	"geevly/internal/webapi/templates"
 	"geevly/internal/webapi/templates/admin"
@@ -25,6 +26,7 @@ type Server struct {
 	ListenAddress string
 	StaticFS      fs.FS
 	StudentSvc    *student.StudentService
+	SchoolSvc     *school.Service
 }
 
 func (s *Server) verifyConfig() {
@@ -130,6 +132,7 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/admin", func(r chi.Router) {
 		r.Route("/student", s.studentAdminRoutes)
+		r.Route("/school", s.schoolAdminRoutes)
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			s.renderTempl(w, r, admin.AdminHome())
 		})

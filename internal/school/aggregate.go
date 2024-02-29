@@ -12,6 +12,7 @@ import (
 )
 
 var ErrSchoolDoesNotExist = fmt.Errorf("school does not exist")
+var ErrMustHaveName = fmt.Errorf("school must have a name")
 
 const EventCreateSchool = "CreateSchool"
 const EventUpdateSchool = "UpdateSchool"
@@ -91,6 +92,10 @@ func (sd *Aggregate) ApplyEvent(sEvt SchoolEvent) (*gosignal.Event, error) {
 }
 
 func (agg *Aggregate) CreateSchool(cmd *eda.School_Create) (*gosignal.Event, error) {
+	if cmd.Name == "" {
+		return nil, ErrMustHaveName
+	}
+
 	return agg.ApplyEvent(SchoolEvent{
 		eventType: EventCreateSchool,
 		data: &eda.School_Create_Event{

@@ -6,24 +6,20 @@ import "metadata.proto";
 
 message School {
     string name = 1;
-    Name principal = 2;
-    Name contact = 3;
+    string principal = 2;
+    string contact = 3;
+    bool disabled = 4;
     
-    message Name {
-        string First = 1;
-        string Last = 2;
-    }
-
     message Create {
         string name = 1;
-        Name principal = 2;
-        Name contact = 3;
+        string principal = 2;
+        string contact = 3;
         events.metadata.Metadata metadata = 4;
 
         message Event {
             string name = 1;
-            Name principal = 2;
-            Name contact = 3;
+            string principal = 2;
+            string contact = 3;
         }
 
         message Response {
@@ -35,15 +31,15 @@ message School {
     message Update {
         uint64 id = 1;
         string name = 2;
-        Name principal = 3;
-        Name contact = 4;
+        string principal = 3;
+        string contact = 4;
         events.metadata.Metadata metadata = 5;
 
         message Event {
             uint64 id = 1;
             string name = 2;
-            Name principal = 3;
-            Name contact = 4;
+            string principal = 3;
+            string contact = 4;
         }
 
         message Response {

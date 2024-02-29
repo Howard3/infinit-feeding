@@ -9,6 +9,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"geevly/internal/infrastructure"
+	"geevly/internal/school"
 	"geevly/internal/student"
 	"geevly/internal/webapi"
 )
@@ -29,14 +30,23 @@ func main() {
 		URI:  "./student.db",
 	}
 
+	schoolConn := infrastructure.SQLConnection{
+		Type: "sqlite3",
+		URI:  "./school.db",
+	}
+
 	// setup the repositories
 	studentRepo := student.NewRepository(studentConn, &mq)
 	studentService := student.NewStudentService(studentRepo)
 
+	schoolRepo := school.NewRepository(schoolConn, &mq)
+	schoolService := school.NewService(schoolRepo)
+
 	// TODO: load config from env, put here.
 	server := webapi.Server{
-		StaticFS:    getStaticFS(),
-		StudentSvc:  studentService,
+		StaticFS:   getStaticFS(),
+		StudentSvc: studentService,
+		SchoolSvc:  schoolService,
 	}
 	server.Start(ctx)
 }
