@@ -46,6 +46,9 @@ templ header() {
           <span class="sr-only">Toggle sidebar</span>
         </button>
         <h1 class="text-lg font-semibold">Infinit Feeding</h1>
+        <div hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+           <a hx-get="/admin" class="cursor-pointer">Admin</a> 
+        </div>
       </div>
       <div class="flex items-center space-x-4">
         <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10 rounded-full border">
@@ -74,14 +77,6 @@ templ header() {
           aria-expanded="false"
           data-state="closed"
         >
-          <img
-            src="/placeholder.svg"
-            class="rounded-full"
-            alt=""
-            style="aspect-ratio: 32 / 32; object-fit: cover;"
-            width="32"
-            height="32"
-          />
           <span class="sr-only">Toggle user menu</span>
         </button>
       </div>

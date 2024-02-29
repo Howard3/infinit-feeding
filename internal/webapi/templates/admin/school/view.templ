@@ -14,7 +14,9 @@ templ View(id uint64, school *eda.School, ver uint64) {
         @components.TextField("Principal", "principal", "Enter Principal name", school.Principal)
         @components.TextField("Contact", "contact", "Enter contact name", school.Contact)
         @components.HiddenField("version", fmt.Sprintf("%d", ver))
-        @components.SubmitButton("Update School")
+        <div class="p-3 text-right">
+            @components.SubmitButton("Update School")
+        </div>
     </form>
     </div>
 
