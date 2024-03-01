@@ -8,15 +8,23 @@ import (
 	"github.com/Howard3/gosignal"
 )
 
+var ErrSchoolValidation = fmt.Errorf("error validating school")
+
 type StudentService struct {
 	repo          Repository
 	eventHandlers *eventHandlers
+	acl           AntiCorruptionLayer
 }
 
-func NewStudentService(repo Repository) *StudentService {
+type AntiCorruptionLayer interface {
+	ValidateSchoolID(ctx context.Context, schoolID string) error
+}
+
+func NewStudentService(repo Repository, acl AntiCorruptionLayer) *StudentService {
 	return &StudentService{
 		repo:          repo,
 		eventHandlers: NewEventHandlers(repo),
+		acl:           acl,
 	}
 }
 
@@ -69,51 +77,29 @@ func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Cre
 }
 
 func (s *StudentService) UpdateStudent(ctx context.Context, cmd *eda.Student_Update) (*eda.Student_Update_Response, error) {
-	studentAgg, err := s.repo.loadStudent(ctx, cmd.GetStudentId())
-	if err != nil {
-		return nil, err
-	}
+	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_Update_Response, []gosignal.Event, error) {
+		evt, err := agg.UpdateStudent(cmd)
+		res := eda.Student_Update_Response{
+			StudentId: agg.GetID(),
+			Version:   agg.GetVersion(),
+			Student:   agg.GetStudent(),
+		}
 
-	evt, err := studentAgg.UpdateStudent(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
-		return nil, err
-	}
-
-	s.eventHandlers.HandleUpdateStudentEvent(ctx, evt)
-
-	return &eda.Student_Update_Response{
-		StudentId: studentAgg.GetID(),
-		Version:   studentAgg.GetVersion(),
-		Student:   studentAgg.GetStudent(),
-	}, nil
+		return &res, []gosignal.Event{*evt}, err
+	})
 }
 
 func (s *StudentService) SetStatus(ctx context.Context, cmd *eda.Student_SetStatus) (*eda.Student_SetStatus_Response, error) {
-	studentAgg, err := s.repo.loadStudent(ctx, cmd.GetStudentId())
-	if err != nil {
-		return nil, err
-	}
+	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_SetStatus_Response, []gosignal.Event, error) {
+		evt, err := agg.SetStatus(cmd)
+		res := eda.Student_SetStatus_Response{
+			StudentId: agg.GetID(),
+			Version:   agg.GetVersion(),
+			Student:   agg.GetStudent(),
+		}
 
-	evt, err := studentAgg.SetStatus(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
-		return nil, err
-	}
-
-	s.eventHandlers.HandleSetStatusEvent(ctx, evt)
-
-	return &eda.Student_SetStatus_Response{
-		StudentId: studentAgg.GetID(),
-		Version:   studentAgg.GetVersion(),
-		Student:   studentAgg.GetStudent(),
-	}, nil
+		return &res, []gosignal.Event{*evt}, err
+	})
 }
 
 // GetStudent returns a student aggregate by ID
@@ -129,4 +115,47 @@ func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*Agg
 // GetHistory returns the event history for a student aggregate
 func (s *StudentService) GetHistory(ctx context.Context, studentID string) ([]gosignal.Event, error) {
 	return s.repo.getEventHistory(ctx, studentID)
+}
+
+// EnrollStudent enrolls a student in a school
+func (s *StudentService) EnrollStudent(ctx context.Context, cmd *eda.Student_Enroll) (*eda.Student_Enroll_Response, error) {
+	if err := s.acl.ValidateSchoolID(ctx, cmd.GetSchoolId()); err != nil {
+		return nil, fmt.Errorf("failed to validate school ID: %w", err)
+	}
+
+	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_Enroll_Response, []gosignal.Event, error) {
+		evt, err := agg.EnrollStudent(cmd)
+		res := eda.Student_Enroll_Response{
+			StudentId: agg.GetID(),
+			Version:   agg.GetVersion(),
+			Student:   agg.GetStudent(),
+		}
+
+		return &res, []gosignal.Event{*evt}, err
+	})
+}
+
+// withStudent is a helper function that loads a student aggregate from the repository and executes a function on it
+func withStudent[T any](ctx context.Context, s *StudentService, id string, fn func(*Aggregate) (*T, []gosignal.Event, error)) (*T, error) {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, evt, err := fn(studentAgg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.saveEvents(ctx, evt); err != nil {
+		return nil, err
+	}
+
+	for i, e := range evt {
+		if s.eventHandlers.routeEvent(ctx, &e); err != nil {
+			return nil, fmt.Errorf("failed to route event %d: %w", i, err)
+		}
+	}
+
+	return msg, nil
 }

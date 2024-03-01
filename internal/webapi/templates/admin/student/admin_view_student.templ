@@ -9,6 +9,7 @@ import (
 )
 
 templ AdminViewStudent(id string, student *eda.Student, ver uint64) {
+  @backToList()
   <div class="grid gap-6 md:grid-cols-2 m-3">
     <div class="space-y-4">
         <form>
@@ -67,22 +68,25 @@ templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
 templ schoolEnrollmentSection() {
   <div class="grid gap-2">
     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
-    <div class="grid gap-2">
-      <button type="button" role="combobox" aria-controls="radix-:r17:" aria-expanded="false" aria-autocomplete="none" dir="ltr" data-state="closed" data-placeholder="" class="flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full">
-        <span class="rounded-md border appearance-none inline-block w-full py-2 pl-3 pr-10 text-base leading-none font-inherit">
-          Choose a school
-        </span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 opacity-50" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
-      </button>
-      <div class="grid items-center gap-2">
-        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="enrollment-date">Enrollment Date</label>
-        <input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" id="enrollment-date" type="date"/>
-      </div>
+    <form class="grid gap-2">
+      @components.TomSelect(components.SelectConfig{
+          Options: map[string]string{"1": "School 1", "2": "School 2"}, 
+          MaxItems: 1,
+          Name: "school_id",
+          Placeholder: "Select a school",
+          Value: "",
+        })
+      @components.DateField("Enrollment Date", "enrollment_date", "")
       <div class="grid gap-2">
-        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">Enroll/Unenroll</button>
-        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">Unenroll</button>
+        @components.PrimaryButton("Enroll", templ.Attributes{
+            "hx-post": "/admin/student/enroll",
+        })
+        @components.Button("Unenroll", templ.Attributes{
+            "hx-delete": "/admin/student/unenroll",
+            "hx-confirm": "Are you sure you want to unenroll this student?",
+        })
       </div>
-    </div>
+    </form>
   </div>
 }
 
@@ -115,3 +119,28 @@ templ StudentHistorySection(evts []gosignal.Event) {
   </div>
 }
 
+
+templ backToList() {
+<div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100 dark:bg-gray-800">
+  <a
+    class="flex cursor-pointer items-center gap-2 text-gray-900 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-400 transition-colors"
+    hx-get="/admin/student"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-4 w-4"
+    >
+      <path d="m12 19-7-7 7-7"></path>
+      <path d="M19 12H5"></path>
+    </svg>
+    Back to Students
+  </a>
+</div>}

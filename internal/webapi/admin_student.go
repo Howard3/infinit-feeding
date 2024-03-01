@@ -20,6 +20,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Post("/{studentID}", s.adminUpdateStudent)
 	r.Get("/{studentID}/history", s.adminStudentHistory)
 	r.Put("/{studentID}/toggleStatus", s.toggleStudentStatus)
+	r.Post("/{studentID}/enroll", s.adminEnrollStudent)
 }
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
@@ -159,4 +160,27 @@ func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, templates.StudentHistorySection(history))
+}
+
+func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentID")
+
+	err := r.ParseForm()
+	if err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
+		return
+	}
+
+	courseID := r.Form.Get("course_id")
+
+	_, err = s.StudentSvc.EnrollStudent(r.Context(), &eda.Student_Enroll{
+		StudentId: studentID,
+		CourseId:  courseID,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error enrolling student", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student enrolled"))
 }

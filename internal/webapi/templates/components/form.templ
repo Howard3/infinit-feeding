@@ -80,3 +80,36 @@ templ PrimaryButton(label string, attrs templ.Attributes) {
       {label}
     </button>
 }
+
+
+templ Button(label string, attrs templ.Attributes) {
+    <a
+      { attrs... } 
+      class="cursor-pointer text-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+    >
+      {label}
+    </a>
+}
+
+type SelectConfig struct {
+    Options map[string]string
+    Name string
+    Placeholder string
+    MaxItems int
+    Value string
+}
+
+templ TomSelect(cfg SelectConfig) {
+    <input id={cfg.Name} name={cfg.Name} type="hidden" value={cfg.Value} />
+    @tomSelectConfig(cfg)
+}
+
+script tomSelectConfig(cfg SelectConfig) {
+    document.addEventListener("htmx:load", function() {
+        const options = Object.keys(cfg.Options).map(function(value) {
+            return { value, text: cfg.Options[value] } 
+        });
+        var settings = {options, maxItems: cfg.MaxItems, placeholder: cfg.Placeholder};
+        new TomSelect('#'+cfg.Name, settings);
+    });
+}

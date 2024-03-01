@@ -43,3 +43,15 @@ func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, evt *gosi
 func (eh *eventHandlers) HandleSetStatusEvent(ctx context.Context, evt *gosignal.Event) {
 	eh.HandleNewStudentEvent(ctx, evt)
 }
+
+// routeEvent is a method that routes an event to the appropriate handler
+func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
+	switch evt.Type {
+	case EVENT_ADD_STUDENT:
+		eh.HandleNewStudentEvent(ctx, evt)
+	case EVENT_UPDATE_STUDENT:
+		eh.HandleUpdateStudentEvent(ctx, evt)
+	case EVENT_SET_STUDENT_STATUS:
+		eh.HandleSetStatusEvent(ctx, evt)
+	}
+}
