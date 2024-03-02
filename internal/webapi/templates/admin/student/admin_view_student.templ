@@ -8,24 +8,31 @@ import (
     "geevly/internal/webapi/templates/components"
 )
 
-templ AdminViewStudent(id string, student *eda.Student, ver uint64) {
+type ViewParams struct {
+    ID string
+    Student *eda.Student
+    Version uint64
+    SchoolMap map[string]string
+}
+
+templ AdminViewStudent(params ViewParams) {
   @backToList()
   <div class="grid gap-6 md:grid-cols-2 m-3">
     <div class="space-y-4">
         <form>
           // Embed Personal Info Section
-          @StudentPersonalInfoSection(student, ver)
+          @StudentPersonalInfoSection(params.Student, params.Version)
     
           // Embed Action Buttons Section
-          @actionButtonsSection(id, student.Status, ver)
+          @actionButtonsSection(params.ID, params.Student.Status, params.Version)
         </form>
 
       // Embed School Enrollment Section
-      @schoolEnrollmentSection()
+      @schoolEnrollmentSection(params)
     </div>
 
     // Embed History Section
-    <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%s/history", id)} hx-target="this">
+    <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%s/history", params.ID)} hx-target="this">
         Loading...
     </div>
   </div>
@@ -65,21 +72,22 @@ templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
   </div>
 }
 
-templ schoolEnrollmentSection() {
+templ schoolEnrollmentSection(params ViewParams) {
   <div class="grid gap-2">
     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
-    <form class="grid gap-2">
+    <form class="grid gap-2" hx-push-url="false">
+      @components.HiddenField("version", fmt.Sprintf("%d", params.Version))
       @components.TomSelect(components.SelectConfig{
-          Options: map[string]string{"1": "School 1", "2": "School 2"}, 
+          Options: params.SchoolMap, 
           MaxItems: 1,
           Name: "school_id",
           Placeholder: "Select a school",
-          Value: "",
+          Value: params.Student.SchoolId,
         })
-      @components.DateField("Enrollment Date", "enrollment_date", "")
+      @components.DateField("Enrollment Date", "enrollment_date", fmt.Sprintf("%d-%02d-%02d", params.Student.DateOfEnrollment.Year, params.Student.DateOfEnrollment.Month, params.Student.DateOfEnrollment.Day))
       <div class="grid gap-2">
         @components.PrimaryButton("Enroll", templ.Attributes{
-            "hx-post": "/admin/student/enroll",
+            "hx-post": fmt.Sprintf("/admin/student/%s/enroll", params.ID),
         })
         @components.Button("Unenroll", templ.Attributes{
             "hx-delete": "/admin/student/unenroll",
@@ -121,9 +129,9 @@ templ StudentHistorySection(evts []gosignal.Event) {
 
 
 templ backToList() {
-<div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100 dark:bg-gray-800">
+<div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100">
   <a
-    class="flex cursor-pointer items-center gap-2 text-gray-900 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-400 transition-colors"
+    class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
     hx-get="/admin/student"
   >
     <svg

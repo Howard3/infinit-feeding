@@ -108,3 +108,13 @@ func (s *Service) Get(ctx context.Context, id uint64) (*Aggregate, error) {
 func (s *Service) GetHistory(ctx context.Context, id uint64) ([]gosignal.Event, error) {
 	return s.repo.getEventHistory(ctx, id)
 }
+
+// mapSchoolsByID - returns a map of school IDs to school names
+func (s *Service) MapSchoolsByID(ctx context.Context) (map[uint64]string, error) {
+	return s.repo.mapSchoolsByID(ctx)
+}
+
+// ValidateSchoolID validates that a school exists
+func (s *Service) ValidateSchoolID(ctx context.Context, schoolID uint64) error {
+	return s.repo.validateSchoolID(ctx, schoolID)
+}

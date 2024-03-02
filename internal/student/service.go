@@ -151,10 +151,8 @@ func withStudent[T any](ctx context.Context, s *StudentService, id string, fn fu
 		return nil, err
 	}
 
-	for i, e := range evt {
-		if s.eventHandlers.routeEvent(ctx, &e); err != nil {
-			return nil, fmt.Errorf("failed to route event %d: %w", i, err)
-		}
+	for _, e := range evt {
+		go s.eventHandlers.routeEvent(ctx, &e)
 	}
 
 	return msg, nil

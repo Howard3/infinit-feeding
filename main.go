@@ -35,12 +35,13 @@ func main() {
 		URI:  "./school.db",
 	}
 
-	// setup the repositories
-	studentRepo := student.NewRepository(studentConn, &mq)
-	studentService := student.NewStudentService(studentRepo)
-
 	schoolRepo := school.NewRepository(schoolConn, &mq)
 	schoolService := school.NewService(schoolRepo)
+
+	studentACL := webapi.NewAclStudents(schoolService)
+
+	studentRepo := student.NewRepository(studentConn, &mq)
+	studentService := student.NewStudentService(studentRepo, studentACL)
 
 	// TODO: load config from env, put here.
 	server := webapi.Server{

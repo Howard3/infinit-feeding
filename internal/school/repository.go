@@ -15,6 +15,9 @@ import (
 
 const MaxPageSize = 100
 
+// ErrSchoolIDInvalid is an error that is returned when a school ID is invalid
+var ErrSchoolIDInvalid = fmt.Errorf("school ID is invalid")
+
 //go:embed migrations/*.sql
 var migrations embed.FS
 
@@ -27,6 +30,8 @@ type Repository interface {
 	getNewID(ctx context.Context) (uint64, error)
 	getAggregateEventHistory(ctx context.Context, id uint) ([]gosignal.Event, error)
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
+	validateSchoolID(ctx context.Context, id uint64) error
+	mapSchoolsByID(ctx context.Context) (map[uint64]string, error)
 }
 
 // ProjectedSchool is a struct that represents a school projection
@@ -130,6 +135,29 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 	return schools, nil
 }
 
+// mapSchoolsByID - returns a map of school IDs to school names
+func (r *sqlRepository) mapSchoolsByID(ctx context.Context) (map[uint64]string, error) {
+	query := `SELECT id, name FROM schools;`
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map schools: %w", err)
+	}
+	defer rows.Close()
+
+	m := map[uint64]string{}
+	for rows.Next() {
+		var id uint64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("failed to scan school: %w", err)
+		}
+
+		m[id] = name
+	}
+
+	return m, nil
+}
+
 func (r *sqlRepository) countSchools(ctx context.Context) (uint, error) {
 	var count uint
 	query := `SELECT COUNT(*) FROM schools;`
@@ -197,4 +225,18 @@ func (r *sqlRepository) getNewID(ctx context.Context) (uint64, error) {
 func (r *sqlRepository) getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error) {
 	sID := fmt.Sprintf("%d", id)
 	return r.eventSourcing.LoadEvents(ctx, sID, nil)
+}
+
+// validateSchoolID - checks if a school with the given ID exists
+func (r *sqlRepository) validateSchoolID(ctx context.Context, id uint64) error {
+	query := `SELECT id FROM schools WHERE id = ?;`
+	var exists uint64
+	if err := r.db.QueryRowContext(ctx, query, id).Scan(&exists); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("id %d %w", id, ErrSchoolIDInvalid)
+		}
+		return fmt.Errorf("failed to validate school ID: %w", err)
+	}
+
+	return nil
 }

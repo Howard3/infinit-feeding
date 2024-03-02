@@ -1,10 +1,12 @@
 package webapi
 
 import (
+	"fmt"
 	"geevly/gen/go/eda"
 	"net/http"
 	"strconv"
 
+	studenttempl "geevly/internal/webapi/templates/admin/student"
 	templates "geevly/internal/webapi/templates/admin/student"
 	components "geevly/internal/webapi/templates/components"
 	layouts "geevly/internal/webapi/templates/layouts"
@@ -32,7 +34,25 @@ func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderTempl(w, r, templates.AdminViewStudent(studentID, student.GetStudent(), student.GetVersion()))
+	schools, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error getting schools", err)
+		return
+	}
+
+	schoolsMap := make(map[string]string)
+	for id, school := range schools {
+		schoolsMap[fmt.Sprintf("%d", id)] = school
+	}
+
+	viewParams := studenttempl.ViewParams{
+		SchoolMap: schoolsMap,
+		Student:   student.GetStudent(),
+		ID:        studentID,
+		Version:   student.Version,
+	}
+
+	s.renderTempl(w, r, templates.AdminViewStudent(viewParams))
 }
 
 func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
@@ -171,11 +191,23 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	courseID := r.Form.Get("course_id")
+	dateOfEnrollment, err := s.formAsDate(r, "enrollment_date")
+	if err != nil {
+		s.errorPage(w, r, "Error parsing date of enrollment", err)
+		return
+	}
+
+	version, err := s.formAsInt64(r, "version")
+	if err != nil {
+		s.errorPage(w, r, "Invalid version", err)
+		return
+	}
 
 	_, err = s.StudentSvc.EnrollStudent(r.Context(), &eda.Student_Enroll{
-		StudentId: studentID,
-		CourseId:  courseID,
+		StudentId:        studentID,
+		SchoolId:         r.Form.Get("school_id"),
+		DateOfEnrollment: dateOfEnrollment,
+		Version:          uint64(version),
 	})
 	if err != nil {
 		s.errorPage(w, r, "Error enrolling student", err)
