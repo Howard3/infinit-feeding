@@ -135,6 +135,20 @@ func (s *StudentService) EnrollStudent(ctx context.Context, cmd *eda.Student_Enr
 	})
 }
 
+// UnenrollStudent unenrolls a student from a school
+func (s *StudentService) UnenrollStudent(ctx context.Context, cmd *eda.Student_Unenroll) (*eda.Student_Unenroll_Response, error) {
+	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_Unenroll_Response, []gosignal.Event, error) {
+		evt, err := agg.UnenrollStudent(cmd)
+		res := eda.Student_Unenroll_Response{
+			StudentId: agg.GetID(),
+			Version:   agg.GetVersion(),
+			Student:   agg.GetStudent(),
+		}
+
+		return &res, []gosignal.Event{*evt}, err
+	})
+}
+
 // withStudent is a helper function that loads a student aggregate from the repository and executes a function on it
 func withStudent[T any](ctx context.Context, s *StudentService, id string, fn func(*Aggregate) (*T, []gosignal.Event, error)) (*T, error) {
 	studentAgg, err := s.repo.loadStudent(ctx, id)

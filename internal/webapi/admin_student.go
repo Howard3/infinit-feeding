@@ -23,6 +23,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Get("/{studentID}/history", s.adminStudentHistory)
 	r.Put("/{studentID}/toggleStatus", s.toggleStudentStatus)
 	r.Post("/{studentID}/enroll", s.adminEnrollStudent)
+	r.Delete("/{studentID}/enrollment", s.adminUnenrollStudent)
 }
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
@@ -215,4 +216,31 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student enrolled"))
+}
+
+type unenrollStudentParams struct {
+	Version   uint64
+	StudentID string
+}
+
+func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
+	parser := NewParamParser(r, unenrollStudentParams{}).
+		WithValueAsUint64("version", func(p *unenrollStudentParams, v uint64) { p.Version = v }, queryExtractor).
+		WithValue("studentID", func(p *unenrollStudentParams, v string) { p.StudentID = v }, chiURLParamExtractor)
+
+	if err := parser.Error(); err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
+		return
+	}
+
+	_, err := s.StudentSvc.UnenrollStudent(r.Context(), &eda.Student_Unenroll{
+		StudentId: parser.Result.StudentID,
+		Version:   parser.Result.Version,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error unenrolling student", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+parser.Result.StudentID, "Student unenrolled"))
 }

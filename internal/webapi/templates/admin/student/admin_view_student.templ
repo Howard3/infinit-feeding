@@ -84,18 +84,25 @@ templ schoolEnrollmentSection(params ViewParams) {
           Placeholder: "Select a school",
           Value: params.Student.SchoolId,
         })
-      @components.DateField("Enrollment Date", "enrollment_date", fmt.Sprintf("%d-%02d-%02d", params.Student.DateOfEnrollment.Year, params.Student.DateOfEnrollment.Month, params.Student.DateOfEnrollment.Day))
+      @components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
       <div class="grid gap-2">
         @components.PrimaryButton("Enroll", templ.Attributes{
             "hx-post": fmt.Sprintf("/admin/student/%s/enroll", params.ID),
         })
         @components.Button("Unenroll", templ.Attributes{
-            "hx-delete": "/admin/student/unenroll",
+            "hx-delete": fmt.Sprintf("/admin/student/%s/enrollment?version=%d", params.ID, params.Version),
             "hx-confirm": "Are you sure you want to unenroll this student?",
         })
       </div>
     </form>
   </div>
+}
+
+func dateToFormDate(date *eda.Date) string {
+  if date == nil {
+    return ""
+  }
+  return fmt.Sprintf("%d-%02d-%02d", date.Year, date.Month, date.Day)
 }
 
 templ StudentHistorySection(evts []gosignal.Event) {
@@ -116,6 +123,10 @@ templ StudentHistorySection(evts []gosignal.Event) {
                 Student updated
             case student.EVENT_SET_STUDENT_STATUS:
                 Student status changed
+            case student.EVENT_ENROLL_STUDENT:
+                Student enrolled
+            case student.EVENT_UNENROLL_STUDENT:
+                Student unenrolled
             }
             </div>
             <div class="text-sm text-gray-500 text-right">{evt.Timestamp.Format("2006-01-02 15:04")}</div>
