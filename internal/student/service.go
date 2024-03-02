@@ -67,7 +67,7 @@ func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Cre
 		return nil, err
 	}
 
-	s.eventHandlers.HandleNewStudentEvent(ctx, evt)
+	s.eventHandlers.HandleNewStudentEvent(ctx, evt.AggregateID)
 
 	return &eda.Student_Create_Response{
 		StudentId: studentAgg.GetID(),
@@ -166,7 +166,11 @@ func withStudent[T any](ctx context.Context, s *StudentService, id string, fn fu
 	}
 
 	for _, e := range evt {
-		go s.eventHandlers.routeEvent(ctx, &e)
+		go s.eventHandlers.routeEvent(context.Background(), &e)
+	}
+
+	if len(evt) > 0 {
+		go s.eventHandlers.routeEvent(context.Background(), &evt[0])
 	}
 
 	return msg, nil

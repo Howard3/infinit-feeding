@@ -19,8 +19,8 @@ func NewEventHandlers(repo Repository) *eventHandlers {
 
 // HandleNewStudentEvent is a method that handles the NewStudentEvent
 // it loads the student aggregate from the repository and projects it to the database
-func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, evt *gosignal.Event) {
-	student, err := eh.repo.loadStudent(ctx, evt.AggregateID)
+func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, aggregateID string) {
+	student, err := eh.repo.loadStudent(ctx, aggregateID)
 	if err != nil {
 		slog.Error("failed to load student", "error", err)
 		return
@@ -34,24 +34,16 @@ func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, evt *gosigna
 
 // HandleUpdateStudentEvent is a method that handles the UpdateStudentEvent
 // functionally the same as HandleNewStudentEvent, thus it just aliases it
-func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, evt *gosignal.Event) {
-	eh.HandleNewStudentEvent(ctx, evt)
-}
-
-// HandleSetStatusEvent is a method that handles the SetStatusEvent
-// functionally the same as HandleNewStudentEvent, thus it just aliases it
-func (eh *eventHandlers) HandleSetStatusEvent(ctx context.Context, evt *gosignal.Event) {
-	eh.HandleNewStudentEvent(ctx, evt)
+func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, aggID string) {
+	eh.HandleNewStudentEvent(ctx, aggID)
 }
 
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	switch evt.Type {
 	case EVENT_ADD_STUDENT:
-		eh.HandleNewStudentEvent(ctx, evt)
-	case EVENT_UPDATE_STUDENT:
-		eh.HandleUpdateStudentEvent(ctx, evt)
-	case EVENT_SET_STUDENT_STATUS:
-		eh.HandleSetStatusEvent(ctx, evt)
+		eh.HandleNewStudentEvent(ctx, evt.AggregateID)
+	case EVENT_UPDATE_STUDENT, EVENT_ENROLL_STUDENT, EVENT_UNENROLL_STUDENT, EVENT_SET_STUDENT_STATUS:
+		eh.HandleUpdateStudentEvent(ctx, evt.AggregateID)
 	}
 }
