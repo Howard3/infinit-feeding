@@ -63,20 +63,19 @@ func (s *Server) adminCreateSchool(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminViewSchool(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "ID")
-	uintID, err := strconv.ParseUint(id, 10, 64)
+	id, err := s.readSchoolIDFromURL(w, r)
 	if err != nil {
 		s.errorPage(w, r, "Invalid ID", err)
 		return
 	}
 
-	agg, err := s.SchoolSvc.Get(r.Context(), uintID)
+	agg, err := s.SchoolSvc.Get(r.Context(), id)
 	if err != nil {
 		s.errorPage(w, r, "Error getting school", err)
 		return
 	}
 
-	s.renderTempl(w, r, schooltempl.View(uintID, agg.GetData(), agg.GetVersion()))
+	s.renderTempl(w, r, schooltempl.View(id, agg.GetData(), agg.GetVersion()))
 }
 
 func (s *Server) readSchoolIDFromURL(w http.ResponseWriter, r *http.Request) (uint64, error) {

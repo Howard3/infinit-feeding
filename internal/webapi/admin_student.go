@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"geevly/gen/go/eda"
 	"net/http"
-	"strconv"
 
 	studenttempl "geevly/internal/webapi/templates/admin/student"
 	templates "geevly/internal/webapi/templates/admin/student"
@@ -142,14 +141,11 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 	sID := chi.URLParam(r, "studentID")
-	sVer := r.URL.Query().Get("ver")
+	var ver uint64
 	active := r.URL.Query().Get("active") == "true"
 
-	ver, err := strconv.ParseInt(sVer, 10, 64)
-	if err != nil {
-		s.errorPage(w, r, "Invalid version", err)
-		return
-	}
+	ex := valueextractor.Using(&valueextractor.QueryExtractor{Query: r.URL.Query()})
+	ex.With("ver", valueextractor.AsUint64(&ver))
 
 	newStatus := eda.Student_ACTIVE
 	if !active {
@@ -158,7 +154,7 @@ func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 
 	res, err := s.StudentSvc.SetStatus(r.Context(), &eda.Student_SetStatus{
 		StudentId: sID,
-		Version:   uint64(ver),
+		Version:   ver,
 		Status:    newStatus,
 	})
 	if err != nil {
@@ -202,7 +198,7 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 		StudentId:        studentID,
 		SchoolId:         r.Form.Get("school_id"),
 		DateOfEnrollment: &dateOfEnrollment,
-		Version:          uint64(version),
+		Version:          version,
 	})
 	if err != nil {
 		s.errorPage(w, r, "Error enrolling student", err)
