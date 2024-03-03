@@ -7,13 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"geevly/gen/go/eda"
 	"geevly/internal/school"
 	"geevly/internal/student"
 	"geevly/internal/webapi/templates"
@@ -84,35 +82,6 @@ func (s *Server) limitQuery(r *http.Request) uint {
 	}
 
 	return uint(limit)
-}
-
-func (s *Server) formAsDate(r *http.Request, key string) (*eda.Date, error) {
-	sDate := r.FormValue(key)
-	if sDate == "" {
-		return nil, fmt.Errorf("no date provided")
-	}
-
-	date, err := time.Parse("2006-01-02", sDate)
-	if err != nil {
-		return nil, fmt.Errorf("invalid date format")
-	}
-
-	return &eda.Date{Year: int32(date.Year()), Month: int32(date.Month()), Day: int32(date.Day())}, nil
-}
-
-// formAsInt32 returns the value of the form field as an int64.
-func (s *Server) formAsInt64(r *http.Request, key string) (int64, error) {
-	sValue := r.FormValue(key)
-	if sValue == "" {
-		return 0, fmt.Errorf("no value provided")
-	}
-
-	value, err := strconv.ParseInt(sValue, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid number format")
-	}
-
-	return value, nil
 }
 
 func (s *Server) Start(ctx context.Context) {

@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/Howard3/gosignal v0.0.4
+	github.com/Howard3/valueextractor v0.0.0-20240303042748-a1896b80180b
 	github.com/a-h/templ v0.2.543
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/pressly/goose/v3 v3.18.0

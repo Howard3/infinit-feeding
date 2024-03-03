@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -94,23 +95,26 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
-		s.errorPage(w, r, "Error parsing form", err)
-		return
-	}
+	var version uint64
+	var name, principal, contact string
 
-	version, err := s.formAsInt64(r, "version")
-	if err != nil {
-		s.errorPage(w, r, "Invalid version", err)
+	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
+	ex.With("version", valueextractor.AsUint64(&version))
+	ex.With("name", valueextractor.AsString(&name))
+	ex.With("principal", valueextractor.AsString(&principal))
+	ex.With("contact", valueextractor.AsString(&contact))
+
+	if err := ex.Errors(); err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
 		return
 	}
 
 	cmd := eda.School_Update{
 		Id:        id,
-		Name:      r.FormValue("name"),
-		Principal: r.FormValue("principal"),
-		Contact:   r.FormValue("contact"),
-		Version:   uint64(version),
+		Name:      name,
+		Principal: principal,
+		Contact:   contact,
+		Version:   version,
 	}
 
 	if _, err = s.SchoolSvc.Update(r.Context(), &cmd); err != nil {

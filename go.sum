@@ -6,6 +6,8 @@ github.com/ClickHouse/clickhouse-go/v2 v2.18.0 h1:O1LicIeg2JS2V29fKRH4+yT3f6jvvc
 github.com/ClickHouse/clickhouse-go/v2 v2.18.0/go.mod h1:ztQvX6wm7kAbhJslS87EXEhOVNY/TObXwyURnGju5FQ=
 github.com/Howard3/gosignal v0.0.4 h1:9fOlv6rJzLwPd4NL0adqHToIbtV70BB4sN80VT7OiXU=
 github.com/Howard3/gosignal v0.0.4/go.mod h1:Cd0h0vL91lDqLo1ZyPPbZC+59kms8k6MP32zFK96wNk=
+github.com/Howard3/valueextractor v0.0.0-20240303042748-a1896b80180b h1:A2NUrcoelrwLZOWS8g307UGxPYNKYZdMmISAovW9uCA=
+github.com/Howard3/valueextractor v0.0.0-20240303042748-a1896b80180b/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=

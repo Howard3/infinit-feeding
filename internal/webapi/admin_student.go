@@ -11,6 +11,7 @@ import (
 	components "geevly/internal/webapi/templates/components"
 	layouts "geevly/internal/webapi/templates/layouts"
 
+	"github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -76,22 +77,23 @@ func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
+	var dob eda.Date
+	var firstName, lastName string
+
+	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
+	ex.With("date_of_birth", AsProtoDate(&dob))
+	ex.With("first_name", valueextractor.AsString(&firstName))
+	ex.With("last_name", valueextractor.AsString(&lastName))
+
+	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", err)
 		return
 	}
 
-	dob, err := s.formAsDate(r, "date_of_birth")
-	if err != nil {
-		s.errorPage(w, r, "Error parsing date of birth", err)
-		return
-	}
-
 	student := eda.Student_Create{
-		FirstName:   r.Form.Get("first_name"),
-		LastName:    r.Form.Get("last_name"),
-		DateOfBirth: dob,
+		FirstName:   firstName,
+		LastName:    lastName,
+		DateOfBirth: &dob,
 	}
 
 	res, err := s.StudentSvc.CreateStudent(r.Context(), &student)
@@ -106,31 +108,27 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := chi.URLParam(r, "studentID")
+	var ver uint64
+	var firstName, lastName string
+	var dob eda.Date
 
-	ver, err := s.formAsInt64(r, "version")
-	if err != nil {
-		s.errorPage(w, r, "Invalid version", nil)
-		return
-	}
+	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
+	ex.With("version", valueextractor.AsUint64(&ver))
+	ex.With("first_name", valueextractor.AsString(&firstName))
+	ex.With("last_name", valueextractor.AsString(&lastName))
+	ex.With("date_of_birth", AsProtoDate(&dob))
 
-	err = r.ParseForm()
-	if err != nil {
+	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", err)
-		return
-	}
-
-	dob, err := s.formAsDate(r, "date_of_birth")
-	if err != nil {
-		s.errorPage(w, r, "Error parsing date of birth", err)
 		return
 	}
 
 	student := eda.Student_Update{
 		StudentId:   studentID,
-		FirstName:   r.Form.Get("first_name"),
-		LastName:    r.Form.Get("last_name"),
-		DateOfBirth: dob,
-		Version:     uint64(ver),
+		FirstName:   firstName,
+		LastName:    lastName,
+		DateOfBirth: &dob,
+		Version:     ver,
 	}
 
 	res, err := s.StudentSvc.UpdateStudent(r.Context(), &student)
@@ -186,28 +184,24 @@ func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
 func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := chi.URLParam(r, "studentID")
 
-	err := r.ParseForm()
-	if err != nil {
+	var dateOfEnrollment eda.Date
+	var version uint64
+	var schoolID string
+
+	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
+	ex.With("enrollment_date", AsProtoDate(&dateOfEnrollment))
+	ex.With("version", valueextractor.AsUint64(&version))
+	ex.With("school_id", valueextractor.AsString(&schoolID))
+
+	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", err)
 		return
 	}
 
-	dateOfEnrollment, err := s.formAsDate(r, "enrollment_date")
-	if err != nil {
-		s.errorPage(w, r, "Error parsing date of enrollment", err)
-		return
-	}
-
-	version, err := s.formAsInt64(r, "version")
-	if err != nil {
-		s.errorPage(w, r, "Invalid version", err)
-		return
-	}
-
-	_, err = s.StudentSvc.EnrollStudent(r.Context(), &eda.Student_Enroll{
+	_, err := s.StudentSvc.EnrollStudent(r.Context(), &eda.Student_Enroll{
 		StudentId:        studentID,
 		SchoolId:         r.Form.Get("school_id"),
-		DateOfEnrollment: dateOfEnrollment,
+		DateOfEnrollment: &dateOfEnrollment,
 		Version:          uint64(version),
 	})
 	if err != nil {
@@ -218,29 +212,27 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student enrolled"))
 }
 
-type unenrollStudentParams struct {
-	Version   uint64
-	StudentID string
-}
-
 func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
-	parser := NewParamParser(r, unenrollStudentParams{}).
-		WithValueAsUint64("version", func(p *unenrollStudentParams, v uint64) { p.Version = v }, queryExtractor).
-		WithValue("studentID", func(p *unenrollStudentParams, v string) { p.StudentID = v }, chiURLParamExtractor)
+	var version uint64
+	qe := valueextractor.QueryExtractor{Query: r.URL.Query()}
+	ex := valueextractor.Using(qe)
+	ex.With("version", valueextractor.AsUint64(&version))
 
-	if err := parser.Error(); err != nil {
+	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", err)
 		return
 	}
 
+	studentID := chi.URLParam(r, "studentID")
+
 	_, err := s.StudentSvc.UnenrollStudent(r.Context(), &eda.Student_Unenroll{
-		StudentId: parser.Result.StudentID,
-		Version:   parser.Result.Version,
+		StudentId: studentID,
+		Version:   version,
 	})
 	if err != nil {
 		s.errorPage(w, r, "Error unenrolling student", err)
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+parser.Result.StudentID, "Student unenrolled"))
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student unenrolled"))
 }
