@@ -153,6 +153,7 @@ func (s *StudentService) UnenrollStudent(ctx context.Context, cmd *eda.Student_U
 
 func (s *StudentService) GenerateCode(ctx context.Context, cmd *eda.Student_GenerateCode) (*eda.Student_GenerateCode_Response, error) {
 	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_GenerateCode_Response, []gosignal.Event, error) {
+		// TODO: check for (unlikely) collision
 		code := make([]byte, 10)
 		if _, err := rand.Read(code); err != nil {
 			return nil, nil, fmt.Errorf("failed to generate code: %w", err)
@@ -177,6 +178,8 @@ func (s *StudentService) GenerateCode(ctx context.Context, cmd *eda.Student_Gene
 			Version:   agg.GetVersion(),
 			Student:   agg.GetStudent(),
 		}
+
+		go s.eventHandlers.HandleGenerateCodeEvent(ctx, agg.GetID())
 
 		return &res, []gosignal.Event{*gsEvt}, nil
 	})

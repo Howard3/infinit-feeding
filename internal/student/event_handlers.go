@@ -38,6 +38,28 @@ func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, aggID str
 	eh.HandleNewStudentEvent(ctx, aggID)
 }
 
+// HandleGenerateCodeEvent is a method that handles the GenerateCodeEvent
+func (eh *eventHandlers) HandleGenerateCodeEvent(ctx context.Context, aggID string) {
+	student, err := eh.repo.loadStudent(ctx, aggID)
+	if err != nil {
+		slog.Error("failed to load student", "error", err)
+		return
+	}
+
+	code := student.data.CodeUniqueId
+	if len(code) == 0 {
+		slog.Error("code is empty")
+		return
+	}
+
+	if err := eh.repo.insertStudentCode(ctx, aggID, code); err != nil {
+		slog.Error("failed to insert student code", "error", err)
+		return
+	}
+
+	slog.Info("code inserted", "studentID", aggID, "code", code)
+}
+
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	switch evt.Type {
@@ -45,5 +67,7 @@ func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 		eh.HandleNewStudentEvent(ctx, evt.AggregateID)
 	case EVENT_UPDATE_STUDENT, EVENT_ENROLL_STUDENT, EVENT_UNENROLL_STUDENT, EVENT_SET_STUDENT_STATUS:
 		eh.HandleUpdateStudentEvent(ctx, evt.AggregateID)
+	case EVENT_GENERATE_CODE:
+		eh.HandleGenerateCodeEvent(ctx, evt.AggregateID)
 	}
 }

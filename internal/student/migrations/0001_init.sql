@@ -30,3 +30,4 @@ CREATE TABLE IF NOT EXISTS student_projections (
 -- +goose Down 
 DROP TABLE IF EXISTS student_events;
 DROP TABLE IF EXISTS student_projections;
+DROP TABLE IF EXISTS aggregate_id_tracking;

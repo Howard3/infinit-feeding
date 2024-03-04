@@ -30,6 +30,8 @@ type Repository interface {
 	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
 	GetNewID(ctx context.Context) (uint64, error)
 	getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error)
+	insertStudentCode(ctx context.Context, id string, code []byte) error
+	getStudentIDByCode(ctx context.Context, code []byte) (string, error)
 }
 
 type ProjectedStudent struct {
@@ -223,4 +225,34 @@ func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Aggregate,
 // getEventHistory - returns the event history for a student aggregate
 func (r *sqlRepository) getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error) {
 	return r.eventSourcing.LoadEvents(ctx, id, nil)
+}
+
+// insert code into lookup table
+func (r *sqlRepository) insertStudentCode(ctx context.Context, id string, code []byte) error {
+	query := `INSERT INTO student_code_lookup (id, code)
+		VALUES (?, ?)
+		ON CONFLICT (id) DO UPDATE SET code = excluded.code;
+	`
+
+	hexCode := fmt.Sprintf("%x", code)
+
+	_, err := r.db.Exec(query, id, hexCode)
+	if err != nil {
+		return fmt.Errorf("failed to insert student code: %w", err)
+	}
+
+	return nil
+}
+
+// getStudentIDByCode - returns the student ID by the given code
+func (r *sqlRepository) getStudentIDByCode(ctx context.Context, code []byte) (string, error) {
+	query := `SELECT id FROM student_code_lookup WHERE code = ?`
+	var id string
+	hexCode := fmt.Sprintf("%x", code)
+
+	if err := r.db.QueryRow(query, hexCode).Scan(&id); err != nil {
+		return "", fmt.Errorf("failed to get student ID by code: %w", err)
+	}
+
+	return id, nil
 }

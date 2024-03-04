@@ -116,6 +116,7 @@ func dateToFormDate(date *eda.Date) string {
 }
 
 templ StudentHistorySection(evts []gosignal.Event) {
+// TODO: pagination
   <div class="grid gap-2 pt-2">
     <div class="rounded-lg border bg-card text-card-foreground shadow-sm" data-v0-t="card">
       <div class="flex flex-col space-y-1.5 p-6">
@@ -137,6 +138,8 @@ templ StudentHistorySection(evts []gosignal.Event) {
                 Student enrolled
             case student.EVENT_UNENROLL_STUDENT:
                 Student unenrolled
+            case student.EVENT_GENERATE_CODE:
+                Code regenerated
             }
             </div>
             <div class="text-sm text-gray-500 text-right">{evt.Timestamp.Format("2006-01-02 15:04")}</div>
@@ -185,11 +188,9 @@ templ codeSection(p ViewParams) {
           @components.HiddenField("version", fmt.Sprintf("%d", p.Version))
           <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
             hx-post={fmt.Sprintf("/admin/student/%s/regenerateCode", p.ID)}
+            hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
             >
             Regenerate
-          </button>
-          <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">
-            Print
           </button>
         </form>
       </div>
@@ -203,6 +204,9 @@ templ codeSection(p ViewParams) {
           <img src={fmt.Sprintf("/admin/student/QRCode?data=%s", base64Encode(p.Student.GetCodeUniqueId()))}
           alt="QR Code"
           class="w-full h-full" />
+          <div class="text-center w-full text-xs">
+            {fmt.Sprintf("%x", p.Student.GetCodeUniqueId())}
+          </div>
         }
         </div>
       </div>
