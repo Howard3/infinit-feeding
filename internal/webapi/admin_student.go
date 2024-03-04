@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"encoding/base64"
 	"fmt"
 	"geevly/gen/go/eda"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	vex "github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 func (s *Server) studentAdminRoutes(r chi.Router) {
@@ -24,6 +27,8 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Put("/{studentID}/toggleStatus", s.toggleStudentStatus)
 	r.Post("/{studentID}/enroll", s.adminEnrollStudent)
 	r.Delete("/{studentID}/enrollment", s.adminUnenrollStudent)
+	r.Post("/{studentID}/regenerateCode", s.adminRegenerateCode)
+	r.Get("/QRCode", s.adminQRCode)
 }
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
@@ -218,4 +223,56 @@ func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student unenrolled"))
+}
+
+func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentID")
+	fe := vex.FormExtractor{Request: r}
+	ex := vex.Using(&fe)
+	ver := vex.Result(ex, "version", vex.AsUint64)
+
+	if err := ex.Errors(); err != nil {
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
+		return
+	}
+
+	_, err := s.StudentSvc.GenerateCode(r.Context(), &eda.Student_GenerateCode{
+		StudentId: studentID,
+		Version:   ver,
+	})
+
+	if err != nil {
+		s.errorPage(w, r, "Error regenerating code", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Code regenerated"))
+}
+
+func (s *Server) adminQRCode(w http.ResponseWriter, r *http.Request) {
+	qe := vex.QueryExtractor{Query: r.URL.Query()}
+	ex := vex.Using(&qe)
+	data := vex.Result(ex, "data", vex.AsString)
+
+	if err := ex.Errors(); err != nil {
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
+		return
+	}
+
+	decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(data)
+	if err != nil {
+		s.errorPage(w, r, "Error decoding data", err)
+		return
+	}
+
+	png, err := qrcode.Encode(string(decoded), qrcode.Highest, 256)
+	if err != nil {
+		s.errorPage(w, r, "Error generating QR code", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	if _, err := w.Write(png); err != nil {
+		s.errorPage(w, r, "Error writing QR code", err)
+	}
 }

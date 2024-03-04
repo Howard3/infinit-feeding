@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"geevly/gen/go/eda"
 
+	"crypto/rand"
+
 	"github.com/Howard3/gosignal"
 )
 
@@ -146,6 +148,37 @@ func (s *StudentService) UnenrollStudent(ctx context.Context, cmd *eda.Student_U
 		}
 
 		return &res, []gosignal.Event{*evt}, err
+	})
+}
+
+func (s *StudentService) GenerateCode(ctx context.Context, cmd *eda.Student_GenerateCode) (*eda.Student_GenerateCode_Response, error) {
+	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_GenerateCode_Response, []gosignal.Event, error) {
+		code := make([]byte, 10)
+		if _, err := rand.Read(code); err != nil {
+			return nil, nil, fmt.Errorf("failed to generate code: %w", err)
+		}
+
+		sEvt := StudentEvent{
+			eventType: EVENT_GENERATE_CODE,
+			data: &eda.Student_GenerateCode_Event{
+				CodeUniqueId: code,
+				Metadata:     cmd.GetMetadata(),
+			},
+			version: agg.GetVersion(),
+		}
+
+		gsEvt, err := agg.ApplyEvent(sEvt)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to apply event: %w", err)
+		}
+
+		res := eda.Student_GenerateCode_Response{
+			StudentId: agg.GetID(),
+			Version:   agg.GetVersion(),
+			Student:   agg.GetStudent(),
+		}
+
+		return &res, []gosignal.Event{*gsEvt}, nil
 	})
 }
 

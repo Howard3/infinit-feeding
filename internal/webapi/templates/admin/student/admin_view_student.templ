@@ -6,6 +6,7 @@ import (
 	"github.com/Howard3/gosignal"
     "geevly/internal/student"
     "geevly/internal/webapi/templates/components"
+    "encoding/base64"
 )
 
 type ViewParams struct {
@@ -13,6 +14,10 @@ type ViewParams struct {
     Student *eda.Student
     Version uint64
     SchoolMap map[string]string
+}
+
+func base64Encode(b []byte) string {
+    return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
 }
 
 templ AdminViewStudent(params ViewParams) {
@@ -31,9 +36,14 @@ templ AdminViewStudent(params ViewParams) {
       @schoolEnrollmentSection(params)
     </div>
 
-    // Embed History Section
-    <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%s/history", params.ID)} hx-target="this">
-        Loading...
+    <div class="flex flex-col">
+        <div>
+            @codeSection(params) 
+        </div>
+        // Embed History Section
+        <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%s/history", params.ID)} hx-target="this">
+            Loading...
+        </div>
     </div>
   </div>
 }
@@ -140,26 +150,61 @@ templ StudentHistorySection(evts []gosignal.Event) {
 
 
 templ backToList() {
-<div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100">
-  <a
-    class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
-    hx-get="/admin/student"
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      class="h-4 w-4"
-    >
-      <path d="m12 19-7-7 7-7"></path>
-      <path d="M19 12H5"></path>
-    </svg>
-    Back to Students
-  </a>
-</div>}
+    <div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100">
+      <a
+        class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
+        hx-get="/admin/student"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-4 w-4"
+        >
+          <path d="m12 19-7-7 7-7"></path>
+          <path d="M19 12H5"></path>
+        </svg>
+        Back to Students
+      </a>
+    </div>
+}
+
+templ codeSection(p ViewParams) {
+    <div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" data-v0-t="card">
+      <div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
+        <div class="grid gap-1.5 w-1/2">
+          <h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">QR Code</h3>
+        </div>
+        <form class="flex items-center justify-end gap-2 w-1/2" hx-push-url="false">
+          @components.HiddenField("version", fmt.Sprintf("%d", p.Version))
+          <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+            hx-post={fmt.Sprintf("/admin/student/%s/regenerateCode", p.ID)}
+            >
+            Regenerate
+          </button>
+          <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">
+            Print
+          </button>
+        </form>
+      </div>
+      <div class="p-6 flex items-center justify-center">
+        <div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+        if len(p.Student.CodeUniqueId) == 0  {
+          <div class="items-center justify-center p-3">
+            No code. Click "Generate" to create a new one.
+          </div>
+        } else {
+          <img src={fmt.Sprintf("/admin/student/QRCode?data=%s", base64Encode(p.Student.GetCodeUniqueId()))}
+          alt="QR Code"
+          class="w-full h-full" />
+        }
+        </div>
+      </div>
+    </div>
+}

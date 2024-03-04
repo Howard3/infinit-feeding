@@ -12,6 +12,7 @@ message Student {
     Date date_of_enrollment = 5;
     Status status = 6;
     events.metadata.Metadata metadata = 7;
+    bytes code_unique_id = 8;
 
     enum Status {
         UNKNOWN = 0;
@@ -108,8 +109,22 @@ message Student {
         uint64 version = 2;
         events.metadata.Metadata metadata = 3;
 
-        message Event {
+        message Event {}
+        message Response {
+            string student_id = 1;
             uint64 version = 2;
+            Student student = 3;
+        }
+    }
+
+    message GenerateCode {
+        string student_id = 1;
+        uint64 version = 2;
+        events.metadata.Metadata metadata = 3;
+
+        message Event {
+            bytes code_unique_id = 1;
+            events.metadata.Metadata metadata = 2;
         }
         message Response {
             string student_id = 1;

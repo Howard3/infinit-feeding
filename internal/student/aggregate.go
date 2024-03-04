@@ -23,6 +23,7 @@ const EVENT_SET_STUDENT_STATUS = "SetStudentStatus"
 const EVENT_UPDATE_STUDENT = "UpdateStudent"
 const EVENT_ENROLL_STUDENT = "EnrollStudent"
 const EVENT_UNENROLL_STUDENT = "UnenrollStudent"
+const EVENT_GENERATE_CODE = "GenerateCode"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -72,6 +73,9 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_UNENROLL_STUDENT:
 		eventData = &eda.Student_Unenroll_Event{}
 		handler = sd.HandleUnenrollStudent
+	case EVENT_GENERATE_CODE:
+		eventData = &eda.Student_GenerateCode_Event{}
+		handler = sd.HandleGenerateCode
 	default:
 		return ErrEventNotFound
 	}
@@ -191,6 +195,14 @@ func (sd *Aggregate) HandleEnrollStudent(evt wrappedEvent) error {
 func (sd *Aggregate) HandleUnenrollStudent(evt wrappedEvent) error {
 	sd.data.SchoolId = ""
 	sd.data.DateOfEnrollment = nil
+
+	return nil
+}
+
+func (sd *Aggregate) HandleGenerateCode(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_GenerateCode_Event)
+
+	sd.data.CodeUniqueId = data.CodeUniqueId
 
 	return nil
 }
