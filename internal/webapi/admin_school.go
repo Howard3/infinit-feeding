@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Howard3/valueextractor"
+	vex "github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -94,17 +94,14 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var version uint64
-	var name, principal, contact string
-
-	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
-	ex.With("version", valueextractor.AsUint64(&version))
-	ex.With("name", valueextractor.AsString(&name))
-	ex.With("principal", valueextractor.AsString(&principal))
-	ex.With("contact", valueextractor.AsString(&contact))
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	version := vex.Result(ex, "version", vex.AsUint64)
+	name := vex.Result(ex, "name", vex.AsString)
+	principal := vex.Result(ex, "principal", vex.AsString)
+	contact := vex.Result(ex, "contact", vex.AsString)
 
 	if err := ex.Errors(); err != nil {
-		s.errorPage(w, r, "Error parsing form", err)
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
 	}
 

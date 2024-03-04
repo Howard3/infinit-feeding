@@ -5,11 +5,11 @@ import (
 	"geevly/gen/go/eda"
 	"time"
 
-	"github.com/Howard3/valueextractor"
+	vex "github.com/Howard3/valueextractor"
 )
 
-func AsProtoDate(ref *eda.Date) valueextractor.Converter {
-	return func(ec *valueextractor.Extractor, value string) error {
+func AsProtoDate(ref *eda.Date) vex.Converter {
+	return func(ec *vex.Extractor, value string) error {
 		date, err := time.Parse("2006-01-02", value)
 		if err != nil {
 			return fmt.Errorf("invalid date format")

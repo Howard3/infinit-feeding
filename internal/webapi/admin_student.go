@@ -10,7 +10,7 @@ import (
 	components "geevly/internal/webapi/templates/components"
 	layouts "geevly/internal/webapi/templates/layouts"
 
-	"github.com/Howard3/valueextractor"
+	vex "github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -76,16 +76,13 @@ func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
-	var dob eda.Date
-	var firstName, lastName string
-
-	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
-	ex.With("date_of_birth", AsProtoDate(&dob))
-	ex.With("first_name", valueextractor.AsString(&firstName))
-	ex.With("last_name", valueextractor.AsString(&lastName))
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	firstName := vex.Result(ex, "first_name", vex.AsString)
+	lastName := vex.Result(ex, "last_name", vex.AsString)
+	dob := eda.Date{}
 
 	if err := ex.Errors(); err != nil {
-		s.errorPage(w, r, "Error parsing form", err)
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
 	}
 
@@ -107,18 +104,15 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := chi.URLParam(r, "studentID")
-	var ver uint64
-	var firstName, lastName string
-	var dob eda.Date
 
-	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
-	ex.With("version", valueextractor.AsUint64(&ver))
-	ex.With("first_name", valueextractor.AsString(&firstName))
-	ex.With("last_name", valueextractor.AsString(&lastName))
-	ex.With("date_of_birth", AsProtoDate(&dob))
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	ver := vex.Result(ex, "version", vex.AsUint64)
+	firstName := vex.Result(ex, "first_name", vex.AsString)
+	lastName := vex.Result(ex, "last_name", vex.AsString)
+	dob := vex.Result(ex, "date_of_birth", AsProtoDate)
 
 	if err := ex.Errors(); err != nil {
-		s.errorPage(w, r, "Error parsing form", err)
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
 	}
 
@@ -141,13 +135,11 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 	sID := chi.URLParam(r, "studentID")
-	var ver uint64
 	active := r.URL.Query().Get("active") == "true"
-
-	ex := valueextractor.Using(&valueextractor.QueryExtractor{Query: r.URL.Query()})
-	ex.With("ver", valueextractor.AsUint64(&ver))
-
+	ex := vex.Using(&vex.QueryExtractor{Query: r.URL.Query()})
+	ver := vex.Result(ex, "version", vex.AsUint64)
 	newStatus := eda.Student_ACTIVE
+
 	if !active {
 		newStatus = eda.Student_INACTIVE
 	}
@@ -180,23 +172,19 @@ func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
 func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := chi.URLParam(r, "studentID")
 
-	var dateOfEnrollment eda.Date
-	var version uint64
-	var schoolID string
-
-	ex := valueextractor.Using(&valueextractor.FormExtractor{Request: r})
-	ex.With("enrollment_date", AsProtoDate(&dateOfEnrollment))
-	ex.With("version", valueextractor.AsUint64(&version))
-	ex.With("school_id", valueextractor.AsString(&schoolID))
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	dateOfEnrollment := vex.Result(ex, "enrollment_date", AsProtoDate)
+	version := vex.Result(ex, "version", vex.AsUint64)
+	schoolID := vex.Result(ex, "school_id", vex.AsString)
 
 	if err := ex.Errors(); err != nil {
-		s.errorPage(w, r, "Error parsing form", err)
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
 	}
 
 	_, err := s.StudentSvc.EnrollStudent(r.Context(), &eda.Student_Enroll{
 		StudentId:        studentID,
-		SchoolId:         r.Form.Get("school_id"),
+		SchoolId:         schoolID,
 		DateOfEnrollment: &dateOfEnrollment,
 		Version:          version,
 	})
@@ -209,13 +197,12 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
-	var version uint64
-	qe := valueextractor.QueryExtractor{Query: r.URL.Query()}
-	ex := valueextractor.Using(qe)
-	ex.With("version", valueextractor.AsUint64(&version))
+	qe := vex.QueryExtractor{Query: r.URL.Query()}
+	ex := vex.Using(qe)
+	version := vex.Result(ex, "version", vex.AsUint64)
 
 	if err := ex.Errors(); err != nil {
-		s.errorPage(w, r, "Error parsing form", err)
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
 	}
 
