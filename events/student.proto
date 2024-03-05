@@ -13,6 +13,7 @@ message Student {
     Status status = 6;
     events.metadata.Metadata metadata = 7;
     bytes code_unique_id = 8;
+    string student_school_id = 9; // this is the id of the student that was issued by the school.
 
     enum Status {
         UNKNOWN = 0;
@@ -29,6 +30,7 @@ message Student {
         string first_name = 1;
         string last_name = 2;
         Date date_of_birth = 3;
+        string student_school_id = 4;
         events.metadata.Metadata metadata = 7;
 
         message Event {
@@ -52,12 +54,15 @@ message Student {
         Date date_of_birth = 4;
         uint64 version = 5;
         events.metadata.Metadata metadata = 6;
+        string student_school_id = 7;
 
         message Event {
+            reserved 1;
             string first_name = 2;
             string last_name = 3;
             Date date_of_birth = 4;
-            uint64 version = 5;
+            reserved 5;
+            string student_school_id = 6;
         }
         message Response {
             string student_id = 1;

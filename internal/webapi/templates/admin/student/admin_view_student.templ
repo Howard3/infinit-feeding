@@ -59,6 +59,7 @@ templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
       @components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
       @components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
       @components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+      @components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
       @components.HiddenField("version", fmt.Sprintf("%d", ver))
   </div>
 }

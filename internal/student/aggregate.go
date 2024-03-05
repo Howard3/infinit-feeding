@@ -120,9 +120,10 @@ func (sd *Aggregate) UpdateStudent(cmd *eda.Student_Update) (*gosignal.Event, er
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_UPDATE_STUDENT,
 		data: &eda.Student_Update_Event{
-			FirstName:   cmd.FirstName,
-			LastName:    cmd.LastName,
-			DateOfBirth: cmd.DateOfBirth,
+			FirstName:       cmd.FirstName,
+			LastName:        cmd.LastName,
+			DateOfBirth:     cmd.DateOfBirth,
+			StudentSchoolId: cmd.StudentSchoolId,
 		},
 		version: cmd.GetVersion(),
 	})
@@ -178,6 +179,7 @@ func (sd *Aggregate) HandleUpdateStudent(evt wrappedEvent) error {
 	sd.data.FirstName = data.FirstName
 	sd.data.LastName = data.LastName
 	sd.data.DateOfBirth = data.DateOfBirth
+	sd.data.StudentSchoolId = data.StudentSchoolId
 
 	return nil
 }

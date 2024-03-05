@@ -82,19 +82,16 @@ func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 	ex := vex.Using(&vex.FormExtractor{Request: r})
-	firstName := vex.Result(ex, "first_name", vex.AsString)
-	lastName := vex.Result(ex, "last_name", vex.AsString)
-	dob := eda.Date{}
+	student := eda.Student_Create{
+		FirstName:       vex.Result(ex, "first_name", vex.AsString),
+		LastName:        vex.Result(ex, "last_name", vex.AsString),
+		DateOfBirth:     vex.ResultPtr(ex, "date_of_birth", AsProtoDate),
+		StudentSchoolId: vex.Result(ex, "student_school_id", vex.AsString),
+	}
 
 	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
-	}
-
-	student := eda.Student_Create{
-		FirstName:   firstName,
-		LastName:    lastName,
-		DateOfBirth: &dob,
 	}
 
 	res, err := s.StudentSvc.CreateStudent(r.Context(), &student)
@@ -109,24 +106,19 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := chi.URLParam(r, "studentID")
-
 	ex := vex.Using(&vex.FormExtractor{Request: r})
-	ver := vex.Result(ex, "version", vex.AsUint64)
-	firstName := vex.Result(ex, "first_name", vex.AsString)
-	lastName := vex.Result(ex, "last_name", vex.AsString)
-	dob := vex.Result(ex, "date_of_birth", AsProtoDate)
+	student := eda.Student_Update{
+		StudentId:       studentID,
+		FirstName:       vex.Result(ex, "first_name", vex.AsString),
+		LastName:        vex.Result(ex, "last_name", vex.AsString),
+		DateOfBirth:     vex.ResultPtr(ex, "date_of_birth", AsProtoDate),
+		Version:         vex.Result(ex, "version", vex.AsUint64),
+		StudentSchoolId: vex.Result(ex, "student_school_id", vex.AsString),
+	}
 
 	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
-	}
-
-	student := eda.Student_Update{
-		StudentId:   studentID,
-		FirstName:   firstName,
-		LastName:    lastName,
-		DateOfBirth: &dob,
-		Version:     ver,
 	}
 
 	res, err := s.StudentSvc.UpdateStudent(r.Context(), &student)
