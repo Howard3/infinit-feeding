@@ -12,6 +12,14 @@ github.com/Howard3/valueextractor v1.0.0 h1:lt4jyXi7hEfF5IxGMuZo9m9hgS9GRW3X4af5
 github.com/Howard3/valueextractor v1.0.0/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
 github.com/Howard3/valueextractor v1.0.1 h1:1bT2LJlyDAVdXmYPWoIoG4CUw9Cckt2wMufV28DHnmY=
 github.com/Howard3/valueextractor v1.0.1/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
+github.com/Howard3/valueextractor v1.0.2 h1:ozDIWcCtqDuL/xtkbUn7oGW6ddupkP9KKkwlTY8+MBI=
+github.com/Howard3/valueextractor v1.0.2/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
+github.com/Howard3/valueextractor v1.1.0 h1:Tm2cQbzQH5gKNTGp9h7J0R1K8iF0+1bwh54nSP680Nw=
+github.com/Howard3/valueextractor v1.1.0/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
+github.com/Howard3/valueextractor v1.1.1 h1:a2vC1s7nv01tE4W0lOsfjkGXfU5QhuxTYc2tDqhqtXA=
+github.com/Howard3/valueextractor v1.1.1/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
+github.com/Howard3/valueextractor v1.1.2 h1:aRcxSV+NkvvN6n6QMzyY6yMLoys0ZPu4UKl7ocZiHnw=
+github.com/Howard3/valueextractor v1.1.2/go.mod h1:29GHvNCc99R6SsPEyAYobHo9vy0Qzc7VgeOBg0i3xkU=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=

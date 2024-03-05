@@ -83,10 +83,10 @@ func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 	ex := vex.Using(&vex.FormExtractor{Request: r})
 	student := eda.Student_Create{
-		FirstName:       vex.Result(ex, "first_name", vex.AsString),
-		LastName:        vex.Result(ex, "last_name", vex.AsString),
-		DateOfBirth:     vex.ResultPtr(ex, "date_of_birth", AsProtoDate),
-		StudentSchoolId: vex.Result(ex, "student_school_id", vex.AsString),
+		FirstName:       *vex.ReturnString(ex, "first_name"),
+		LastName:        *vex.ReturnString(ex, "last_name"),
+		DateOfBirth:     ReturnProtoDate(ex, "date_of_birth"),
+		StudentSchoolId: *vex.ReturnString(ex, "student_school_id"),
 	}
 
 	if err := ex.Errors(); err != nil {
@@ -109,11 +109,11 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	ex := vex.Using(&vex.FormExtractor{Request: r})
 	student := eda.Student_Update{
 		StudentId:       studentID,
-		FirstName:       vex.Result(ex, "first_name", vex.AsString),
-		LastName:        vex.Result(ex, "last_name", vex.AsString),
-		DateOfBirth:     vex.ResultPtr(ex, "date_of_birth", AsProtoDate),
-		Version:         vex.Result(ex, "version", vex.AsUint64),
-		StudentSchoolId: vex.Result(ex, "student_school_id", vex.AsString),
+		FirstName:       *vex.ReturnString(ex, "first_name"),
+		LastName:        *vex.ReturnString(ex, "last_name"),
+		DateOfBirth:     ReturnProtoDate(ex, "date_of_birth"),
+		Version:         *vex.ReturnUint64(ex, "version"),
+		StudentSchoolId: *vex.ReturnString(ex, "student_school_id"),
 	}
 
 	if err := ex.Errors(); err != nil {
@@ -170,21 +170,19 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := chi.URLParam(r, "studentID")
 
 	ex := vex.Using(&vex.FormExtractor{Request: r})
-	dateOfEnrollment := vex.Result(ex, "enrollment_date", AsProtoDate)
-	version := vex.Result(ex, "version", vex.AsUint64)
-	schoolID := vex.Result(ex, "school_id", vex.AsString)
+	cmd := eda.Student_Enroll{
+		StudentId:        studentID,
+		SchoolId:         *vex.ReturnString(ex, "school_id"),
+		DateOfEnrollment: ReturnProtoDate(ex, "enrollment_date"),
+		Version:          *vex.ReturnUint64(ex, "version"),
+	}
 
 	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
 		return
 	}
 
-	_, err := s.StudentSvc.EnrollStudent(r.Context(), &eda.Student_Enroll{
-		StudentId:        studentID,
-		SchoolId:         schoolID,
-		DateOfEnrollment: &dateOfEnrollment,
-		Version:          version,
-	})
+	_, err := s.StudentSvc.EnrollStudent(r.Context(), &cmd)
 	if err != nil {
 		s.errorPage(w, r, "Error enrolling student", err)
 		return

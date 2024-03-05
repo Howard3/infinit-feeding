@@ -20,3 +20,9 @@ func AsProtoDate(ref *eda.Date) vex.Converter {
 		return nil
 	}
 }
+
+func ReturnProtoDate(ec *vex.Extractor, key string) *eda.Date {
+	var date eda.Date
+	ec.With(key, AsProtoDate(&date))
+	return &date
+}
