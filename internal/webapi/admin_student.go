@@ -132,18 +132,21 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 	sID := chi.URLParam(r, "studentID")
-	active := r.URL.Query().Get("active") == "true"
 	ex := vex.Using(&vex.QueryExtractor{Query: r.URL.Query()})
-	ver := vex.Result(ex, "version", vex.AsUint64)
-	newStatus := eda.Student_ACTIVE
-
-	if !active {
+	var newStatus eda.Student_Status
+	switch *vex.ReturnString(ex, "active") {
+	case "true":
+		newStatus = eda.Student_ACTIVE
+	case "false":
 		newStatus = eda.Student_INACTIVE
+	default:
+		s.errorPage(w, r, "Error parsing form", fmt.Errorf("Invalid status"))
+		return
 	}
 
 	res, err := s.StudentSvc.SetStatus(r.Context(), &eda.Student_SetStatus{
 		StudentId: sID,
-		Version:   ver,
+		Version:   *vex.ReturnUint64(ex, "ver"),
 		Status:    newStatus,
 	})
 	if err != nil {

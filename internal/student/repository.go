@@ -12,6 +12,7 @@ import (
 
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/drivers/eventstore"
+	"github.com/Howard3/gosignal/drivers/snapshots"
 
 	src "github.com/Howard3/gosignal/sourcing"
 )
@@ -97,9 +98,19 @@ func (r *sqlRepository) GetNewID(ctx context.Context) (uint64, error) {
 }
 
 func (r *sqlRepository) setupEventSourcing() {
-	es := eventstore.SQLStore{DB: r.db, TableName: "student_events"}
+	repoOptions := []src.NewRepoOptions{
+		src.WithEventStore(eventstore.SQLStore{DB: r.db, TableName: "student_events"}),
+		src.WithQueue(r.queue),
+		src.WithSnapshotStrategy(&snapshots.VersionIntervalStrategy{
+			EveryNth: 10,
+			Store: snapshots.SQLStore{
+				DB:        r.db,
+				TableName: "student_snapshots",
+			},
+		}),
+	}
 
-	r.eventSourcing = src.NewRepository(src.WithEventStore(es), src.WithQueue(r.queue))
+	r.eventSourcing = src.NewRepository(repoOptions...)
 }
 
 // SaveEvents - persists the generated events to the event store
@@ -224,7 +235,8 @@ func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Aggregate,
 
 // getEventHistory - returns the event history for a student aggregate
 func (r *sqlRepository) getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error) {
-	return r.eventSourcing.LoadEvents(ctx, id, nil)
+	cfg := src.NewRepoLoaderConfigurator().SkipSnapshot(true).Build()
+	return r.eventSourcing.LoadEvents(ctx, id, cfg)
 }
 
 // insert code into lookup table
