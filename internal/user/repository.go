@@ -1,4 +1,4 @@
-package school
+package user
 
 import (
 	"context"
@@ -15,30 +15,30 @@ import (
 
 const MaxPageSize = 100
 
-// ErrSchoolIDInvalid is an error that is returned when a school ID is invalid
-var ErrSchoolIDInvalid = fmt.Errorf("school ID is invalid")
+// ErrUserIDInvalid is an error that is returned when a user ID is invalid
+var ErrUserIDInvalid = fmt.Errorf("user ID is invalid")
 
 //go:embed migrations/*.sql
 var migrations embed.FS
 
 type Repository interface {
-	loadSchool(ctx context.Context, id uint64) (*Aggregate, error)
-	upsertProjection(school *Aggregate) error
+	loadUser(ctx context.Context, id uint64) (*User, error)
+	upsertProjection(*User) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
-	listSchools(ctx context.Context, limit, page uint) ([]*ProjectedSchool, error)
-	countSchools(ctx context.Context) (uint, error)
+	listUsers(ctx context.Context, limit, page uint) ([]*ProjectedUser, error)
+	countUsers(ctx context.Context) (uint, error)
 	getNewID(ctx context.Context) (uint64, error)
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
-	validateSchoolID(ctx context.Context, id uint64) error
-	mapSchoolsByID(ctx context.Context) (map[uint64]string, error)
+	validateUserID(ctx context.Context, id uint64) error
 }
 
-// ProjectedSchool is a struct that represents a school projection
-type ProjectedSchool struct {
+// ProjectedUser is a struct that represents a user projection
+type ProjectedUser struct {
 	ID        uint
-	Name      string // name of the school
-	Active    bool   // is this scool currently active
-	Version   int    // version of the school
+	Name      string
+	Email     string
+	Active    bool
+	Version   int
 	UpdatedAt time.Time
 }
 
@@ -48,56 +48,56 @@ type sqlRepository struct {
 	queue         gosignal.Queue
 }
 
-func (r *sqlRepository) loadSchool(ctx context.Context, id uint64) (*Aggregate, error) {
-	agg := &Aggregate{}
+func (r *sqlRepository) loadUser(ctx context.Context, id uint64) (*User, error) {
+	agg := &User{}
 	agg.SetIDUint64(id)
 
 	if err := r.eventSourcing.Load(ctx, agg, nil); err != nil {
-		return nil, fmt.Errorf("failed to load school events: %w", err)
+		return nil, fmt.Errorf("failed to load user events: %w", err)
 	}
 
 	return agg, nil
 }
 
 // upsertProjection - updates or inserts a projection
-func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
+func (r *sqlRepository) upsertProjection(agg *User) error {
 	if agg == nil || agg.data == nil {
 		return fmt.Errorf("cannot upsert nil aggregate")
 	}
 
-	query := `INSERT INTO schools 
-		(id, name, active, version, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+	query := `INSERT INTO users 
+		(id, name, email, active, version, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT (id) DO UPDATE SET 
 			name = EXCLUDED.name,
+			email = EXCLUDED.email,
 			active = EXCLUDED.active,
 			version = EXCLUDED.version,
 			updated_at = CURRENT_TIMESTAMP
 		RETURNING id;
 	`
 
-	active := !agg.data.Disabled
-
 	_, err := r.db.Exec(
 		query,
 		agg.ID,
-		agg.data.Name,
-		active,
+		fmt.Sprintf("%s %s", agg.data.Name.First, agg.data.Name.Last),
+		agg.data.Email,
+		agg.data.Active,
 		agg.Version,
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to upsert school: %w", err)
+		return fmt.Errorf("failed to upsert user: %w", err)
 	}
 
 	return nil
 
 }
-func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) (_ error) {
+func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) error {
 	return r.eventSourcing.Store(ctx, evts)
 }
-func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) ([]*ProjectedSchool, error) {
-	query := `SELECT id, name, active, version, updated_at FROM schools LIMIT ? OFFSET ?;`
+func (r *sqlRepository) listUsers(ctx context.Context, limit uint, page uint) ([]*ProjectedUser, error) {
+	query := `SELECT id, name, email, active, version, updated_at FROM users LIMIT ? OFFSET ?;`
 
 	if limit > MaxPageSize {
 		limit = MaxPageSize
@@ -111,57 +111,35 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 
 	rows, err := r.db.Query(query, limit, limit*page)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list schools: %w", err)
+		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 	defer rows.Close()
 
-	schools := []*ProjectedSchool{}
+	users := []*ProjectedUser{}
 	for rows.Next() {
-		school := &ProjectedSchool{}
+		user := &ProjectedUser{}
 		if err := rows.Scan(
-			&school.ID,
-			&school.Name,
-			&school.Active,
-			&school.Version,
-			&school.UpdatedAt,
+			&user.ID,
+			&user.Name,
+			&user.Email,
+			&user.Active,
+			&user.Version,
+			&user.UpdatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan school: %w", err)
+			return nil, fmt.Errorf("failed to scan user: %w", err)
 		}
 
-		schools = append(schools, school)
+		users = append(users, user)
 	}
 
-	return schools, nil
+	return users, nil
 }
 
-// mapSchoolsByID - returns a map of school IDs to school names
-func (r *sqlRepository) mapSchoolsByID(ctx context.Context) (map[uint64]string, error) {
-	query := `SELECT id, name FROM schools;`
-	rows, err := r.db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to map schools: %w", err)
-	}
-	defer rows.Close()
-
-	m := map[uint64]string{}
-	for rows.Next() {
-		var id uint64
-		var name string
-		if err := rows.Scan(&id, &name); err != nil {
-			return nil, fmt.Errorf("failed to scan school: %w", err)
-		}
-
-		m[id] = name
-	}
-
-	return m, nil
-}
-
-func (r *sqlRepository) countSchools(ctx context.Context) (uint, error) {
+func (r *sqlRepository) countUsers(ctx context.Context) (uint, error) {
 	var count uint
-	query := `SELECT COUNT(*) FROM schools;`
+	query := `SELECT COUNT(*) FROM users;`
 	if err := r.db.QueryRow(query).Scan(&count); err != nil {
-		return 0, fmt.Errorf("failed to count schools: %w", err)
+		return 0, fmt.Errorf("failed to count users: %w", err)
 	}
 
 	return count, nil
@@ -186,7 +164,7 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 }
 
 func (r *sqlRepository) setupEventSourcing() {
-	es := eventstore.SQLStore{DB: r.db, TableName: "school_events"}
+	es := eventstore.SQLStore{DB: r.db, TableName: "user_events"}
 
 	r.eventSourcing = sourcing.NewRepository(sourcing.WithEventStore(es), sourcing.WithQueue(r.queue))
 }
@@ -201,7 +179,7 @@ func (r *sqlRepository) setupEventSourcing() {
 //
 // get the next ID for the given type
 func (r *sqlRepository) getNewID(ctx context.Context) (uint64, error) {
-	const typ = "school"
+	const typ = "user"
 	query := `INSERT INTO aggregate_id_tracking (type, next_id)
 		VALUES (?, 1)
 		ON CONFLICT (type) DO UPDATE SET next_id = aggregate_id_tracking.next_id + 1
@@ -216,21 +194,21 @@ func (r *sqlRepository) getNewID(ctx context.Context) (uint64, error) {
 	return id, nil
 }
 
-// getEventHistory - returns the event history for a school aggregate
+// getEventHistory - returns the event history for a user aggregate
 func (r *sqlRepository) getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error) {
 	sID := fmt.Sprintf("%d", id)
 	return r.eventSourcing.LoadEvents(ctx, sID, nil)
 }
 
-// validateSchoolID - checks if a school with the given ID exists
-func (r *sqlRepository) validateSchoolID(ctx context.Context, id uint64) error {
-	query := `SELECT id FROM schools WHERE id = ?;`
+// validateUserID - checks if a user with the given ID exists
+func (r *sqlRepository) validateUserID(ctx context.Context, id uint64) error {
+	query := `SELECT id FROM users WHERE id = ?;`
 	var exists uint64
 	if err := r.db.QueryRowContext(ctx, query, id).Scan(&exists); err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("id %d %w", id, ErrSchoolIDInvalid)
+			return fmt.Errorf("id %d %w", id, ErrUserIDInvalid)
 		}
-		return fmt.Errorf("failed to validate school ID: %w", err)
+		return fmt.Errorf("failed to validate user ID: %w", err)
 	}
 
 	return nil

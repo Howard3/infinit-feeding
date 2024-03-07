@@ -1,8 +1,10 @@
 package user
 
 import (
+	"errors"
 	"fmt"
 	"geevly/gen/go/eda"
+	"time"
 
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/sourcing"
@@ -23,7 +25,7 @@ type wrappedEvent struct {
 }
 
 type User struct {
-	sourcing.DefaultAggregate
+	sourcing.DefaultAggregateUint64
 	data *eda.User
 }
 
@@ -36,6 +38,11 @@ func (User) ExportState() (_ []byte, _ error) {
 
 func (u *User) Apply(evt gosignal.Event) error {
 	return sourcing.SafeApply(evt, u, u.routeEvent)
+}
+
+// GetData returns the user data
+func (u *User) GetData() *eda.User {
+	return u.data
 }
 
 func (u *User) routeEvent(evt gosignal.Event) error {
@@ -77,8 +84,8 @@ func (u *User) onUserCreated(evt wrappedEvent) error {
 
 	u.data = &eda.User{
 		Name: &eda.User_Name{
-			First: data.First,
-			Last:  data.Last,
+			First: data.FirstName,
+			Last:  data.LastName,
 		},
 		Email: data.Email,
 	}
@@ -90,8 +97,8 @@ func (u *User) onUserCreated(evt wrappedEvent) error {
 func (u *User) onUserUpdated(evt wrappedEvent) error {
 	data := evt.data.(*eda.User_Update_Event)
 
-	u.data.Name.First = data.First
-	u.data.Name.Last = data.Last
+	u.data.Name.First = data.FirstName
+	u.data.Name.Last = data.LastName
 	u.data.Email = data.Email
 
 	return nil
@@ -137,4 +144,52 @@ func (u *User) onUserRemoveRole(evt wrappedEvent) error {
 	}
 
 	return nil
+}
+
+// UserEvent is a struct that holds the event type and the data
+type UserEvent struct {
+	eventType string
+	data      proto.Message
+	version   uint64
+}
+
+// ApplyEvent is a function that applies an event to the aggregate
+func (u *User) ApplyEvent(uEvt UserEvent) (*gosignal.Event, error) {
+	sBytes, marshalErr := proto.Marshal(uEvt.data)
+
+	evt := gosignal.Event{
+		Type:        uEvt.eventType,
+		Timestamp:   time.Now(),
+		Data:        sBytes,
+		Version:     uEvt.version,
+		AggregateID: u.GetID(),
+	}
+
+	return &evt, errors.Join(u.Apply(evt), marshalErr)
+}
+
+// CreateUser creates a new user on this aggregate
+func (u *User) CreateUser(cmd *eda.User_Create) (*gosignal.Event, error) {
+	if u.data != nil {
+		return nil, errors.New("user already exists")
+	}
+
+	evt := &eda.User_Create_Event{
+		FirstName: cmd.FirstName,
+		LastName:  cmd.LastName,
+		Email:     cmd.Email,
+	}
+
+	return u.ApplyEvent(UserEvent{eventType: EventCreated, data: evt})
+}
+
+// UpdateUser updates a user on this Aggregate
+func (u *User) UpdateUser(cmd *eda.User_Update) (*gosignal.Event, error) {
+	evt := &eda.User_Update_Event{
+		FirstName: cmd.FirstName,
+		LastName:  cmd.LastName,
+		Email:     cmd.Email,
+	}
+
+	return u.ApplyEvent(UserEvent{eventType: EventUpdated, data: evt, version: cmd.Version})
 }

@@ -1,0 +1,30 @@
+package usertempl 
+
+import (
+    "geevly/gen/go/eda"
+    "fmt"
+    "geevly/internal/webapi/templates/components"
+)
+
+templ View(id uint64, user *eda.User, ver uint64) {
+  <div class="grid gap-6 md:grid-cols-2 m-3">
+    <div class="space-y-4">
+    <form hx-post={fmt.Sprintf("/admin/user/%d", id)} hx-push-url="false">
+        @components.TextField("First Name", "first_name", "Enter first name", user.Name.First)
+        @components.TextField("Last Name", "last_name", "Enter last name", user.Name.Last)
+        @components.TextField("Email", "email", "Enter email", user.Email)
+        @components.HiddenField("version", fmt.Sprintf("%d", ver))
+        <div class="p-3 text-right">
+            @components.SubmitButton("Update")
+        </div>
+    </form>
+    </div>
+
+    // Embed History Section
+    <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/user/%d/history", id)} hx-target="this">
+        Loading...
+    </div>
+  </div>
+}
+
+

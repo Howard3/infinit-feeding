@@ -11,6 +11,7 @@ import (
 	"geevly/internal/infrastructure"
 	"geevly/internal/school"
 	"geevly/internal/student"
+	"geevly/internal/user"
 	"geevly/internal/webapi"
 )
 
@@ -35,6 +36,14 @@ func main() {
 		URI:  "./school.db",
 	}
 
+	userConn := infrastructure.SQLConnection{
+		Type: "sqlite3",
+		URI:  "./user.db",
+	}
+
+	userRepo := user.NewRepository(userConn, &mq)
+	userService := user.NewService(userRepo)
+
 	schoolRepo := school.NewRepository(schoolConn, &mq)
 	schoolService := school.NewService(schoolRepo)
 
@@ -48,6 +57,7 @@ func main() {
 		StaticFS:   getStaticFS(),
 		StudentSvc: studentService,
 		SchoolSvc:  schoolService,
+		UserSvc:    userService,
 	}
 	server.Start(ctx)
 }

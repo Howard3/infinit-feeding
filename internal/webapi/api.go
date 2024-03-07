@@ -14,6 +14,7 @@ import (
 
 	"geevly/internal/school"
 	"geevly/internal/student"
+	"geevly/internal/user"
 	"geevly/internal/webapi/templates"
 	"geevly/internal/webapi/templates/admin"
 	"geevly/internal/webapi/templates/layouts"
@@ -25,6 +26,7 @@ type Server struct {
 	StaticFS      fs.FS
 	StudentSvc    *student.StudentService
 	SchoolSvc     *school.Service
+	UserSvc       *user.Service
 }
 
 func (s *Server) verifyConfig() {
@@ -102,6 +104,7 @@ func (s *Server) Start(ctx context.Context) {
 	c.Route("/admin", func(r chi.Router) {
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)
+		r.Route("/user", s.userAdminRouter)
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			s.renderTempl(w, r, admin.AdminHome())
 		})
