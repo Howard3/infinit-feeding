@@ -12,8 +12,11 @@ message Student {
     Date date_of_enrollment = 5;
     Status status = 6;
     events.metadata.Metadata metadata = 7;
-    bytes code_unique_id = 8;
+    bytes code_unique_id = 8; // used for qr code lookup
     string student_school_id = 9; // this is the id of the student that was issued by the school.
+
+    repeated Report reports = 10;
+    repeated Feeding feedings = 11;
 
     enum Status {
         UNKNOWN = 0;
@@ -21,9 +24,35 @@ message Student {
         INACTIVE = 2;
     }
 
+
     //
     // Commands, Events, and Responses 
     //
+    // Feeding records a student's feeding
+    message Feeding {
+        Date date = 1;
+
+        message Event {
+            Date date = 1;
+        }
+    }
+
+
+    // Report a student's results 
+    message Report {
+        int32 bmi = 1;
+        int32 height_cm = 2;
+        int32 attendance_pct = 3;
+        Date test_date = 4;
+
+        message Event {
+            int32 bmi = 1;
+            int32 height_cm = 2;
+            int32 attendance_pct = 3;
+            Date test_date = 4;
+        }
+
+    }
 
     // Create a new student
     message Create {
@@ -40,15 +69,9 @@ message Student {
             Status status = 4;
             uint64 version = 5;
         }
-        message Response {
-            string student_id = 1;
-            uint64 version = 2;
-            Student student = 3;
-        }
     }
     // Update a student's information
     message Update {
-        string student_id = 1;
         string first_name = 2;
         string last_name = 3;
         Date date_of_birth = 4;
@@ -64,16 +87,10 @@ message Student {
             reserved 5;
             string student_school_id = 6;
         }
-        message Response {
-            string student_id = 1;
-            uint64 version = 2;
-            Student student = 3;
-        }
     }
 
     // Set a student's status
     message SetStatus {
-        string student_id = 1;
         Status status = 2;
         uint64 version = 3;
         events.metadata.Metadata metadata = 4;
@@ -82,16 +99,10 @@ message Student {
             Status status = 2;
             uint64 version = 3;
         }
-        message Response {
-            string student_id = 1;
-            uint64 version = 2;
-            Student student = 3;
-        }
     }
 
     // Enroll a student
     message Enroll {
-        string student_id = 1;
         string school_id = 2;
         Date date_of_enrollment = 3;
         uint64 version = 4;
@@ -102,39 +113,23 @@ message Student {
             Date date_of_enrollment = 3;
             uint64 version = 4;
         }
-        message Response {
-            string student_id = 1;
-            uint64 version = 2;
-            Student student = 3;
-        }
     }
 
     message Unenroll {
-        string student_id = 1;
         uint64 version = 2;
         events.metadata.Metadata metadata = 3;
 
         message Event {}
-        message Response {
-            string student_id = 1;
-            uint64 version = 2;
-            Student student = 3;
-        }
     }
 
-    message GenerateCode {
-        string student_id = 1;
+    message SetLookupCode {
         uint64 version = 2;
         events.metadata.Metadata metadata = 3;
+        bytes code_unique_id = 4;
 
         message Event {
             bytes code_unique_id = 1;
             events.metadata.Metadata metadata = 2;
-        }
-        message Response {
-            string student_id = 1;
-            uint64 version = 2;
-            Student student = 3;
         }
     }
 }

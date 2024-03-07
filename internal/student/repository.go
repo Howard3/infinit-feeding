@@ -26,12 +26,12 @@ var migrations embed.FS
 type Repository interface {
 	upsertStudent(student *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
-	loadStudent(ctx context.Context, id string) (*Aggregate, error)
+	loadStudent(ctx context.Context, id uint64) (*Aggregate, error)
 	CountStudents(ctx context.Context) (uint, error)
 	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
 	GetNewID(ctx context.Context) (uint64, error)
-	getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error)
-	insertStudentCode(ctx context.Context, id string, code []byte) error
+	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
+	insertStudentCode(ctx context.Context, id uint64, code []byte) error
 	getStudentIDByCode(ctx context.Context, code []byte) (string, error)
 }
 
@@ -222,9 +222,9 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 }
 
 // loadStudent - loads the student aggregate from the event store
-func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Aggregate, error) {
+func (r *sqlRepository) loadStudent(ctx context.Context, id uint64) (*Aggregate, error) {
 	studentAgg := &Aggregate{}
-	studentAgg.SetID(id)
+	studentAgg.SetIDUint64(id)
 
 	if err := r.eventSourcing.Load(ctx, studentAgg, nil); err != nil {
 		return nil, fmt.Errorf("failed to load student events: %w", err)
@@ -234,13 +234,14 @@ func (r *sqlRepository) loadStudent(ctx context.Context, id string) (*Aggregate,
 }
 
 // getEventHistory - returns the event history for a student aggregate
-func (r *sqlRepository) getEventHistory(ctx context.Context, id string) ([]gosignal.Event, error) {
+func (r *sqlRepository) getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error) {
 	cfg := src.NewRepoLoaderConfigurator().SkipSnapshot(true).Build()
-	return r.eventSourcing.LoadEvents(ctx, id, cfg)
+	sID := fmt.Sprintf("%d", id)
+	return r.eventSourcing.LoadEvents(ctx, sID, cfg)
 }
 
 // insert code into lookup table
-func (r *sqlRepository) insertStudentCode(ctx context.Context, id string, code []byte) error {
+func (r *sqlRepository) insertStudentCode(ctx context.Context, id uint64, code []byte) error {
 	query := `INSERT INTO student_code_lookup (id, code)
 		VALUES (?, ?)
 		ON CONFLICT (id) DO UPDATE SET code = excluded.code;

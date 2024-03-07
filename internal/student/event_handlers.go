@@ -3,6 +3,7 @@ package student
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"github.com/Howard3/gosignal"
 )
@@ -19,7 +20,7 @@ func NewEventHandlers(repo Repository) *eventHandlers {
 
 // HandleNewStudentEvent is a method that handles the NewStudentEvent
 // it loads the student aggregate from the repository and projects it to the database
-func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, aggregateID string) {
+func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, aggregateID uint64) {
 	student, err := eh.repo.loadStudent(ctx, aggregateID)
 	if err != nil {
 		slog.Error("failed to load student", "error", err)
@@ -34,12 +35,12 @@ func (eh *eventHandlers) HandleNewStudentEvent(ctx context.Context, aggregateID 
 
 // HandleUpdateStudentEvent is a method that handles the UpdateStudentEvent
 // functionally the same as HandleNewStudentEvent, thus it just aliases it
-func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, aggID string) {
+func (eh *eventHandlers) HandleUpdateStudentEvent(ctx context.Context, aggID uint64) {
 	eh.HandleNewStudentEvent(ctx, aggID)
 }
 
 // HandleGenerateCodeEvent is a method that handles the GenerateCodeEvent
-func (eh *eventHandlers) HandleGenerateCodeEvent(ctx context.Context, aggID string) {
+func (eh *eventHandlers) HandleGenerateCodeEvent(ctx context.Context, aggID uint64) {
 	student, err := eh.repo.loadStudent(ctx, aggID)
 	if err != nil {
 		slog.Error("failed to load student", "error", err)
@@ -62,12 +63,18 @@ func (eh *eventHandlers) HandleGenerateCodeEvent(ctx context.Context, aggID stri
 
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
+	id, err := strconv.ParseUint(evt.AggregateID, 10, 64)
+	if err != nil {
+		slog.Error("failed to parse aggregate ID", "error", err)
+		return
+	}
+
 	switch evt.Type {
 	case EVENT_ADD_STUDENT:
-		eh.HandleNewStudentEvent(ctx, evt.AggregateID)
+		eh.HandleNewStudentEvent(ctx, id)
 	case EVENT_UPDATE_STUDENT, EVENT_ENROLL_STUDENT, EVENT_UNENROLL_STUDENT, EVENT_SET_STUDENT_STATUS:
-		eh.HandleUpdateStudentEvent(ctx, evt.AggregateID)
-	case EVENT_GENERATE_CODE:
-		eh.HandleGenerateCodeEvent(ctx, evt.AggregateID)
+		eh.HandleUpdateStudentEvent(ctx, id)
+	case EVENT_SET_LOOKUP_CODE:
+		eh.HandleGenerateCodeEvent(ctx, id)
 	}
 }

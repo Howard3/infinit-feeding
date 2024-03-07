@@ -1,10 +1,13 @@
 package webapi
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"geevly/gen/go/eda"
 	"net/http"
+	"strconv"
 
 	studenttempl "geevly/internal/webapi/templates/admin/student"
 	templates "geevly/internal/webapi/templates/admin/student"
@@ -21,19 +24,46 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Get("/", s.adminListStudents)
 	r.Get("/create", s.adminCreateStudentForm)
 	r.Post("/create", s.adminCreateStudent)
-	r.Get("/{studentID}", s.adminViewStudent)
-	r.Post("/{studentID}", s.adminUpdateStudent)
-	r.Get("/{studentID}/history", s.adminStudentHistory)
-	r.Put("/{studentID}/toggleStatus", s.toggleStudentStatus)
-	r.Post("/{studentID}/enroll", s.adminEnrollStudent)
-	r.Delete("/{studentID}/enrollment", s.adminUnenrollStudent)
-	r.Post("/{studentID}/regenerateCode", s.adminRegenerateCode)
 	r.Get("/QRCode", s.adminQRCode)
+
+	r.Group(func(r chi.Router) {
+		r.Use(s.setStudentIDMiddleware)
+		r.Get(`/{ID:(^\d+)}`, s.adminViewStudent)
+		r.Post(`/{ID:(^\d+)}`, s.adminUpdateStudent)
+		r.Get(`/{ID:(^\d+)}/history`, s.adminStudentHistory)
+		r.Put(`/{ID:(^\d+)}/toggleStatus`, s.toggleStudentStatus)
+		r.Post(`/{ID:(^\d+)}/enroll`, s.adminEnrollStudent)
+		r.Delete(`/{ID:(^\d+)}/enrollment`, s.adminUnenrollStudent)
+		r.Post(`/{ID:(^\d+)}/regenerateCode`, s.adminRegenerateCode)
+	})
+}
+
+func (s *Server) setStudentIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "ID")
+		uintID, err := strconv.ParseUint(id, 10, 64)
+		if err != nil {
+			s.errorPage(w, r, "Invalid ID", err)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "studentID", uintID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (s *Server) getStudentIDFromContext(ctx context.Context) uint64 {
+	id, ok := ctx.Value("studentID").(uint64)
+	if !ok {
+		// acceptable to be an internal panic because this should not be called unless the
+		// middleware was called.
+		panic("No student ID in context")
+	}
+	return id
 }
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
-	studentID := chi.URLParam(r, "studentID")
-
+	studentID := s.getStudentIDFromContext(r.Context())
 	student, err := s.StudentSvc.GetStudent(r.Context(), studentID)
 	if err != nil {
 		s.errorPage(w, r, "Error getting student", err)
@@ -94,21 +124,20 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.StudentSvc.CreateStudent(r.Context(), &student)
+	agg, err := s.StudentSvc.CreateStudent(r.Context(), &student)
 	if err != nil {
 		// TODO: handle error on-form
 		s.errorPage(w, r, "Error creating student", err)
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+res.StudentId, "Student created"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%s", agg.GetID()), "Student created"))
 }
 
 func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
-	studentID := chi.URLParam(r, "studentID")
+	studentID := s.getStudentIDFromContext(r.Context())
 	ex := vex.Using(&vex.FormExtractor{Request: r})
-	student := eda.Student_Update{
-		StudentId:       studentID,
+	cmd := eda.Student_Update{
 		FirstName:       *vex.ReturnString(ex, "first_name"),
 		LastName:        *vex.ReturnString(ex, "last_name"),
 		DateOfBirth:     ReturnProtoDate(ex, "date_of_birth"),
@@ -121,19 +150,20 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.StudentSvc.UpdateStudent(r.Context(), &student)
+	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &cmd)
 	if err != nil {
 		s.errorPage(w, r, "Error updating student", err)
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+res.StudentId, "Student updated"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Student updated"))
 }
 
 func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
-	sID := chi.URLParam(r, "studentID")
+	studentID := s.getStudentIDFromContext(r.Context())
 	ex := vex.Using(&vex.QueryExtractor{Query: r.URL.Query()})
 	var newStatus eda.Student_Status
+
 	switch *vex.ReturnString(ex, "active") {
 	case "true":
 		newStatus = eda.Student_ACTIVE
@@ -144,21 +174,20 @@ func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.StudentSvc.SetStatus(r.Context(), &eda.Student_SetStatus{
-		StudentId: sID,
-		Version:   *vex.ReturnUint64(ex, "ver"),
-		Status:    newStatus,
+	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetStatus{
+		Version: *vex.ReturnUint64(ex, "ver"),
+		Status:  newStatus,
 	})
 	if err != nil {
 		s.errorPage(w, r, "Error setting status", err)
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+res.StudentId, "Status updated"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Status updated"))
 }
 
 func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
-	studentID := chi.URLParam(r, "studentID")
+	studentID := s.getStudentIDFromContext(r.Context())
 
 	history, err := s.StudentSvc.GetHistory(r.Context(), studentID)
 	if err != nil {
@@ -170,11 +199,9 @@ func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
-	studentID := chi.URLParam(r, "studentID")
-
+	studentID := s.getStudentIDFromContext(r.Context())
 	ex := vex.Using(&vex.FormExtractor{Request: r})
 	cmd := eda.Student_Enroll{
-		StudentId:        studentID,
 		SchoolId:         *vex.ReturnString(ex, "school_id"),
 		DateOfEnrollment: ReturnProtoDate(ex, "enrollment_date"),
 		Version:          *vex.ReturnUint64(ex, "version"),
@@ -185,16 +212,17 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.StudentSvc.EnrollStudent(r.Context(), &cmd)
+	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &cmd)
 	if err != nil {
 		s.errorPage(w, r, "Error enrolling student", err)
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student enrolled"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Student enrolled"))
 }
 
 func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := s.getStudentIDFromContext(r.Context())
 	qe := vex.QueryExtractor{Query: r.URL.Query()}
 	ex := vex.Using(qe)
 	version := vex.Result(ex, "version", vex.AsUint64)
@@ -204,22 +232,19 @@ func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	studentID := chi.URLParam(r, "studentID")
-
-	_, err := s.StudentSvc.UnenrollStudent(r.Context(), &eda.Student_Unenroll{
-		StudentId: studentID,
-		Version:   version,
+	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_Unenroll{
+		Version: version,
 	})
 	if err != nil {
 		s.errorPage(w, r, "Error unenrolling student", err)
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Student unenrolled"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Student unenrolled"))
 }
 
 func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
-	studentID := chi.URLParam(r, "studentID")
+	studentID := s.getStudentIDFromContext(r.Context())
 	fe := vex.FormExtractor{Request: r}
 	ex := vex.Using(&fe)
 	ver := vex.Result(ex, "version", vex.AsUint64)
@@ -229,9 +254,17 @@ func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.StudentSvc.GenerateCode(r.Context(), &eda.Student_GenerateCode{
-		StudentId: studentID,
-		Version:   ver,
+	// generate a new code
+	code := make([]byte, 10)
+	if _, err := rand.Read(code); err != nil {
+		s.errorPage(w, r, "Error generating code", err)
+		return
+	}
+
+	// TODO: retry on fail
+	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetLookupCode{
+		CodeUniqueId: code,
+		Version:      ver,
 	})
 
 	if err != nil {
@@ -239,9 +272,10 @@ func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect("/admin/student/"+studentID, "Code regenerated"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Code regenerated"))
 }
 
+// adminQRCode - render a qr code from an input value
 func (s *Server) adminQRCode(w http.ResponseWriter, r *http.Request) {
 	qe := vex.QueryExtractor{Query: r.URL.Query()}
 	ex := vex.Using(&qe)

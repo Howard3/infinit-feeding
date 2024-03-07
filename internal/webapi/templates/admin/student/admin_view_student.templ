@@ -10,10 +10,14 @@ import (
 )
 
 type ViewParams struct {
-    ID string
+    ID uint64 
     Student *eda.Student
     Version uint64
     SchoolMap map[string]string
+}
+
+func (vp ViewParams) GetID() string {
+    return fmt.Sprintf("%d", vp.ID)
 }
 
 func base64Encode(b []byte) string {
@@ -29,7 +33,7 @@ templ AdminViewStudent(params ViewParams) {
           @StudentPersonalInfoSection(params.Student, params.Version)
     
           // Embed Action Buttons Section
-          @actionButtonsSection(params.ID, params.Student.Status, params.Version)
+          @actionButtonsSection(params.GetID(), params.Student.Status, params.Version)
         </form>
 
       // Embed School Enrollment Section
@@ -41,7 +45,7 @@ templ AdminViewStudent(params ViewParams) {
             @codeSection(params) 
         </div>
         // Embed History Section
-        <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%s/history", params.ID)} hx-target="this">
+        <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%d/history", params.ID)} hx-target="this">
             Loading...
         </div>
     </div>
@@ -98,10 +102,10 @@ templ schoolEnrollmentSection(params ViewParams) {
       @components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
       <div class="grid gap-2">
         @components.PrimaryButton("Enroll", templ.Attributes{
-            "hx-post": fmt.Sprintf("/admin/student/%s/enroll", params.ID),
+            "hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
         })
         @components.Button("Unenroll", templ.Attributes{
-            "hx-delete": fmt.Sprintf("/admin/student/%s/enrollment?version=%d", params.ID, params.Version),
+            "hx-delete": fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
             "hx-confirm": "Are you sure you want to unenroll this student?",
         })
       </div>
@@ -141,8 +145,8 @@ templ StudentHistorySection(evts []gosignal.Event) {
                 Student enrolled
             case student.EVENT_UNENROLL_STUDENT:
                 Student unenrolled
-            case student.EVENT_GENERATE_CODE:
-                Code regenerated
+            case student.EVENT_SET_LOOKUP_CODE:
+                QR Lookup code updated 
             }
             </div>
             <div class="text-sm text-gray-500 text-right">{evt.Timestamp.Format("2006-01-02 15:04")}</div>

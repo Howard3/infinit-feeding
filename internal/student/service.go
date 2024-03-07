@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"geevly/gen/go/eda"
 
-	"crypto/rand"
-
 	"github.com/Howard3/gosignal"
+	"google.golang.org/protobuf/proto"
 )
 
 var ErrSchoolValidation = fmt.Errorf("error validating school")
@@ -35,6 +34,59 @@ type ListStudentsResponse struct {
 	Count    uint
 }
 
+// RunCommand runs a command on a user aggregate
+func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto.Message) (*Aggregate, error) {
+	return s.withAgg(ctx, aggID, func(agg *Aggregate) (*gosignal.Event, error) {
+		switch cmd := cmd.(type) {
+		case *eda.Student_Enroll:
+
+			if err := s.acl.ValidateSchoolID(ctx, cmd.GetSchoolId()); err != nil {
+				return nil, fmt.Errorf("failed to validate school ID: %w", err)
+			}
+			return agg.EnrollStudent(cmd)
+		case *eda.Student_SetLookupCode:
+			// TODO: check for collisions on the lookup code
+			return agg.SetLookupCode(cmd)
+		case *eda.Student_Unenroll:
+			return agg.UnenrollStudent(cmd)
+		case *eda.Student_Update:
+			return agg.UpdateStudent(cmd)
+		case *eda.Student_SetStatus:
+			return agg.SetStatus(cmd)
+		default:
+			return nil, fmt.Errorf("unknown command type: %T", cmd)
+		}
+	})
+}
+
+// withUser is a helper function that loads an user aggregate from the repository and executes a function on it
+func (s *StudentService) withAgg(ctx context.Context, id uint64, fn func(*Aggregate) (*gosignal.Event, error)) (*Aggregate, error) {
+	agg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	evt, err := fn(agg)
+	if err != nil {
+		return nil, err
+	}
+
+	return agg, s.saveEvent(ctx, evt)
+}
+
+func (s *StudentService) saveEvent(ctx context.Context, evt *gosignal.Event) error {
+	if evt != nil {
+		if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
+			return err
+		}
+
+		go s.eventHandlers.routeEvent(context.Background(), evt)
+
+	}
+
+	return nil
+}
+
 func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*ListStudentsResponse, error) {
 	students, err := s.repo.ListStudents(ctx, limit, page)
 	if err != nil {
@@ -51,7 +103,7 @@ func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*L
 		Count:    count,
 	}, nil
 }
-func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Create) (*eda.Student_Create_Response, error) {
+func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Create) (*Aggregate, error) {
 	studentAgg := &Aggregate{}
 	newID, err := s.repo.GetNewID(ctx)
 	if err != nil {
@@ -65,47 +117,11 @@ func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Cre
 		return nil, err
 	}
 
-	if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
-		return nil, err
-	}
-
-	s.eventHandlers.HandleNewStudentEvent(ctx, evt.AggregateID)
-
-	return &eda.Student_Create_Response{
-		StudentId: studentAgg.GetID(),
-		Version:   studentAgg.GetVersion(),
-		Student:   studentAgg.GetStudent(),
-	}, nil
-}
-
-func (s *StudentService) UpdateStudent(ctx context.Context, cmd *eda.Student_Update) (*eda.Student_Update_Response, error) {
-	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_Update_Response, []gosignal.Event, error) {
-		evt, err := agg.UpdateStudent(cmd)
-		res := eda.Student_Update_Response{
-			StudentId: agg.GetID(),
-			Version:   agg.GetVersion(),
-			Student:   agg.GetStudent(),
-		}
-
-		return &res, []gosignal.Event{*evt}, err
-	})
-}
-
-func (s *StudentService) SetStatus(ctx context.Context, cmd *eda.Student_SetStatus) (*eda.Student_SetStatus_Response, error) {
-	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_SetStatus_Response, []gosignal.Event, error) {
-		evt, err := agg.SetStatus(cmd)
-		res := eda.Student_SetStatus_Response{
-			StudentId: agg.GetID(),
-			Version:   agg.GetVersion(),
-			Student:   agg.GetStudent(),
-		}
-
-		return &res, []gosignal.Event{*evt}, err
-	})
+	return studentAgg, s.saveEvent(ctx, evt)
 }
 
 // GetStudent returns a student aggregate by ID
-func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*Aggregate, error) {
+func (s *StudentService) GetStudent(ctx context.Context, studentID uint64) (*Aggregate, error) {
 	studentAgg, err := s.repo.loadStudent(ctx, studentID)
 	if err != nil {
 		return nil, err
@@ -115,99 +131,6 @@ func (s *StudentService) GetStudent(ctx context.Context, studentID string) (*Agg
 }
 
 // GetHistory returns the event history for a student aggregate
-func (s *StudentService) GetHistory(ctx context.Context, studentID string) ([]gosignal.Event, error) {
+func (s *StudentService) GetHistory(ctx context.Context, studentID uint64) ([]gosignal.Event, error) {
 	return s.repo.getEventHistory(ctx, studentID)
-}
-
-// EnrollStudent enrolls a student in a school
-func (s *StudentService) EnrollStudent(ctx context.Context, cmd *eda.Student_Enroll) (*eda.Student_Enroll_Response, error) {
-	if err := s.acl.ValidateSchoolID(ctx, cmd.GetSchoolId()); err != nil {
-		return nil, fmt.Errorf("failed to validate school ID: %w", err)
-	}
-
-	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_Enroll_Response, []gosignal.Event, error) {
-		evt, err := agg.EnrollStudent(cmd)
-		res := eda.Student_Enroll_Response{
-			StudentId: agg.GetID(),
-			Version:   agg.GetVersion(),
-			Student:   agg.GetStudent(),
-		}
-
-		return &res, []gosignal.Event{*evt}, err
-	})
-}
-
-// UnenrollStudent unenrolls a student from a school
-func (s *StudentService) UnenrollStudent(ctx context.Context, cmd *eda.Student_Unenroll) (*eda.Student_Unenroll_Response, error) {
-	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_Unenroll_Response, []gosignal.Event, error) {
-		evt, err := agg.UnenrollStudent(cmd)
-		res := eda.Student_Unenroll_Response{
-			StudentId: agg.GetID(),
-			Version:   agg.GetVersion(),
-			Student:   agg.GetStudent(),
-		}
-
-		return &res, []gosignal.Event{*evt}, err
-	})
-}
-
-func (s *StudentService) GenerateCode(ctx context.Context, cmd *eda.Student_GenerateCode) (*eda.Student_GenerateCode_Response, error) {
-	return withStudent(ctx, s, cmd.GetStudentId(), func(agg *Aggregate) (*eda.Student_GenerateCode_Response, []gosignal.Event, error) {
-		// TODO: check for (unlikely) collision
-		code := make([]byte, 10)
-		if _, err := rand.Read(code); err != nil {
-			return nil, nil, fmt.Errorf("failed to generate code: %w", err)
-		}
-
-		sEvt := StudentEvent{
-			eventType: EVENT_GENERATE_CODE,
-			data: &eda.Student_GenerateCode_Event{
-				CodeUniqueId: code,
-				Metadata:     cmd.GetMetadata(),
-			},
-			version: agg.GetVersion(),
-		}
-
-		gsEvt, err := agg.ApplyEvent(sEvt)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to apply event: %w", err)
-		}
-
-		res := eda.Student_GenerateCode_Response{
-			StudentId: agg.GetID(),
-			Version:   agg.GetVersion(),
-			Student:   agg.GetStudent(),
-		}
-
-		go s.eventHandlers.HandleGenerateCodeEvent(ctx, agg.GetID())
-
-		return &res, []gosignal.Event{*gsEvt}, nil
-	})
-}
-
-// withStudent is a helper function that loads a student aggregate from the repository and executes a function on it
-func withStudent[T any](ctx context.Context, s *StudentService, id string, fn func(*Aggregate) (*T, []gosignal.Event, error)) (*T, error) {
-	studentAgg, err := s.repo.loadStudent(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	msg, evt, err := fn(studentAgg)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.saveEvents(ctx, evt); err != nil {
-		return nil, err
-	}
-
-	for _, e := range evt {
-		go s.eventHandlers.routeEvent(context.Background(), &e)
-	}
-
-	if len(evt) > 0 {
-		go s.eventHandlers.routeEvent(context.Background(), &evt[0])
-	}
-
-	return msg, nil
 }
