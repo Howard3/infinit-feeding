@@ -16,10 +16,6 @@ type ViewParams struct {
     SchoolMap map[string]string
 }
 
-func (vp ViewParams) GetID() string {
-    return fmt.Sprintf("%d", vp.ID)
-}
-
 func base64Encode(b []byte) string {
     return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
 }
@@ -33,7 +29,7 @@ templ AdminViewStudent(params ViewParams) {
           @StudentPersonalInfoSection(params.Student, params.Version)
     
           // Embed Action Buttons Section
-          @actionButtonsSection(params.GetID(), params.Student.Status, params.Version)
+          @actionButtonsSection(params.ID, params.Student.Status, params.Version)
         </form>
 
       // Embed School Enrollment Section
@@ -52,9 +48,9 @@ templ AdminViewStudent(params ViewParams) {
   </div>
 }
 
-func toggleStatusURL(id string, ver uint64, status eda.Student_Status) (string) {
+func toggleStatusURL(id uint64, ver uint64, status eda.Student_Status) (string) {
   active := status == eda.Student_ACTIVE
-  return fmt.Sprintf("/admin/student/%s/toggleStatus?ver=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
+  return fmt.Sprintf("/admin/student/%d/toggleStatus?ver=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
 }
 
 
@@ -68,7 +64,7 @@ templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
   </div>
 }
 
-templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
+templ actionButtonsSection(id uint64, status eda.Student_Status, ver uint64) {
   <div class="flex items-center justify-between mt-4">
     <div class="flex items-center space-x-2" hx-params="none">
     if status == eda.Student_ACTIVE {
@@ -82,7 +78,7 @@ templ actionButtonsSection(id string, status eda.Student_Status, ver uint64) {
       @components.HiddenField("version", fmt.Sprintf("%d", ver))
     </div>
     @components.PrimaryButton("Update", templ.Attributes{
-        "hx-post": fmt.Sprintf("/admin/student/%s", id),
+        "hx-post": fmt.Sprintf("/admin/student/%d", id),
         })
   </div>
 }
@@ -194,7 +190,7 @@ templ codeSection(p ViewParams) {
         <form class="flex items-center justify-end gap-2 w-1/2" hx-push-url="false">
           @components.HiddenField("version", fmt.Sprintf("%d", p.Version))
           <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-            hx-post={fmt.Sprintf("/admin/student/%s/regenerateCode", p.ID)}
+            hx-post={fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID)}
             hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
             >
             Regenerate

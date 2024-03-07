@@ -137,7 +137,7 @@ func (s *Server) toggleUserStatus(w http.ResponseWriter, r *http.Request) {
 	userID := s.getUserIDFromContext(r.Context())
 	ex := vex.Using(&vex.FormExtractor{Request: r})
 	cmd := eda.User_SetActiveState{
-		Active:  *vex.ReturnBool(ex, "active"),
+		Active:  *vex.ReturnString(ex, "active") == "true",
 		Version: *vex.ReturnUint64(ex, "version"),
 	}
 

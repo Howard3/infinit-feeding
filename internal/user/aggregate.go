@@ -193,3 +193,12 @@ func (u *User) UpdateUser(cmd *eda.User_Update) (*gosignal.Event, error) {
 
 	return u.ApplyEvent(UserEvent{eventType: EventUpdated, data: evt, version: cmd.Version})
 }
+
+// SetActiveState sets the active state of the user
+func (u *User) SetActiveState(cmd *eda.User_SetActiveState) (*gosignal.Event, error) {
+	evt := &eda.User_SetActiveState_Event{
+		Active: cmd.Active,
+	}
+
+	return u.ApplyEvent(UserEvent{eventType: EventSetActiveState, data: evt, version: cmd.Version})
+}

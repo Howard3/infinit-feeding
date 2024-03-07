@@ -33,6 +33,8 @@ func (s *Service) RunCommand(ctx context.Context, aggID uint64, cmd proto.Messag
 		switch cmd := cmd.(type) {
 		case *eda.User_Update:
 			return agg.UpdateUser(cmd)
+		case *eda.User_SetActiveState:
+			return agg.SetActiveState(cmd)
 		default:
 			return nil, fmt.Errorf("unknown command type: %T", cmd)
 		}

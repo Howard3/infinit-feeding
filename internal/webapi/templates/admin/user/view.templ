@@ -6,6 +6,11 @@ import (
     "geevly/internal/webapi/templates/components"
 )
 
+
+func toggleStatusURL(id uint64, ver uint64, active bool) (string) {
+  return fmt.Sprintf("/admin/user/%d/toggleStatus?version=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
+}
+
 templ View(id uint64, user *eda.User, ver uint64) {
   <div class="grid gap-6 md:grid-cols-2 m-3">
     <div class="space-y-4">
@@ -14,8 +19,20 @@ templ View(id uint64, user *eda.User, ver uint64) {
         @components.TextField("Last Name", "last_name", "Enter last name", user.Name.Last)
         @components.TextField("Email", "email", "Enter email", user.Email)
         @components.HiddenField("version", fmt.Sprintf("%d", ver))
-        <div class="p-3 text-right">
-            @components.SubmitButton("Update")
+        <div class="p-3 flex flex-row w-full">
+            <div class="flex items-center w-1/2 gap-3" hx-params="none">
+                if user.Active {
+                   <span class="text-sm font-medium text-green-500">Active</span> 
+                } else {
+                    <span class="text-sm font-medium text-red-500">Inactive</span>
+                }
+              <a hx-put={toggleStatusURL(id, ver, user.Active)} 
+                class="pl-3 cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</a>
+              @components.HiddenField("version", fmt.Sprintf("%d", ver))
+            </div>
+            <div class="text-right w-1/2">
+                @components.SubmitButton("Update")
+            </div>
         </div>
     </form>
     </div>
