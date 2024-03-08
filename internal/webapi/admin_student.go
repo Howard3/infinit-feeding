@@ -111,7 +111,7 @@ func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
-	ex := vex.Using(&vex.FormExtractor{Request: r})
+	ex := vex.Using(&vex.FormExtractor{Request: r}, vex.WithOptionalKeys("student_school_id"))
 	student := eda.Student_Create{
 		FirstName:       *vex.ReturnString(ex, "first_name"),
 		LastName:        *vex.ReturnString(ex, "last_name"),
@@ -136,13 +136,14 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := s.getStudentIDFromContext(r.Context())
-	ex := vex.Using(&vex.FormExtractor{Request: r})
+	ex := vex.Using(&vex.FormExtractor{Request: r}, vex.WithOptionalKeys("student_school_id"))
 	cmd := eda.Student_Update{
 		FirstName:       *vex.ReturnString(ex, "first_name"),
 		LastName:        *vex.ReturnString(ex, "last_name"),
 		DateOfBirth:     ReturnProtoDate(ex, "date_of_birth"),
 		Version:         *vex.ReturnUint64(ex, "version"),
 		StudentSchoolId: *vex.ReturnString(ex, "student_school_id"),
+		Sex:             eda.Student_Sex(eda.Student_Sex_value[*vex.ReturnString(ex, "sex")]),
 	}
 
 	if err := ex.Errors(); err != nil {

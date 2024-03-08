@@ -14,16 +14,22 @@ message Student {
     events.metadata.Metadata metadata = 7;
     bytes code_unique_id = 8; // used for qr code lookup
     string student_school_id = 9; // this is the id of the student that was issued by the school.
+    Sex sex = 12;
 
-    repeated Report reports = 10;
+    repeated HealthReport health_reports = 10;
     repeated Feeding feedings = 11;
 
     enum Status {
-        UNKNOWN = 0;
+        UNKNOWN_STATUS = 0;
         ACTIVE = 1;
         INACTIVE = 2;
     }
 
+    enum Sex {
+        UNKNOWN_SEX = 0;
+        MALE = 1;
+        FEMALE = 2;
+    }
 
     //
     // Commands, Events, and Responses 
@@ -39,17 +45,15 @@ message Student {
 
 
     // Report a student's results 
-    message Report {
+    message HealthReport {
         int32 bmi = 1;
         int32 height_cm = 2;
-        int32 attendance_pct = 3;
-        Date test_date = 4;
+        Date date = 3;
 
         message Event {
             int32 bmi = 1;
             int32 height_cm = 2;
-            int32 attendance_pct = 3;
-            Date test_date = 4;
+            Date test_date = 3;
         }
 
     }
@@ -60,6 +64,7 @@ message Student {
         string last_name = 2;
         Date date_of_birth = 3;
         string student_school_id = 4;
+        Sex sex = 5;
         events.metadata.Metadata metadata = 7;
 
         message Event {
@@ -68,6 +73,7 @@ message Student {
             Date date_of_birth = 3;
             Status status = 4;
             uint64 version = 5;
+            Sex sex = 6;
         }
     }
     // Update a student's information
@@ -78,6 +84,7 @@ message Student {
         uint64 version = 5;
         events.metadata.Metadata metadata = 6;
         string student_school_id = 7;
+        Sex sex = 8;
 
         message Event {
             reserved 1;
@@ -86,6 +93,7 @@ message Student {
             Date date_of_birth = 4;
             reserved 5;
             string student_school_id = 6;
+            Sex sex = 8;
         }
     }
 

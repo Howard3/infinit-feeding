@@ -60,6 +60,17 @@ templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
       @components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
       @components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
       @components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
+      <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
+      @components.TomSelect(components.SelectConfig{
+          Options: map[string]string{
+            eda.Student_MALE.String(): "Male",
+            eda.Student_FEMALE.String(): "Female",
+          }, 
+          MaxItems: 1,
+          Name: "sex",
+          Placeholder: "Select a sex",
+          Value:student.Sex.Enum().String(),
+        })
       @components.HiddenField("version", fmt.Sprintf("%d", ver))
   </div>
 }

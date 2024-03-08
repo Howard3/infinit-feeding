@@ -102,6 +102,7 @@ func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, er
 			LastName:    cmd.LastName,
 			DateOfBirth: cmd.DateOfBirth,
 			Status:      eda.Student_INACTIVE,
+			Sex:         cmd.Sex,
 		},
 		version: 0,
 	})
@@ -135,6 +136,7 @@ func (sd *Aggregate) UpdateStudent(cmd *eda.Student_Update) (*gosignal.Event, er
 			LastName:        cmd.LastName,
 			DateOfBirth:     cmd.DateOfBirth,
 			StudentSchoolId: cmd.StudentSchoolId,
+			Sex:             cmd.Sex,
 		},
 		version: cmd.GetVersion(),
 	})
@@ -179,6 +181,7 @@ func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 		FirstName:   data.FirstName,
 		LastName:    data.LastName,
 		DateOfBirth: data.DateOfBirth,
+		Sex:         data.Sex,
 	}
 
 	return nil
@@ -191,6 +194,7 @@ func (sd *Aggregate) HandleUpdateStudent(evt wrappedEvent) error {
 	sd.data.LastName = data.LastName
 	sd.data.DateOfBirth = data.DateOfBirth
 	sd.data.StudentSchoolId = data.StudentSchoolId
+	sd.data.Sex = data.Sex
 
 	return nil
 }
