@@ -27,18 +27,22 @@ templ HTMXLayout(main templ.Component) {
 }
 
 templ header() {
-  <header class="border-b">
-    <div class="container flex items-center justify-between h-14 px-4 mx-auto sm:px-6">
-      <div class="flex items-center space-x-4" hx-target="#content" hx-swap="innerHTML" hx-push-url="true" c>
-        <h1 class="text-lg font-semibold cursor-pointer" hx-get="/">Infinit Feeding</h1>
-        <div lass="flex gap-3">
-           <a hx-get="/admin" class="cursor-pointer hover:underline">Admin</a> 
-           <a hx-get="/feeding" class="cursor-pointer hover:underline">Feeding</a> 
-        </div>
-      </div>
-      <div class="flex items-center space-x-4">
-      // placeholder for future right aligned buttons
-      </div>
+  <header class="border-b" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+      <div class="flex items-center h-14 px-4 border-b gap-4">
+      <a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
+        Infinit Feeding
+      </a>
+      <nav class="flex-1 grid grid-cols-3 justify-center">
+        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
+          Admin
+        </a>
+        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
+          Feeding
+        </a>
+        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
+          About Us
+        </a>
+      </nav>
     </div>
   </header>
 }
