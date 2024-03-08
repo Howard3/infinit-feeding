@@ -11,10 +11,10 @@ templ FullLayout(main templ.Component) {
         <script type="module" src="/static/tom-select.complete.min.js"></script>
     </head>
     <body>
-        <div class="flex flex-col min-h-screen">
+        <div class="flex flex-col min-h-screen bg-gray-100">
             @header()
 
-            <div class="flex flex-col w-full border rounded-lg shadow mx-auto container mt-3">
+            <div class="flex flex-col w-full border rounded-lg shadow mx-auto container mt-3 bg-white">
                 <div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">@main</div>
             </div>
         </div>
@@ -27,17 +27,20 @@ templ HTMXLayout(main templ.Component) {
 }
 
 templ header() {
-  <header class="border-b" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+  <header class="border-b bg-gray-100 shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
       <div class="flex items-center h-14 px-4 border-b gap-4">
       <a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
         Infinit Feeding
       </a>
-      <nav class="flex-1 grid grid-cols-3 justify-center">
+      <nav class="flex-1 grid grid-cols-4 justify-center">
         <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
           Admin
         </a>
         <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
           Feeding
+        </a>
+        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/how-it-works">
+          How it works 
         </a>
         <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
           About Us
