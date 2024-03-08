@@ -109,6 +109,10 @@ func (s *Server) Start(ctx context.Context) {
 		s.renderTempl(w, r, templates.About())
 	})
 
+	c.Get("/how-it-works", func(w http.ResponseWriter, r *http.Request) {
+		s.renderTempl(w, r, templates.HowItWorks())
+	})
+
 	c.Route("/admin", func(r chi.Router) {
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)

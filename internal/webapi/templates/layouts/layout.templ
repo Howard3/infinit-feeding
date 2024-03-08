@@ -14,7 +14,7 @@ templ FullLayout(main templ.Component) {
         <div class="flex flex-col min-h-screen bg-gray-100">
             @header()
 
-            <div class="flex flex-col w-full border rounded-lg shadow mx-auto container mt-3 bg-white">
+            <div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2">
                 <div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">@main</div>
             </div>
         </div>
@@ -27,7 +27,7 @@ templ HTMXLayout(main templ.Component) {
 }
 
 templ header() {
-  <header class="border-b bg-gray-100 shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+  <header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
       <div class="flex items-center h-14 px-4 border-b gap-4">
       <a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
         Infinit Feeding
