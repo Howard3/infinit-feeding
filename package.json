@@ -1,0 +1,20 @@
+{
+  "name": "infinit-feeding",
+  "version": "0.1.0",
+  "description": "",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Howard3/infinit-feeding.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Howard3/infinit-feeding/issues"
+  },
+  "homepage": "https://github.com/Howard3/infinit-feeding#readme",
+  "dependencies": {
+    "tailwindcss": "^3.4.1",
+    "tailwindcss-textshadow": "^2.1.3"
+  }
+}

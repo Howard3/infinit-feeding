@@ -101,6 +101,10 @@ func (s *Server) Start(ctx context.Context) {
 	// serve static files
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
 
+	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		s.renderTempl(w, r, templates.Home())
+	})
+
 	c.Route("/admin", func(r chi.Router) {
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)
@@ -109,6 +113,8 @@ func (s *Server) Start(ctx context.Context) {
 			s.renderTempl(w, r, admin.AdminHome())
 		})
 	})
+
+	c.Route("/feeding", s.feedingRoutes)
 
 	slog.Info("Starting server", "listen_address", s.getListenAddress())
 	if err := http.ListenAndServe(s.getListenAddress(), c); err != nil {

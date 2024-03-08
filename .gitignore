@@ -4,3 +4,4 @@ tmp
 *_templ.go
 static/output.css
 gen
+node_modules

@@ -7,63 +7,61 @@ import (
 )
 
 templ StudentList(students *student.ListStudentsResponse, pagination components.Pagination) {
-    <div class="flex flex-col w-full border rounded-lg shadow mx-auto">
-      <div class="flex items-center justify-between p-4 border-b bg-gray-100">
-        <h1 class="text-lg font-medium">
-            Students
-            <span class="pl-3">
-                @components.PrimaryButton("Add Student", templ.Attributes{"hx-get": "/admin/student/create"})
-            </span>
-        </h1>
-      </div>
-      <div class="flex flex-col gap-2">
-        <div class="relative w-full overflow-auto">
-          <table class="w-full caption-bottom text-sm">
-            <thead class="[&amp;_tr]:border-b">
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    Name
-                </th>
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    Date of Birth 
-                </th>
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    Active 
-                </th>
-                <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    Actions 
-                </th>
-              </tr>
-            </thead>
-            <tbody class="[&amp;_tr:last-child]:border-0">
-            for _, student := range students.Students {
-              <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    {student.FirstName} {student.LastName}
-                </td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    {student.DateOfBirth.Format("2006-01-02")}
-                </td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                if student.Active {
-                    <span class="text-green-500">Active</span>
-                } else {
-                    <span class="text-red-500">Inactive</span>
-                }
-                </td>
-                <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
-                    @components.PrimaryButton("View", templ.Attributes{"hx-get": fmt.Sprintf("/admin/student/%v", student.ID)})
-                </td>
-              </tr>
-            }
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="flex w-full min-w-0 items-center justify-between text-sm">
-        <div class="flex items-center gap-2">
-          @components.ItemCounter(pagination)
-        </div>
-      </div>
-    </div>
+   <div class="flex items-center justify-between p-4 border-b bg-gray-100">
+     <h1 class="text-lg font-medium">
+         Students
+         <span class="pl-3">
+             @components.PrimaryButton("Add Student", templ.Attributes{"hx-get": "/admin/student/create"})
+         </span>
+     </h1>
+   </div>
+   <div class="flex flex-col gap-2">
+     <div class="relative w-full overflow-auto">
+       <table class="w-full caption-bottom text-sm">
+         <thead class="[&amp;_tr]:border-b">
+           <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+             <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 Name
+             </th>
+             <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 Date of Birth 
+             </th>
+             <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 Active 
+             </th>
+             <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 Actions 
+             </th>
+           </tr>
+         </thead>
+         <tbody class="[&amp;_tr:last-child]:border-0">
+         for _, student := range students.Students {
+           <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+             <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 {student.FirstName} {student.LastName}
+             </td>
+             <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 {student.DateOfBirth.Format("2006-01-02")}
+             </td>
+             <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+             if student.Active {
+                 <span class="text-green-500">Active</span>
+             } else {
+                 <span class="text-red-500">Inactive</span>
+             }
+             </td>
+             <td class="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0 text-sm">
+                 @components.PrimaryButton("View", templ.Attributes{"hx-get": fmt.Sprintf("/admin/student/%v", student.ID)})
+             </td>
+           </tr>
+         }
+         </tbody>
+       </table>
+     </div>
+   </div>
+   <div class="flex w-full min-w-0 items-center justify-between text-sm">
+     <div class="flex items-center gap-2 p-3">
+       @components.ItemCounter(pagination)
+     </div>
+   </div>
 }

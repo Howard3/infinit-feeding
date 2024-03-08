@@ -13,7 +13,10 @@ templ FullLayout(main templ.Component) {
     <body>
         <div class="flex flex-col min-h-screen">
             @header()
-            <div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">@main</div>
+
+            <div class="flex flex-col w-full border rounded-lg shadow mx-auto container mt-3">
+                <div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">@main</div>
+            </div>
         </div>
     </body>
     </html>
@@ -26,10 +29,11 @@ templ HTMXLayout(main templ.Component) {
 templ header() {
   <header class="border-b">
     <div class="container flex items-center justify-between h-14 px-4 mx-auto sm:px-6">
-      <div class="flex items-center space-x-4">
-        <h1 class="text-lg font-semibold">Infinit Feeding</h1>
-        <div hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
-           <a hx-get="/admin" class="cursor-pointer">Admin</a> 
+      <div class="flex items-center space-x-4" hx-target="#content" hx-swap="innerHTML" hx-push-url="true" c>
+        <h1 class="text-lg font-semibold cursor-pointer" hx-get="/">Infinit Feeding</h1>
+        <div lass="flex gap-3">
+           <a hx-get="/admin" class="cursor-pointer hover:underline">Admin</a> 
+           <a hx-get="/feeding" class="cursor-pointer hover:underline">Feeding</a> 
         </div>
       </div>
       <div class="flex items-center space-x-4">
