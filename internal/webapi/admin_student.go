@@ -2,7 +2,6 @@ package webapi
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"geevly/gen/go/eda"
@@ -256,14 +255,14 @@ func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// generate a new code
-	code := make([]byte, 10)
-	if _, err := rand.Read(code); err != nil {
+	code, err := generateRandomBytes(10)
+	if err != nil {
 		s.errorPage(w, r, "Error generating code", err)
 		return
 	}
 
 	// TODO: retry on fail
-	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetLookupCode{
+	_, err = s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetLookupCode{
 		CodeUniqueId: code,
 		Version:      ver,
 	})

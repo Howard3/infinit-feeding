@@ -1,230 +1,229 @@
 package studenttempl 
 
 import (
-    "geevly/gen/go/eda"
-    "fmt"
+	"geevly/gen/go/eda"
+	"fmt"
 	"github.com/Howard3/gosignal"
-    "geevly/internal/student"
-    "geevly/internal/webapi/templates/components"
-    "encoding/base64"
+	"geevly/internal/student"
+	"geevly/internal/webapi/templates/components"
+	"encoding/base64"
 )
 
 type ViewParams struct {
-    ID uint64 
-    Student *eda.Student
-    Version uint64
-    SchoolMap map[string]string
+	ID        uint64
+	Student   *eda.Student
+	Version   uint64
+	SchoolMap map[string]string
 }
 
 func base64Encode(b []byte) string {
-    return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
+	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
 }
 
 templ AdminViewStudent(params ViewParams) {
-  @backToList()
-  <div class="grid gap-6 md:grid-cols-2 m-3">
-    <div class="space-y-4">
-        <form>
-          // Embed Personal Info Section
-          @StudentPersonalInfoSection(params.Student, params.Version)
-    
-          // Embed Action Buttons Section
-          @actionButtonsSection(params.ID, params.Student.Status, params.Version)
-        </form>
-
-      // Embed School Enrollment Section
-      @schoolEnrollmentSection(params)
-    </div>
-
-    <div class="flex flex-col">
-        <div>
-            @codeSection(params) 
-        </div>
-        // Embed History Section
-        <div hx-push-url="false" hx-trigger="load" hx-get={fmt.Sprintf("/admin/student/%d/history", params.ID)} hx-target="this">
-            Loading...
-        </div>
-    </div>
-  </div>
+	@backToList()
+	<div class="grid gap-6 md:grid-cols-2 m-3">
+		<div class="space-y-4">
+			<form>
+				// Embed Personal Info Section
+				@StudentPersonalInfoSection(params.Student, params.Version)
+				// Embed Action Buttons Section
+				@actionButtonsSection(params.ID, params.Student.Status, params.Version)
+			</form>
+			// Embed School Enrollment Section
+			@schoolEnrollmentSection(params)
+		</div>
+		<div class="flex flex-col">
+			<div>
+				@codeSection(params)
+			</div>
+			// Embed History Section
+			<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/student/%d/history", params.ID) } hx-target="this">
+				Loading...
+			</div>
+		</div>
+	</div>
 }
 
-func toggleStatusURL(id uint64, ver uint64, status eda.Student_Status) (string) {
-  active := status == eda.Student_ACTIVE
-  return fmt.Sprintf("/admin/student/%d/toggleStatus?ver=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
+func toggleStatusURL(id uint64, ver uint64, status eda.Student_Status) string {
+	active := status == eda.Student_ACTIVE
+	return fmt.Sprintf("/admin/student/%d/toggleStatus?ver=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
 }
-
 
 templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
-  <div class="space-y-4" id="personal-info">
-      @components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
-      @components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
-      @components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
-      @components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
-      <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
-      @components.TomSelect(components.SelectConfig{
-          Options: map[string]string{
-            eda.Student_MALE.String(): "Male",
-            eda.Student_FEMALE.String(): "Female",
-          }, 
-          MaxItems: 1,
-          Name: "sex",
-          Placeholder: "Select a sex",
-          Value:student.Sex.Enum().String(),
-        })
-      @components.HiddenField("version", fmt.Sprintf("%d", ver))
-  </div>
+	<div class="space-y-4" id="personal-info">
+		@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
+		@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
+		@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+		@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
+		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
+		@components.TomSelect(components.SelectConfig{
+			Options: map[string]string{
+				eda.Student_MALE.String():   "Male",
+				eda.Student_FEMALE.String(): "Female",
+			},
+			MaxItems:    1,
+			Name:        "sex",
+			Placeholder: "Select a sex",
+			Value:       student.Sex.Enum().String(),
+		})
+		@components.HiddenField("version", fmt.Sprintf("%d", ver))
+	</div>
 }
 
 templ actionButtonsSection(id uint64, status eda.Student_Status, ver uint64) {
-  <div class="flex items-center justify-between mt-4">
-    <div class="flex items-center space-x-2" hx-params="none">
-    if status == eda.Student_ACTIVE {
-       <span class="text-sm font-medium text-green-500">Active</span> 
-    } else {
-        <span class="text-sm font-medium text-red-500">Inactive</span>
-    }
-      <a
-      hx-put={toggleStatusURL(id, ver, status)} 
-      class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">Toggle status</a>
-      @components.HiddenField("version", fmt.Sprintf("%d", ver))
-    </div>
-    @components.PrimaryButton("Update", templ.Attributes{
-        "hx-post": fmt.Sprintf("/admin/student/%d", id),
-        })
-  </div>
+	<div class="flex items-center justify-between mt-4">
+		<div class="flex items-center space-x-2" hx-params="none">
+			if status == eda.Student_ACTIVE {
+				<span class="text-sm font-medium text-green-500">Active</span>
+			} else {
+				<span class="text-sm font-medium text-red-500">Inactive</span>
+			}
+			<a
+				hx-put={ toggleStatusURL(id, ver, status) }
+				class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+			>Toggle status</a>
+			@components.HiddenField("version", fmt.Sprintf("%d", ver))
+		</div>
+		@components.PrimaryButton("Update", templ.Attributes{
+			"hx-post": fmt.Sprintf("/admin/student/%d", id),
+		})
+	</div>
 }
 
 templ schoolEnrollmentSection(params ViewParams) {
-  <div class="grid gap-2">
-    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
-    <form class="grid gap-2" hx-push-url="false">
-      @components.HiddenField("version", fmt.Sprintf("%d", params.Version))
-      @components.TomSelect(components.SelectConfig{
-          Options: params.SchoolMap, 
-          MaxItems: 1,
-          Name: "school_id",
-          Placeholder: "Select a school",
-          Value: params.Student.SchoolId,
-        })
-      @components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
-      <div class="grid gap-2">
-        @components.PrimaryButton("Enroll", templ.Attributes{
-            "hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
-        })
-        @components.Button("Unenroll", templ.Attributes{
-            "hx-delete": fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
-            "hx-confirm": "Are you sure you want to unenroll this student?",
-        })
-      </div>
-    </form>
-  </div>
+	<div class="grid gap-2">
+		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
+		<form class="grid gap-2" hx-push-url="false">
+			@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
+			@components.TomSelect(components.SelectConfig{
+				Options:     params.SchoolMap,
+				MaxItems:    1,
+				Name:        "school_id",
+				Placeholder: "Select a school",
+				Value:       params.Student.SchoolId,
+			})
+			@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
+			<div class="grid gap-2">
+				@components.PrimaryButton("Enroll", templ.Attributes{
+					"hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
+				})
+				@components.Button("Unenroll", templ.Attributes{
+					"hx-delete":  fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
+					"hx-confirm": "Are you sure you want to unenroll this student?",
+				})
+			</div>
+		</form>
+	</div>
 }
 
 func dateToFormDate(date *eda.Date) string {
-  if date == nil {
-    return ""
-  }
-  return fmt.Sprintf("%d-%02d-%02d", date.Year, date.Month, date.Day)
+	if date == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d-%02d-%02d", date.Year, date.Month, date.Day)
 }
 
 templ StudentHistorySection(evts []gosignal.Event) {
-// TODO: pagination
-  <div class="grid gap-2 pt-2">
-    <div class="rounded-lg border bg-card text-card-foreground shadow-sm" data-v0-t="card">
-      <div class="flex flex-col space-y-1.5 p-6">
-        <h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
-        History ({fmt.Sprintf("%d", len(evts))} events)
-        </h3>
-      </div>
-      <div class="p-0">
-        <div class="grid min-w-[400px] w-full divide-y">
-        for _, evt := range evts {
-          <div class="grid grid-cols-3 items-center p-3 bg-gray-100">
-            <div class="text-sm text-gray-500">
-            switch evt.Type {
-            case student.EVENT_ADD_STUDENT:
-                Student created 
-            case student.EVENT_UPDATE_STUDENT:
-                Student updated
-            case student.EVENT_SET_STUDENT_STATUS:
-                Student status changed
-            case student.EVENT_ENROLL_STUDENT:
-                Student enrolled
-            case student.EVENT_UNENROLL_STUDENT:
-                Student unenrolled
-            case student.EVENT_SET_LOOKUP_CODE:
-                QR Lookup code updated 
-            default:
-                Unknown event: {evt.Type}
-            }
-            </div>
-            <div class="text-sm text-gray-500 text-right">{evt.Timestamp.Format("2006-01-02 15:04")}</div>
-          </div>
-        }
-        </div>
-      </div>
-    </div>
-  </div>
+	// TODO: pagination
+	<div class="grid gap-2 pt-2">
+		<div class="rounded-lg border bg-card text-card-foreground shadow-sm" data-v0-t="card">
+			<div class="flex flex-col space-y-1.5 p-6">
+				<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
+					History ({ fmt.Sprintf("%d", len(evts)) } events)
+				</h3>
+			</div>
+			<div class="p-0">
+				<div class="grid min-w-[400px] w-full divide-y">
+					for _, evt := range evts {
+						<div class="grid grid-cols-3 items-center p-3 bg-gray-100">
+							<div class="text-sm text-gray-500">
+								switch evt.Type {
+									case student.EVENT_ADD_STUDENT:
+										Student created 
+									case student.EVENT_UPDATE_STUDENT:
+										Student updated
+									case student.EVENT_SET_STUDENT_STATUS:
+										Student status changed
+									case student.EVENT_ENROLL_STUDENT:
+										Student enrolled
+									case student.EVENT_UNENROLL_STUDENT:
+										Student unenrolled
+									case student.EVENT_SET_LOOKUP_CODE:
+										QR Lookup code updated 
+									default:
+										Unknown event: { evt.Type }
+								}
+							</div>
+							<div class="text-sm text-gray-500 text-right">{ evt.Timestamp.Format("2006-01-02 15:04") }</div>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
 }
 
-
 templ backToList() {
-    <div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100">
-      <a
-        class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
-        hx-get="/admin/student"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="h-4 w-4"
-        >
-          <path d="m12 19-7-7 7-7"></path>
-          <path d="M19 12H5"></path>
-        </svg>
-        Back to Students
-      </a>
-    </div>
+	<div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100">
+		<a
+			class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
+			hx-get="/admin/student"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="h-4 w-4"
+			>
+				<path d="m12 19-7-7 7-7"></path>
+				<path d="M19 12H5"></path>
+			</svg>
+			Back to Students
+		</a>
+	</div>
 }
 
 templ codeSection(p ViewParams) {
-    <div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" data-v0-t="card">
-      <div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
-        <div class="grid gap-1.5 w-1/2">
-          <h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">QR Code</h3>
-        </div>
-        <form class="flex items-center justify-end gap-2 w-1/2" hx-push-url="false">
-          @components.HiddenField("version", fmt.Sprintf("%d", p.Version))
-          <button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-            hx-post={fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID)}
-            hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
-            >
-            Regenerate
-          </button>
-        </form>
-      </div>
-      <div class="p-6 flex items-center justify-center">
-        <div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
-        if len(p.Student.CodeUniqueId) == 0  {
-          <div class="items-center justify-center p-3">
-            No code. Click "Generate" to create a new one.
-          </div>
-        } else {
-          <img src={fmt.Sprintf("/admin/student/QRCode?data=%s", base64Encode(p.Student.GetCodeUniqueId()))}
-          alt="QR Code"
-          class="w-full h-full" />
-          <div class="text-center w-full text-xs">
-            {fmt.Sprintf("%x", p.Student.GetCodeUniqueId())}
-          </div>
-        }
-        </div>
-      </div>
-    </div>
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" data-v0-t="card">
+		<div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
+			<div class="grid gap-1.5 w-1/2">
+				<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">QR Code</h3>
+			</div>
+			<form class="flex items-center justify-end gap-2 w-1/2" hx-push-url="false">
+				@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
+				<button
+					class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+					hx-post={ fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID) }
+					hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
+				>
+					Regenerate
+				</button>
+			</form>
+		</div>
+		<div class="p-6 flex items-center justify-center">
+			<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+				if len(p.Student.CodeUniqueId) == 0 {
+					<div class="items-center justify-center p-3">
+						No code. Click "Generate" to create a new one.
+					</div>
+				} else {
+					<img
+						src={ fmt.Sprintf("/admin/student/QRCode?data=%s", base64Encode(p.Student.GetCodeUniqueId())) }
+						alt="QR Code"
+						class="w-full h-full"
+					/>
+					<div class="text-center w-full text-xs">
+						{ fmt.Sprintf("%s", p.Student.GetCodeUniqueId()) }
+					</div>
+				}
+			</div>
+		</div>
+	</div>
 }

@@ -3,10 +3,10 @@ package schooltempl
 import "geevly/internal/webapi/templates/components"
 
 templ Create() {
-    @components.FormWrapper("Create School", "/admin/school/create", "/admin/school") {
-        @components.TextField("Name", "name", "Enter name", "")
-        @components.TextField("Principal", "principal", "Enter Principal name", "")
-        @components.TextField("Contact", "contact", "Enter contact name", "")
-        @components.SubmitButton("Create School")
-    }
+	@components.FormWrapper("Create School", "/admin/school/create", "/admin/school") {
+		@components.TextField("Name", "name", "Enter name", "")
+		@components.TextField("Principal", "principal", "Enter Principal name", "")
+		@components.TextField("Contact", "contact", "Enter contact name", "")
+		@components.SubmitButton("Create School")
+	}
 }

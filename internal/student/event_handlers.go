@@ -57,8 +57,6 @@ func (eh *eventHandlers) HandleGenerateCodeEvent(ctx context.Context, aggID uint
 		slog.Error("failed to insert student code", "error", err)
 		return
 	}
-
-	slog.Info("code inserted", "studentID", aggID, "code", code)
 }
 
 // routeEvent is a method that routes an event to the appropriate handler

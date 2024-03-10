@@ -247,9 +247,7 @@ func (r *sqlRepository) insertStudentCode(ctx context.Context, id uint64, code [
 		ON CONFLICT (id) DO UPDATE SET code = excluded.code;
 	`
 
-	hexCode := fmt.Sprintf("%x", code)
-
-	_, err := r.db.Exec(query, id, hexCode)
+	_, err := r.db.Exec(query, id, code)
 	if err != nil {
 		return fmt.Errorf("failed to insert student code: %w", err)
 	}

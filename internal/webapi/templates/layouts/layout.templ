@@ -1,51 +1,52 @@
 package layouts 
 
 templ FullLayout(main templ.Component) {
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Infinit Feeding</title>
-        <link rel="stylesheet" href="/static/output.css"/>
-        <link rel="stylesheet" href="/static/tom-select.css"/>
-        <script type="module" src="/static/htmx.min.js"></script>
-        <script type="module" src="/static/tom-select.complete.min.js"></script>
-    </head>
-    <body>
-        <div class="flex flex-col min-h-screen bg-gray-100">
-            @header()
-
-            <div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2">
-                <div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">@main</div>
-            </div>
-        </div>
-    </body>
-    </html>
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<title>Infinit Feeding</title>
+			<link rel="stylesheet" href="/static/output.css"/>
+			<link rel="stylesheet" href="/static/tom-select.css"/>
+			<script type="module" src="/static/htmx.min.js"></script>
+			<script type="module" src="/static/tom-select.complete.min.js"></script>
+		</head>
+		<body>
+			<div class="flex flex-col min-h-screen bg-gray-100">
+				@header()
+				<div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2">
+					<div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+						@main
+					</div>
+				</div>
+			</div>
+		</body>
+	</html>
 }
 
 templ HTMXLayout(main templ.Component) {
-    @main
+	@main
 }
 
 templ header() {
-  <header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
-      <div class="flex items-center h-14 px-4 border-b gap-4">
-      <a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
-        Infinit Feeding
-      </a>
-      <nav class="flex-1 grid grid-cols-4 justify-center">
-        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
-          Admin
-        </a>
-        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
-          Feeding
-        </a>
-        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/how-it-works">
-          How it works 
-        </a>
-        <a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
-          About Us
-        </a>
-      </nav>
-    </div>
-  </header>
+	<header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+		<div class="flex items-center h-14 px-4 border-b gap-4">
+			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
+				Infinit Feeding
+			</a>
+			<nav class="flex-1 grid grid-cols-4 justify-center">
+				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
+					Admin
+				</a>
+				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
+					Feeding
+				</a>
+				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/how-it-works">
+					How it works 
+				</a>
+				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
+					About Us
+				</a>
+			</nav>
+		</div>
+	</header>
 }

@@ -1,10 +1,10 @@
 package layouts 
 
 templ HTMXRedirect(to string, message string) {
-    <div hx-get={to} hx-target="#content" hx-swap="innerHTML" hx-trigger="load">
-        <div class="alert alert-info">
-            {message}
-        </div>
-        Redirecting...
-    </div>
+	<div hx-get={ to } hx-target="#content" hx-swap="innerHTML" hx-trigger="load">
+		<div class="alert alert-info">
+			{ message }
+		</div>
+		Redirecting...
+	</div>
 }

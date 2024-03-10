@@ -1,89 +1,91 @@
 package components 
 
 import (
-    "fmt"
+	"fmt"
 )
 
 // NewPagination creates a new Pagination struct for templates to render
 func NewPagination(page, limit, count uint) Pagination {
-    return Pagination{
-        page:  page,
-        limit: limit,
-        count: count,
-    }
+	return Pagination{
+		page:  page,
+		limit: limit,
+		count: count,
+	}
 }
 
 type Pagination struct {
 	page  uint
 	limit uint
 	count uint
-    URL  string
+	URL   string
 }
 
 // From
 func (p *Pagination) from() uint {
-	return (p.page - 1) * p.limit + 1
+	return (p.page-1)*p.limit + 1
 }
 
 // To
 func (p *Pagination) to() uint {
 	limit := p.page * p.limit
-    if limit > p.count {
-        return p.count
-    }
-    return limit
+	if limit > p.count {
+		return p.count
+	}
+	return limit
 }
 
 func (p *Pagination) genURLForPage(page uint) string {
-    return fmt.Sprintf("%s?page=%d&limit=%d", p.URL, page, p.limit)
+	return fmt.Sprintf("%s?page=%d&limit=%d", p.URL, page, p.limit)
 }
 
 func formatPagination(p Pagination) string {
-    return fmt.Sprintf("%d-%d of %d", p.from(), p.to(), p.count)
+	return fmt.Sprintf("%d-%d of %d", p.from(), p.to(), p.count)
 }
 
 templ ItemCounter(pagination Pagination) {
-    <span class="font-medium">{ formatPagination(pagination) }</span>
-    if pagination.page > 1 {
-        <button 
-         hx-get={pagination.genURLForPage(pagination.page - 1)}
-         class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-4 w-4"
-          >
-            <path d="m15 18-6-6 6-6"></path>
-          </svg>
-          <span class="sr-only">Go to previous page</span>
-        </button>
-    }
-    if pagination.count > pagination.to() {
-        <button 
-        hx-get={pagination.genURLForPage(pagination.page + 1)}
-        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-4 w-4"
-          >
-            <path d="m9 18 6-6-6-6"></path>
-          </svg>
-          <span class="sr-only">Go to next page</span>
-        </button>
-    }
+	<span class="font-medium">{ formatPagination(pagination) }</span>
+	if pagination.page > 1 {
+		<button
+			hx-get={ pagination.genURLForPage(pagination.page - 1) }
+			class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="h-4 w-4"
+			>
+				<path d="m15 18-6-6 6-6"></path>
+			</svg>
+			<span class="sr-only">Go to previous page</span>
+		</button>
+	}
+	if pagination.count > pagination.to() {
+		<button
+			hx-get={ pagination.genURLForPage(pagination.page + 1) }
+			class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="h-4 w-4"
+			>
+				<path d="m9 18 6-6-6-6"></path>
+			</svg>
+			<span class="sr-only">Go to next page</span>
+		</button>
+	}
 }
