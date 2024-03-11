@@ -1,6 +1,7 @@
 package feeding
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -30,6 +31,8 @@ func GetQRCode(in []byte) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Join(ErrNoQRCode, err)
 	}
+
+	output = bytes.TrimSpace(output)
 
 	return output, nil
 }

@@ -32,7 +32,7 @@ type Repository interface {
 	GetNewID(ctx context.Context) (uint64, error)
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
 	insertStudentCode(ctx context.Context, id uint64, code []byte) error
-	getStudentIDByCode(ctx context.Context, code []byte) (string, error)
+	getStudentIDByCode(ctx context.Context, code []byte) (uint64, error)
 }
 
 type ProjectedStudent struct {
@@ -256,13 +256,12 @@ func (r *sqlRepository) insertStudentCode(ctx context.Context, id uint64, code [
 }
 
 // getStudentIDByCode - returns the student ID by the given code
-func (r *sqlRepository) getStudentIDByCode(ctx context.Context, code []byte) (string, error) {
+func (r *sqlRepository) getStudentIDByCode(ctx context.Context, code []byte) (uint64, error) {
 	query := `SELECT id FROM student_code_lookup WHERE code = ?`
-	var id string
-	hexCode := fmt.Sprintf("%x", code)
+	var id uint64
 
-	if err := r.db.QueryRow(query, hexCode).Scan(&id); err != nil {
-		return "", fmt.Errorf("failed to get student ID by code: %w", err)
+	if err := r.db.QueryRow(query, code).Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to get student ID by code: %w", err)
 	}
 
 	return id, nil

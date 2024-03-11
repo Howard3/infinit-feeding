@@ -271,3 +271,22 @@ func (sd Aggregate) String() string {
 func (sd Aggregate) GetStudent() *eda.Student {
 	return sd.data
 }
+
+// GetFullName returns the student's full nam
+func (sd Aggregate) GetFullName() string {
+	return fmt.Sprintf("%s %s", sd.data.FirstName, sd.data.LastName)
+}
+
+// IsActive returns the active state of the student
+func (sd Aggregate) IsActive() bool {
+	return sd.data.Status == eda.Student_ACTIVE
+}
+
+// GetLastFeeding returns the last feeding event
+func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding {
+	if sd.data.FeedingReport == nil {
+		return nil
+	}
+
+	return sd.data.FeedingReport[len(sd.data.FeedingReport)-1]
+}

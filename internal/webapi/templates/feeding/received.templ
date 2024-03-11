@@ -1,5 +1,49 @@
 package feedingtempl
 
-templ Received(code string) {
-	{ code }
+import (
+	"geevly/internal/student"
+	"geevly/internal/webapi/templates/components"
+	"time"
+	"fmt"
+)
+
+templ Received(student *student.Aggregate) {
+	<div class="max-w-64 mx-auto" data-v0-t="card">
+		<div class="flex flex-col space-y-1.5 p-6">
+			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">Student Information</h3>
+			<p class="text-sm text-muted-foreground">Confirm the student below</p>
+		</div>
+		<div class="p-6 flex flex-col gap-4 items-center">
+			<div class="rounded-full overflow-hidden border-4 border-white">
+				// TODO: Replace with actual avatar
+				<img
+					src="/placeholder.svg"
+					class="rounded-full"
+					style="aspect-ratio: 150 / 150; object-fit: cover;"
+					width="150"
+					height="150"
+				/>
+			</div>
+			<div class="grid gap-1 text-sm text-center">
+				<div class="font-semibold">{ student.GetFullName() }</div>
+				<div class="text-sm text-gray-500 dark:text-gray-400">Student ID: { student.GetStudent().SchoolId }</div>
+			</div>
+			<div class="grid gap-2">
+				// TODO: Replace with actual student information
+				<div class="font-semibold">Last Feeding:</div>
+				<div>
+					if student.GetLastFeeding() != nil {
+						{ time.Unix(int64(student.GetLastFeeding().UnixTimestamp),0).Format("Mon, 02 Jan 2006 15:04:05 MST") }
+					} else {
+						<span class="text-gray-500 dark:text-gray-400">No feeding recorded</span>
+					}
+				</div>
+			</div>
+			<div className="grid gap-2">
+				<div className="font-semibold">Record Feeding:</div>
+				@components.PrimaryButton("Record Feeding", templ.Attributes{"hx-post": "/feeding/confirm"})
+			</div>
+		</div>
+		@components.HiddenField("version", fmt.Sprintf("%d", student.GetVersion()))
+	</div>
 }

@@ -17,7 +17,7 @@ message Student {
     Sex sex = 12;
 
     repeated HealthReport health_reports = 10;
-    repeated Feeding feedings = 11;
+    repeated Feeding feeding_report = 11;
 
     enum Status {
         UNKNOWN_STATUS = 0;
@@ -36,10 +36,10 @@ message Student {
     //
     // Feeding records a student's feeding
     message Feeding {
-        Date date = 1;
+        uint64 unix_timestamp = 1;
 
         message Event {
-            Date date = 1;
+            uint64 unix_timestamp = 1;
         }
     }
 

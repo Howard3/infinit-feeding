@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"fmt"
 	"geevly/internal/webapi/feeding"
 	feedingtempl "geevly/internal/webapi/templates/feeding"
 	"io"
@@ -40,6 +41,17 @@ func (s *Server) feedingUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderTempl(w, r, feedingtempl.Received(string(code)))
+	student, err := s.StudentSvc.GetStudentByCode(r.Context(), code)
+	if err != nil {
+		s.errorPage(w, r, "Error getting student", fmt.Errorf("error getting student by code %q: %w", code, err))
+		return
+	}
+
+	if !student.IsActive() {
+		s.errorPage(w, r, "Student is not active", fmt.Errorf("student %q is not active", student.ID))
+		return
+	}
+
+	s.renderTempl(w, r, feedingtempl.Received(student))
 
 }

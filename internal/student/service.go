@@ -133,3 +133,13 @@ func (s *StudentService) GetStudent(ctx context.Context, studentID uint64) (*Agg
 func (s *StudentService) GetHistory(ctx context.Context, studentID uint64) ([]gosignal.Event, error) {
 	return s.repo.getEventHistory(ctx, studentID)
 }
+
+// GetStudentByCode returns a student by a lookup code
+func (s *StudentService) GetStudentByCode(ctx context.Context, code []byte) (*Aggregate, error) {
+	id, err := s.repo.getStudentIDByCode(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get student ID by code: %w", err)
+	}
+
+	return s.GetStudent(ctx, id)
+}

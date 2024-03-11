@@ -202,3 +202,8 @@ func (u *User) SetActiveState(cmd *eda.User_SetActiveState) (*gosignal.Event, er
 
 	return u.ApplyEvent(UserEvent{eventType: EventSetActiveState, data: evt, version: cmd.Version})
 }
+
+// IsActive returns the active state of the user
+func (u *User) IsActive() bool {
+	return u.data.Active
+}

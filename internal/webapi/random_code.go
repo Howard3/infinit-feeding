@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 )
 
-const randomRuneCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
+const randomRuneCharset = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ1234567890"
 
 func generateRandomBytes(count int) ([]byte, error) {
 	result := make([]byte, count)
