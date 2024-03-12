@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"geevly/internal/file"
 	"geevly/internal/school"
 	"geevly/internal/student"
 	"geevly/internal/user"
@@ -27,6 +28,7 @@ type Server struct {
 	StudentSvc    *student.StudentService
 	SchoolSvc     *school.Service
 	UserSvc       *user.Service
+	FileSvc       *file.Service
 }
 
 func (s *Server) verifyConfig() {

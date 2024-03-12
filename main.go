@@ -8,6 +8,7 @@ import (
 	"github.com/Howard3/gosignal/drivers/queue"
 	_ "github.com/mattn/go-sqlite3"
 
+	"geevly/internal/file"
 	"geevly/internal/infrastructure"
 	"geevly/internal/school"
 	"geevly/internal/student"
@@ -23,7 +24,8 @@ func getStaticFS() fs.FS {
 func main() {
 	ctx := context.Background()
 
-	mq := queue.MemoryQueue{}
+	mq := queue.MemoryQueue{} // TODO: swap to nats
+	s3 := infrastructure.S3Storage{}
 
 	// configure a sqlite connection
 	studentConn := infrastructure.SQLConnection{
@@ -41,8 +43,16 @@ func main() {
 		URI:  "./user.db",
 	}
 
+	fileConn := infrastructure.SQLConnection{
+		Type: "sqlite3",
+		URI:  "./file.db",
+	}
+
 	userRepo := user.NewRepository(userConn, &mq)
 	userService := user.NewService(userRepo)
+
+	fileRepo := file.NewRepository(fileConn, &mq)
+	fileService := file.NewService(fileRepo, s3)
 
 	schoolRepo := school.NewRepository(schoolConn, &mq)
 	schoolService := school.NewService(schoolRepo)
@@ -58,6 +68,7 @@ func main() {
 		StudentSvc: studentService,
 		SchoolSvc:  schoolService,
 		UserSvc:    userService,
+		FileSvc:    fileService,
 	}
 	server.Start(ctx)
 }

@@ -26,7 +26,7 @@ templ Received(student *student.Aggregate) {
 			</div>
 			<div class="grid gap-1 text-sm text-center">
 				<div class="font-semibold">{ student.GetFullName() }</div>
-				<div class="text-sm text-gray-500 dark:text-gray-400">Student ID: { student.GetStudent().SchoolId }</div>
+				<div class="text-sm text-gray-500 dark:text-gray-400">Student ID: { student.GetStudent().StudentSchoolId }</div>
 			</div>
 			<div class="grid gap-2">
 				// TODO: Replace with actual student information
@@ -39,7 +39,7 @@ templ Received(student *student.Aggregate) {
 					}
 				</div>
 			</div>
-			<div className="grid gap-2">
+			<div className="grid gap-2" hx-confirm="Are you sure you want to record feeding?">
 				<div className="font-semibold">Record Feeding:</div>
 				@components.PrimaryButton("Record Feeding", templ.Attributes{"hx-post": "/feeding/confirm"})
 			</div>

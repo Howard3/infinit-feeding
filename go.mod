@@ -12,6 +12,7 @@ require (
 	github.com/Howard3/valueextractor v1.1.2
 	github.com/a-h/templ v0.2.543
 	github.com/go-chi/chi/v5 v5.0.12
+	github.com/oklog/ulid/v2 v2.1.0
 	github.com/pressly/goose/v3 v3.18.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 )
