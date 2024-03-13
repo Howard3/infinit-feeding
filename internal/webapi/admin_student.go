@@ -114,10 +114,9 @@ func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) 
 func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 	ex := vex.Using(&vex.FormExtractor{Request: r}, vex.WithOptionalKeys("student_school_id"))
 	student := eda.Student_Create{
-		FirstName:       *vex.ReturnString(ex, "first_name"),
-		LastName:        *vex.ReturnString(ex, "last_name"),
-		DateOfBirth:     ReturnProtoDate(ex, "date_of_birth"),
-		StudentSchoolId: *vex.ReturnString(ex, "student_school_id"),
+		FirstName:   *vex.ReturnString(ex, "first_name"),
+		LastName:    *vex.ReturnString(ex, "last_name"),
+		DateOfBirth: ReturnProtoDate(ex, "date_of_birth"),
 	}
 
 	if err := ex.Errors(); err != nil {
@@ -349,4 +348,6 @@ func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request)
 		s.errorPage(w, r, "Error setting profile photo", err)
 		return
 	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Profile photo updated"))
 }
