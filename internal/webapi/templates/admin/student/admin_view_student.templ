@@ -152,6 +152,8 @@ templ StudentHistorySection(evts []gosignal.Event) {
 										Student unenrolled
 									case student.EVENT_SET_LOOKUP_CODE:
 										QR Lookup code updated 
+									case student.EVENT_SET_PROFILE_PHOTO:
+										Profile photo updated
 									default:
 										Unknown event: { evt.Type }
 								}
@@ -244,7 +246,7 @@ templ profilePhoto(p ViewParams) {
 						No photo
 					</div>
 				} else {
-					<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-full h-full"/>
+					<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-max-full h-max-full my-auto align-middle"/>
 				}
 			</div>
 		</div>

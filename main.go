@@ -37,38 +37,23 @@ func main() {
 	}
 
 	// configure a sqlite connection
-	studentConn := infrastructure.SQLConnection{
+	db := infrastructure.SQLConnection{
 		Type: "sqlite3",
-		URI:  "./student.db",
+		URI:  "./feeding.db",
 	}
 
-	schoolConn := infrastructure.SQLConnection{
-		Type: "sqlite3",
-		URI:  "./school.db",
-	}
-
-	userConn := infrastructure.SQLConnection{
-		Type: "sqlite3",
-		URI:  "./user.db",
-	}
-
-	fileConn := infrastructure.SQLConnection{
-		Type: "sqlite3",
-		URI:  "./file.db",
-	}
-
-	userRepo := user.NewRepository(userConn, &mq)
+	userRepo := user.NewRepository(db, &mq)
 	userService := user.NewService(userRepo)
 
-	fileRepo := file.NewRepository(fileConn, &mq)
+	fileRepo := file.NewRepository(db, &mq)
 	fileService := file.NewService(fileRepo, &s3)
 
-	schoolRepo := school.NewRepository(schoolConn, &mq)
+	schoolRepo := school.NewRepository(db, &mq)
 	schoolService := school.NewService(schoolRepo)
 
 	studentACL := webapi.NewAclStudents(schoolService, fileService)
 
-	studentRepo := student.NewRepository(studentConn, &mq)
+	studentRepo := student.NewRepository(db, &mq)
 	studentService := student.NewStudentService(studentRepo, studentACL)
 
 	// TODO: load config from env, put here.

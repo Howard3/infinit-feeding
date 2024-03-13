@@ -153,7 +153,7 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 
 	repo := &sqlRepository{db: db}
 
-	if err := infrastructure.MigrateSQLDatabase(string(conn.Type), db, migrations); err != nil {
+	if err := infrastructure.MigrateSQLDatabase(`user`, string(conn.Type), db, migrations); err != nil {
 		panic(fmt.Errorf("failed to migrate database: %w", err))
 	}
 
