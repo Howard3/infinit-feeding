@@ -41,6 +41,7 @@ message File {
         string id = 1;
         events.metadata.Metadata metadata = 2;
         uint64 version = 3;
+        string domain_reference = 4; // Reference to the domain or context this file belongs to
 
         message Event {
             events.metadata.Metadata metadata = 1;

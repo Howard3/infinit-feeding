@@ -20,9 +20,9 @@ var ErrFileDomainReferenceNotDefined = errors.New("file domain reference not def
 var ErrFailedToStoreFile = errors.New("failed to store file")
 
 type Storage interface {
-	StoreFile(ctx context.Context, domainReference, id string, fileData []byte) error
-	RetrieveFile(ctx context.Context, fileId string) ([]byte, error)
-	DeleteFile(ctx context.Context, fileId string) error
+	StoreFile(ctx context.Context, domainReference, fileID string, fileData []byte) error
+	RetrieveFile(ctx context.Context, domainReference, fileID string) ([]byte, error)
+	DeleteFile(ctx context.Context, domainReference, fileID string) error
 }
 
 type Service struct {
@@ -40,19 +40,19 @@ func NewService(repo Repository, storage Storage) *Service {
 }
 
 // CreateFile handles the creation of a new file, storing it, and creating an event
-func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.File) (*eda.File, error) {
+func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.File) (string, error) {
 	id := ulid.Make()
 
 	if file == nil {
-		return nil, ErrNoFileData
+		return "", ErrNoFileData
 	}
 
 	if file.DomainReference == "" {
-		return nil, ErrFileDomainReferenceNotDefined
+		return "", ErrFileDomainReferenceNotDefined
 	}
 
 	if err := s.storage.StoreFile(ctx, file.DomainReference, id.String(), fileData); err != nil {
-		return nil, errors.Join(ErrFailedToStoreFile, err)
+		return "", errors.Join(ErrFailedToStoreFile, err)
 	}
 
 	agg := &Aggregate{}
@@ -60,14 +60,14 @@ func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.Fil
 
 	evt, err := agg.CreateFile(file)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	if err := s.repo.saveEvent(ctx, evt); err != nil {
-		return nil, fmt.Errorf("failed to save event: %w", err)
+		return "", fmt.Errorf("failed to save event: %w", err)
 	}
 
-	return file, nil
+	return id.String(), nil
 }
 
 // DeleteFile invokes the aggregate to delete the file and removes it from storage
@@ -79,7 +79,7 @@ func (s *Service) DeleteFile(ctx context.Context, cmd *eda.File_Delete) error {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
 
-	if err := s.storage.DeleteFile(ctx, cmd.Id); err != nil {
+	if err := s.storage.DeleteFile(ctx, cmd.DomainReference, cmd.Id); err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
 

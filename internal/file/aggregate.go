@@ -113,7 +113,7 @@ func (a *Aggregate) CreateFile(cmd *eda.File) (*gosignal.Event, error) {
 			Metadata:        cmd.Metadata,
 			CreatedAt:       cmd.CreatedAt,
 		},
-		version: 1,
+		version: 0,
 	})
 }
 

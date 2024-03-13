@@ -15,6 +15,7 @@ message Student {
     bytes code_unique_id = 8; // used for qr code lookup
     string student_school_id = 9; // this is the id of the student that was issued by the school.
     Sex sex = 12;
+    string profile_photo_id = 13;
 
     repeated HealthReport health_reports = 10;
     repeated Feeding feeding_report = 11;
@@ -138,6 +139,18 @@ message Student {
         message Event {
             bytes code_unique_id = 1;
             events.metadata.Metadata metadata = 2;
+        }
+    }
+
+    message SetProfilePhoto {
+        string file_id = 1;
+        uint64 version = 2;
+        events.metadata.Metadata metadata = 3;
+
+        message Event {
+            string file_id = 1;
+            uint64 version = 2;
+            events.metadata.Metadata metadata = 3;
         }
     }
 }

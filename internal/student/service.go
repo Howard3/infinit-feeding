@@ -52,6 +52,8 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 			return agg.UpdateStudent(cmd)
 		case *eda.Student_SetStatus:
 			return agg.SetStatus(cmd)
+		case *eda.Student_SetProfilePhoto:
+			return agg.SetProfilePhoto(cmd)
 		default:
 			return nil, fmt.Errorf("unknown command type: %T", cmd)
 		}

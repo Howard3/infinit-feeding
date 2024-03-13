@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"geevly/gen/go/eda"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -32,6 +33,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 		r.Get(`/{ID:(^\d+)}/history`, s.adminStudentHistory)
 		r.Put(`/{ID:(^\d+)}/toggleStatus`, s.toggleStudentStatus)
 		r.Post(`/{ID:(^\d+)}/enroll`, s.adminEnrollStudent)
+		r.Post(`/{ID:(^\d+)}/profilePhoto`, s.adminUploadProfilePhoto)
 		r.Delete(`/{ID:(^\d+)}/enrollment`, s.adminUnenrollStudent)
 		r.Post(`/{ID:(^\d+)}/regenerateCode`, s.adminRegenerateCode)
 	})
@@ -301,5 +303,50 @@ func (s *Server) adminQRCode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	if _, err := w.Write(png); err != nil {
 		s.errorPage(w, r, "Error writing QR code", err)
+	}
+}
+
+func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request) {
+	studentID := s.getStudentIDFromContext(r.Context())
+
+	r.ParseMultipartForm(10 << 20) // 10 MB
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		s.errorPage(w, r, "Error parsing file", err)
+		return
+	}
+	defer file.Close()
+
+	// read "version" from the form
+	ver, err := strconv.ParseUint(r.FormValue("version"), 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Error parsing version", err)
+		return
+	}
+
+	// read all the file content
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.errorPage(w, r, "Error reading file", err)
+		return
+	}
+
+	fileID, err := s.FileSvc.CreateFile(r.Context(), fileBytes, &eda.File{
+		DomainReference: `students`,
+	})
+
+	if err != nil {
+		s.errorPage(w, r, "Error saving file", err)
+		return
+	}
+
+	_, err = s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetProfilePhoto{
+		FileId:  fileID,
+		Version: ver,
+	})
+
+	if err != nil {
+		s.errorPage(w, r, "Error setting profile photo", err)
+		return
 	}
 }

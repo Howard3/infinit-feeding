@@ -34,7 +34,8 @@ templ AdminViewStudent(params ViewParams) {
 			@schoolEnrollmentSection(params)
 		</div>
 		<div class="flex flex-col">
-			<div>
+			<div class="flex flex-row gap-3">
+				@profilePhoto(params)
 				@codeSection(params)
 			</div>
 			// Embed History Section
@@ -196,16 +197,6 @@ templ codeSection(p ViewParams) {
 			<div class="grid gap-1.5 w-1/2">
 				<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">QR Code</h3>
 			</div>
-			<form class="flex items-center justify-end gap-2 w-1/2" hx-push-url="false">
-				@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
-				<button
-					class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-					hx-post={ fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID) }
-					hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
-				>
-					Regenerate
-				</button>
-			</form>
 		</div>
 		<div class="p-6 flex items-center justify-center">
 			<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
@@ -225,5 +216,45 @@ templ codeSection(p ViewParams) {
 				}
 			</div>
 		</div>
+		<form class="flex items-center justify-center gap-2 w-full" hx-push-url="false">
+			@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
+			<button
+				class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+				hx-post={ fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID) }
+				hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
+			>
+				Regenerate
+			</button>
+		</form>
 	</div>
+}
+
+templ profilePhoto(p ViewParams) {
+	<form class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" hx-encoding="multipart/form-data" hx-push-url="false">
+		@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
+		<div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
+			<div class="grid gap-1.5 w-1/2">
+				<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">Profile Photo</h3>
+			</div>
+		</div>
+		<div class="p-6 flex items-center justify-center">
+			<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+				if p.Student.ProfilePhotoId == "" {
+					<div class="items-center justify-center p-3">
+						No photo
+					</div>
+				}
+			</div>
+		</div>
+		<div class="flex justify-center items-center mb-3">
+			<label class="cursor-pointer flex justify-center items-center border border-gray-300 rounded-md py-2 px-4 text-sm transition-colors hover:bg-gray-50 ">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-2">
+					<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+					<circle cx="12" cy="13" r="3"></circle>
+				</svg>
+				Choose File
+				<input class="sr-only" id="photo" type="file" name="file" hx-post={ fmt.Sprintf(`/admin/student/%d/profilePhoto`, p.ID) } hx-trigger="change"/>
+			</label>
+		</div>
+	</form>
 }
