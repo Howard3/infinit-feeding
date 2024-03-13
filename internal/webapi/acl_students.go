@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"geevly/internal/file"
 	"geevly/internal/school"
 	"strconv"
 )
@@ -13,6 +14,7 @@ var ErrSchoolIDInvalid = fmt.Errorf("error validating school")
 
 type AclStudents struct {
 	schoolSvc *school.Service
+	fileSvc   *file.Service
 }
 
 // ValidateSchoolID validates a school ID, returns an error if the school ID is invalid
@@ -25,9 +27,15 @@ func (as AclStudents) ValidateSchoolID(ctx context.Context, schoolID string) err
 	return as.schoolSvc.ValidateSchoolID(ctx, id)
 }
 
+// ValidatePhotoID validates a photo from the file domain
+func (as AclStudents) ValidatePhotoID(ctx context.Context, photoID string) error {
+	return as.fileSvc.ValidateFileID(ctx, photoID)
+} // don't run in goroutine, it's likely needed immediately after via "ValidateFileID"
+
 // NewAclStudents creates a new AclStudents instance
-func NewAclStudents(schoolSvc *school.Service) AclStudents {
+func NewAclStudents(schoolSvc *school.Service, fileSvc *file.Service) AclStudents {
 	return AclStudents{
 		schoolSvc: schoolSvc,
+		fileSvc:   fileSvc,
 	}
 }

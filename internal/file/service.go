@@ -67,6 +67,9 @@ func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.Fil
 		return "", fmt.Errorf("failed to save event: %w", err)
 	}
 
+	// don't run in goroutine, it's likely needed immediately after via "ValidateFileID"
+	s.eventHandlers.routeEvent(ctx, evt)
+
 	return id.String(), nil
 }
 
@@ -88,6 +91,11 @@ func (s *Service) DeleteFile(ctx context.Context, cmd *eda.File_Delete) error {
 
 func (s *Service) GetFileBytes(ctx context.Context, domainReference, fileID string) ([]byte, error) {
 	return s.storage.RetrieveFile(ctx, domainReference, fileID)
+}
+
+// ValidateFileID validates a file ID
+func (s *Service) ValidateFileID(ctx context.Context, fileID string) error {
+	return s.repo.validateFileID(ctx, fileID)
 }
 
 // withFile is a helper function to load, execute a command, and persist an aggregate
@@ -114,6 +122,8 @@ func (s *Service) withFile(ctx context.Context, commandFunc func(*Aggregate) (*g
 			return nil, err
 		}
 	}
+
+	go s.eventHandlers.routeEvent(ctx, evt)
 
 	return f, nil
 }

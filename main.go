@@ -66,7 +66,7 @@ func main() {
 	schoolRepo := school.NewRepository(schoolConn, &mq)
 	schoolService := school.NewService(schoolRepo)
 
-	studentACL := webapi.NewAclStudents(schoolService)
+	studentACL := webapi.NewAclStudents(schoolService, fileService)
 
 	studentRepo := student.NewRepository(studentConn, &mq)
 	studentService := student.NewStudentService(studentRepo, studentACL)

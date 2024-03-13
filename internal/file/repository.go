@@ -20,6 +20,7 @@ type Repository interface {
 	loadFile(ctx context.Context, id string) (*Aggregate, error)
 	saveEvent(ctx context.Context, evt *gosignal.Event) error
 	upsertFileProjection(ctx context.Context, file *Aggregate) error
+	validateFileID(ctx context.Context, fileID string) error
 }
 
 type sqlRepository struct {
@@ -59,6 +60,17 @@ func (sr *sqlRepository) loadFile(ctx context.Context, id string) (*Aggregate, e
 	}
 
 	return &agg, nil
+}
+
+// validateFileID - searches the database for the file ID
+func (sr *sqlRepository) validateFileID(ctx context.Context, fileID string) error {
+	query := `SELECT id FROM files WHERE id = $1;`
+	var id string
+	if err := sr.db.QueryRowContext(ctx, query, fileID).Scan(&id); err != nil {
+		return fmt.Errorf("failed to validate file ID: %w", err)
+	}
+
+	return nil
 }
 
 // SaveEvents - persists the generated events to the event store

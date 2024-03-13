@@ -19,6 +19,7 @@ type StudentService struct {
 
 type AntiCorruptionLayer interface {
 	ValidateSchoolID(ctx context.Context, schoolID string) error
+	ValidatePhotoID(ctx context.Context, photoID string) error
 }
 
 func NewStudentService(repo Repository, acl AntiCorruptionLayer) *StudentService {
@@ -53,6 +54,9 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 		case *eda.Student_SetStatus:
 			return agg.SetStatus(cmd)
 		case *eda.Student_SetProfilePhoto:
+			if err := s.acl.ValidatePhotoID(ctx, cmd.GetFileId()); err != nil {
+				return nil, fmt.Errorf("failed to validate photo ID: %w", err)
+			}
 			return agg.SetProfilePhoto(cmd)
 		default:
 			return nil, fmt.Errorf("unknown command type: %T", cmd)
