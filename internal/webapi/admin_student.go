@@ -307,6 +307,7 @@ func (s *Server) adminQRCode(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TODO: check the file size, type, etc
 func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request) {
 	studentID := s.getStudentIDFromContext(r.Context())
 

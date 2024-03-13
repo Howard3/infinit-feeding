@@ -14,6 +14,8 @@ import (
 	"geevly/internal/student"
 	"geevly/internal/user"
 	"geevly/internal/webapi"
+
+	"github.com/joho/godotenv"
 )
 
 func getStaticFS() fs.FS {
@@ -22,10 +24,17 @@ func getStaticFS() fs.FS {
 }
 
 func main() {
+	_ = godotenv.Load()
 	ctx := context.Background()
 
 	mq := queue.MemoryQueue{} // TODO: swap to nats
-	s3 := infrastructure.S3Storage{}
+	s3 := infrastructure.S3Storage{
+		Endpoint:     os.Getenv("S3_ENDPOINT"),
+		AccessKey:    os.Getenv("S3_ACCESS_KEY"),
+		SecretKey:    os.Getenv("S3_SECRET_KEY"),
+		S3BucketName: os.Getenv("S3_BUCKET_NAME"),
+		Region:       os.Getenv("S3_REGION"),
+	}
 
 	// configure a sqlite connection
 	studentConn := infrastructure.SQLConnection{
@@ -52,7 +61,7 @@ func main() {
 	userService := user.NewService(userRepo)
 
 	fileRepo := file.NewRepository(fileConn, &mq)
-	fileService := file.NewService(fileRepo, s3)
+	fileService := file.NewService(fileRepo, &s3)
 
 	schoolRepo := school.NewRepository(schoolConn, &mq)
 	schoolService := school.NewService(schoolRepo)

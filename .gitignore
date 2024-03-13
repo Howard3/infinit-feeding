@@ -5,3 +5,4 @@ tmp
 static/output.css
 gen
 node_modules
+.env
