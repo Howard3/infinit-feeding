@@ -243,6 +243,8 @@ templ profilePhoto(p ViewParams) {
 					<div class="items-center justify-center p-3">
 						No photo
 					</div>
+				} else {
+					<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-full h-full"/>
 				}
 			</div>
 		</div>

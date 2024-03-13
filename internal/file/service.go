@@ -86,6 +86,10 @@ func (s *Service) DeleteFile(ctx context.Context, cmd *eda.File_Delete) error {
 	return nil
 }
 
+func (s *Service) GetFileBytes(ctx context.Context, domainReference, fileID string) ([]byte, error) {
+	return s.storage.RetrieveFile(ctx, domainReference, fileID)
+}
+
 // withFile is a helper function to load, execute a command, and persist an aggregate
 func (s *Service) withFile(ctx context.Context, commandFunc func(*Aggregate) (*gosignal.Event, error)) (*Aggregate, error) {
 	// Load the aggregate

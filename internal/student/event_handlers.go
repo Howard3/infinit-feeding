@@ -59,6 +59,20 @@ func (eh *eventHandlers) HandleGenerateCodeEvent(ctx context.Context, aggID uint
 	}
 }
 
+// handleSetProfilePhotoEvent is a method that handles the SetProfilePhotoEvent
+func (eh *eventHandlers) handleSetProfilePhotoEvent(ctx context.Context, aggID uint64) {
+	student, err := eh.repo.loadStudent(ctx, aggID)
+	if err != nil {
+		slog.Error("failed to load student", "error", err)
+		return
+	}
+
+	if err := eh.repo.upsertStudentProfilePhoto(student); err != nil {
+		slog.Error("failed to upsert student profile photo", "error", err)
+		return
+	}
+}
+
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	id, err := strconv.ParseUint(evt.AggregateID, 10, 64)
@@ -74,5 +88,7 @@ func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 		eh.HandleUpdateStudentEvent(ctx, id)
 	case EVENT_SET_LOOKUP_CODE:
 		eh.HandleGenerateCodeEvent(ctx, id)
+	case EVENT_SET_PROFILE_PHOTO:
+		eh.handleSetProfilePhotoEvent(ctx, id)
 	}
 }

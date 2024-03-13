@@ -15,9 +15,9 @@ templ Received(student *student.Aggregate) {
 		</div>
 		<div class="p-6 flex flex-col gap-4 items-center">
 			<div class="rounded-full overflow-hidden border-4 border-white">
-				// TODO: Replace with actual avatar
 				<img
-					src="/placeholder.svg"
+					src={ fmt.Sprintf("/student/profile/photo/%s", student.GetStudent().ProfilePhotoId) }
+					alt="Profile Photo"
 					class="rounded-full"
 					style="aspect-ratio: 150 / 150; object-fit: cover;"
 					width="150"

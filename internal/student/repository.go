@@ -25,6 +25,7 @@ var migrations embed.FS
 // Repository incorporates the methods for persisting and loading student aggregates and projections
 type Repository interface {
 	upsertStudent(student *Aggregate) error
+	upsertStudentProfilePhoto(student *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
 	loadStudent(ctx context.Context, id uint64) (*Aggregate, error)
 	CountStudents(ctx context.Context) (uint, error)
@@ -265,4 +266,20 @@ func (r *sqlRepository) getStudentIDByCode(ctx context.Context, code []byte) (ui
 	}
 
 	return id, nil
+}
+
+// upsertStudentProfilePhoto - persists the student profile photo to the database
+func (r *sqlRepository) upsertStudentProfilePhoto(agg *Aggregate) error {
+	query := `INSERT INTO student_profile_photos
+		(id, file_id)
+		VALUES (?, ?)
+		ON CONFLICT (id) DO UPDATE SET file_id = excluded.file_id;
+	`
+
+	_, err := r.db.Exec(query, agg.ID, agg.data.ProfilePhotoId)
+	if err != nil {
+		return fmt.Errorf("failed to upsert student profile photo: %w", err)
+	}
+
+	return nil
 }

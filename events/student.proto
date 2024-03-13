@@ -149,8 +149,7 @@ message Student {
 
         message Event {
             string file_id = 1;
-            uint64 version = 2;
-            events.metadata.Metadata metadata = 3;
+            events.metadata.Metadata metadata = 2;
         }
     }
 }

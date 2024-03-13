@@ -115,6 +115,10 @@ func (s *Server) Start(ctx context.Context) {
 		s.renderTempl(w, r, templates.HowItWorks())
 	})
 
+	c.Route("/student", func(r chi.Router) {
+		r.Get("/profile/photo/{ID}", s.studentProfilePhoto)
+	})
+
 	c.Route("/admin", func(r chi.Router) {
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)

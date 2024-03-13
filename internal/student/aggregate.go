@@ -304,8 +304,10 @@ func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding {
 // SetProfilePhoto sets the student's profile photo
 func (sd *Aggregate) SetProfilePhoto(cmd *eda.Student_SetProfilePhoto) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
-		eventType: EVENT_UNENROLL_STUDENT,
-		data:      &eda.Student_Unenroll_Event{},
-		version:   cmd.GetVersion(),
+		eventType: EVENT_SET_PROFILE_PHOTO,
+		data: &eda.Student_SetProfilePhoto{
+			FileId: cmd.FileId,
+		},
+		version: cmd.GetVersion(),
 	})
 }
