@@ -22,6 +22,8 @@ func base64Encode(b []byte) string {
 
 templ AdminViewStudent(params ViewParams) {
 	@backToList()
+	<div id="calheatmap" class="w-full p-3 flex justify-center items-center"></div>
+	@studentCalendarHeatmap(convertStudentFeedingToHeatmap(params.Student.GetFeedingReport()), "calheatmap")
 	<div class="grid gap-6 md:grid-cols-2 m-3">
 		<div class="space-y-4">
 			<form>
