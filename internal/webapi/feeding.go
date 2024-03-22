@@ -2,17 +2,21 @@ package webapi
 
 import (
 	"fmt"
+	"geevly/gen/go/eda"
 	"geevly/internal/webapi/feeding"
 	feedingtempl "geevly/internal/webapi/templates/feeding"
 	"io"
 	"net/http"
+	"time"
 
+	vex "github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
 )
 
 func (s *Server) feedingRoutes(r chi.Router) {
 	r.Get("/", s.feed)
 	r.Post(`/upload`, s.feedingUpload)
+	r.Post("/confirm", s.feedingConfirm)
 }
 
 func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
@@ -53,5 +57,28 @@ func (s *Server) feedingUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, feedingtempl.Received(student))
+}
 
+// Confirm the feeding
+func (s *Server) feedingConfirm(w http.ResponseWriter, r *http.Request) {
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	studID := *vex.ReturnUint64(ex, "student_id")
+	studVer := *vex.ReturnUint64(ex, "student_ver")
+
+	if err := ex.Errors(); err != nil {
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
+		return
+	}
+
+	agg, err := s.StudentSvc.RunCommand(r.Context(), studID, &eda.Student_Feeding{
+		UnixTimestamp: uint64(time.Now().Unix()),
+		Version:       studVer,
+	})
+
+	if err != nil {
+		s.errorPage(w, r, "Error confirming feeding", err)
+		return
+	}
+
+	s.renderTempl(w, r, feedingtempl.Fed(agg))
 }

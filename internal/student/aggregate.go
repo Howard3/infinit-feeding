@@ -25,6 +25,7 @@ const EVENT_ENROLL_STUDENT = "EnrollStudent"
 const EVENT_UNENROLL_STUDENT = "UnenrollStudent"
 const EVENT_SET_LOOKUP_CODE = "SetLookupCode"
 const EVENT_SET_PROFILE_PHOTO = "SetProfilePhoto"
+const EVENT_FEED_STUDENT = "FeedStudent"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -80,6 +81,9 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_SET_PROFILE_PHOTO:
 		eventData = &eda.Student_SetProfilePhoto_Event{}
 		handler = sd.handleSetProfilePhoto
+	case EVENT_FEED_STUDENT:
+		eventData = &eda.Student_Feeding{}
+		handler = sd.handleFeedStudent
 	default:
 		return ErrEventNotFound
 	}
@@ -96,6 +100,49 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	wevt := wrappedEvent{event: evt, data: eventData}
 
 	return handler(wevt)
+}
+
+// feed - handles the feeding of a student
+func (sd *Aggregate) Feed(timestamp, version uint64) (*gosignal.Event, error) {
+	if len(sd.data.FeedingReport) > 0 {
+		lastFeeding := sd.data.FeedingReport[len(sd.data.FeedingReport)-1]
+		lastFeedingTimestamp := int64(lastFeeding.UnixTimestamp)
+		thisFeedingTimestamp := int64(timestamp)
+		now := time.Now().Unix()
+
+		newerThanLastFeeding := thisFeedingTimestamp > lastFeedingTimestamp
+
+		isNotInFuture := thisFeedingTimestamp <= now
+
+		lastFeedingDay := time.Unix(lastFeedingTimestamp, 0).Day()
+		thisFeedingDay := time.Unix(thisFeedingTimestamp, 0).Day()
+		isNotSameDayAsLastFeeding := lastFeedingDay != thisFeedingDay
+
+		switch {
+		case !newerThanLastFeeding:
+			return nil, fmt.Errorf("feeding timestamp is not newer than the last feeding")
+		case !isNotInFuture:
+			return nil, fmt.Errorf("feeding timestamp is in the future")
+		case !isNotSameDayAsLastFeeding:
+			return nil, fmt.Errorf("feeding timestamp is on the same day as the last feeding")
+		}
+	}
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_FEED_STUDENT,
+		data: &eda.Student_Feeding_Event{
+			UnixTimestamp: uint64(timestamp),
+		},
+		version: version,
+	})
+}
+
+func (sd *Aggregate) handleFeedStudent(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_Feeding)
+
+	sd.data.FeedingReport = append(sd.data.FeedingReport, data)
+
+	return nil
 }
 
 func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, error) {
@@ -182,10 +229,12 @@ func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 	}
 
 	sd.data = &eda.Student{
-		FirstName:   data.FirstName,
-		LastName:    data.LastName,
-		DateOfBirth: data.DateOfBirth,
-		Sex:         data.Sex,
+		FirstName:     data.FirstName,
+		LastName:      data.LastName,
+		DateOfBirth:   data.DateOfBirth,
+		Sex:           data.Sex,
+		Status:        eda.Student_INACTIVE,
+		FeedingReport: make([]*eda.Student_Feeding, 0),
 	}
 
 	return nil
@@ -294,7 +343,7 @@ func (sd Aggregate) IsActive() bool {
 
 // GetLastFeeding returns the last feeding event
 func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding {
-	if sd.data.FeedingReport == nil {
+	if sd.data.FeedingReport == nil || len(sd.data.FeedingReport) == 0 {
 		return nil
 	}
 

@@ -30,7 +30,7 @@ func (as AclStudents) ValidateSchoolID(ctx context.Context, schoolID string) err
 // ValidatePhotoID validates a photo from the file domain
 func (as AclStudents) ValidatePhotoID(ctx context.Context, photoID string) error {
 	return as.fileSvc.ValidateFileID(ctx, photoID)
-} // don't run in goroutine, it's likely needed immediately after via "ValidateFileID"
+}
 
 // NewAclStudents creates a new AclStudents instance
 func NewAclStudents(schoolSvc *school.Service, fileSvc *file.Service) AclStudents {

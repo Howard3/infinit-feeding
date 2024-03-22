@@ -154,6 +154,8 @@ templ StudentHistorySection(evts []gosignal.Event) {
 										QR Lookup code updated 
 									case student.EVENT_SET_PROFILE_PHOTO:
 										Profile photo updated
+									case student.EVENT_FEED_STUDENT:
+										Student fed
 									default:
 										Unknown event: { evt.Type }
 								}

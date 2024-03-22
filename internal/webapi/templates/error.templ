@@ -1,7 +1,7 @@
 package templates
 
 templ SystemError(title, message string) {
-	<div class="fixed inset-0 flex items-center justify-center">
+	<div class="inset-0 flex items-center justify-center my-6">
 		<div class="grid grid-rows-3 gap-4 w-full max-w-sm p-6 rounded-lg bg-red-500 border border-red-600 border-opacity-50 text-white text-sm">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -27,7 +27,7 @@ templ SystemError(title, message string) {
 				<path d="M22 13h-4"></path>
 				<path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"></path>
 			</svg>
-			<div class="flex flex-col row-start-2 items-center gap-1">
+			<div class="flex flex-col row-start-2 items-center gap-1 shadow-lg">
 				<strong class="font-medium">{ title }</strong>
 				<p class="text-xs text-opacity-80">{ message }</p>
 			</div>
