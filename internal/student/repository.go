@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"geevly/gen/go/eda"
 	"geevly/internal/infrastructure"
+	"regexp"
 	"time"
 
 	"github.com/Howard3/gosignal"
-	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/drivers/snapshots"
 
 	src "github.com/Howard3/gosignal/sourcing"
@@ -68,7 +68,7 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 	}
 
 	repo.queue = queue
-	repo.setupEventSourcing()
+	repo.setupEventSourcing(conn)
 
 	return repo
 }
@@ -98,9 +98,9 @@ func (r *sqlRepository) GetNewID(ctx context.Context) (uint64, error) {
 	return id, nil
 }
 
-func (r *sqlRepository) setupEventSourcing() {
+func (r *sqlRepository) setupEventSourcing(conn infrastructure.SQLConnection) {
 	repoOptions := []src.NewRepoOptions{
-		src.WithEventStore(eventstore.SQLStore{DB: r.db, TableName: "student_events"}),
+		src.WithEventStore(conn.GetSourcingConnection(r.db, "student_events")),
 		src.WithQueue(r.queue),
 		src.WithSnapshotStrategy(&snapshots.VersionIntervalStrategy{
 			EveryNth: 10,
@@ -155,7 +155,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 	students := []*ProjectedStudent{}
 	for rows.Next() {
 		student := &ProjectedStudent{}
-		var dateOfBirth, dateOfEnrollment sql.NullTime
+		var dateOfBirth, dateOfEnrollment sql.NullString
 
 		if err := rows.Scan(
 			&student.ID,
@@ -167,13 +167,31 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 			&student.Version,
 			&student.Active,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan student: %w", err)
+			return nil, fmt.Errorf("scan student: %w", err)
 		}
+
+		student.DateOfBirth = r.parseDate(dateOfBirth.String)
+		student.DateOfEnrollment = r.parseDate(dateOfEnrollment.String)
 
 		students = append(students, student)
 	}
 
 	return students, nil
+}
+
+func (r *sqlRepository) parseDate(datestr string) time.Time {
+	rx := regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})`)
+	matches := rx.FindStringSubmatch(datestr)
+	if len(matches) < 2 {
+		return time.Time{}
+	}
+
+	t, err := time.Parse("2006-01-02", matches[1])
+	if err != nil {
+		return time.Time{}
+	}
+
+	return t
 }
 
 // upsertStudent - persists the student projection to the database

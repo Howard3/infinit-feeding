@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/Howard3/gosignal/drivers/queue"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 
 	"geevly/internal/file"
 	"geevly/internal/infrastructure"
@@ -38,8 +38,8 @@ func main() {
 
 	// configure a sqlite connection
 	db := infrastructure.SQLConnection{
-		Type: "sqlite3",
-		URI:  "./feeding.db",
+		Type: "libsql",
+		URI:  os.Getenv("DB_URI"),
 	}
 
 	userRepo := user.NewRepository(db, &mq)

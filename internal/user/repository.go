@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Howard3/gosignal"
-	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/sourcing"
 )
 
@@ -158,13 +157,13 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 	}
 
 	repo.queue = queue
-	repo.setupEventSourcing()
+	repo.setupEventSourcing(conn)
 
 	return repo
 }
 
-func (r *sqlRepository) setupEventSourcing() {
-	es := eventstore.SQLStore{DB: r.db, TableName: "user_events"}
+func (r *sqlRepository) setupEventSourcing(conn infrastructure.SQLConnection) {
+	es := conn.GetSourcingConnection(r.db, "user_events")
 
 	r.eventSourcing = sourcing.NewRepository(sourcing.WithEventStore(es), sourcing.WithQueue(r.queue))
 }

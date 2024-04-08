@@ -2,6 +2,7 @@ version: '3'
 
 tasks:
   dev:
+    desc: "run development server"
     cmds:
       - task watch:tailwind & air main.go
   build:dependencies:
