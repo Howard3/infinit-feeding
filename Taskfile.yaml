@@ -10,6 +10,7 @@ tasks:
     deps:
       - build:templates
       - build:buf
+      - build:tailwind
   build:templates:
     desc: "build templ files"
     cmds:

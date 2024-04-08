@@ -8,7 +8,6 @@ import (
 	"geevly/internal/infrastructure"
 
 	"github.com/Howard3/gosignal"
-	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/sourcing"
 	src "github.com/Howard3/gosignal/sourcing"
 )
@@ -32,7 +31,7 @@ type sqlRepository struct {
 // use the following as the basis for the upsert
 func (sr *sqlRepository) upsertFileProjection(ctx context.Context, file *Aggregate) error {
 	query := `INSERT INTO files (id, domain, name, deleted, version, updated_at)
-		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+		VALUES (?,?,?,?,?, CURRENT_TIMESTAMP)
 		ON CONFLICT (id) DO UPDATE SET
 		domain = excluded.domain,
 		name = excluded.name,
@@ -64,7 +63,7 @@ func (sr *sqlRepository) loadFile(ctx context.Context, id string) (*Aggregate, e
 
 // validateFileID - searches the database for the file ID
 func (sr *sqlRepository) validateFileID(ctx context.Context, fileID string) error {
-	query := `SELECT id FROM files WHERE id = $1;`
+	query := `SELECT id FROM files WHERE id = ?;`
 	var id string
 	if err := sr.db.QueryRowContext(ctx, query, fileID).Scan(&id); err != nil {
 		return fmt.Errorf("failed to validate file ID: %w", err)
@@ -94,13 +93,13 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 	}
 
 	repo.queue = queue
-	repo.setupEventSourcing()
+	repo.setupEventSourcing(conn)
 
 	return repo
 }
 
-func (sr *sqlRepository) setupEventSourcing() {
-	es := eventstore.SQLStore{DB: sr.db, TableName: "file_events"}
+func (sr *sqlRepository) setupEventSourcing(conn infrastructure.SQLConnection) {
+	es := conn.GetSourcingConnection(sr.db, "file_events")
 
 	sr.eventSourcing = sourcing.NewRepository(sourcing.WithEventStore(es), sourcing.WithQueue(sr.queue))
 }
