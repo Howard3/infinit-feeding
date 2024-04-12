@@ -148,6 +148,7 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 		DateOfBirth:     ReturnProtoDate(ex, "date_of_birth"),
 		Version:         *vex.ReturnUint64(ex, "version"),
 		StudentSchoolId: *vex.ReturnString(ex, "student_school_id"),
+		GradeLevel:      *vex.ReturnUint64(ex, "grade_level"),
 		Sex:             eda.Student_Sex(eda.Student_Sex_value[*vex.ReturnString(ex, "sex")]),
 	}
 

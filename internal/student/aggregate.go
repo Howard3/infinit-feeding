@@ -190,6 +190,7 @@ func (sd *Aggregate) UpdateStudent(cmd *eda.Student_Update) (*gosignal.Event, er
 			DateOfBirth:     cmd.DateOfBirth,
 			StudentSchoolId: cmd.StudentSchoolId,
 			Sex:             cmd.Sex,
+			GradeLevel:      cmd.GradeLevel,
 		},
 		version: cmd.GetVersion(),
 	})
@@ -252,6 +253,7 @@ func (sd *Aggregate) HandleUpdateStudent(evt wrappedEvent) error {
 	sd.data.DateOfBirth = data.DateOfBirth
 	sd.data.StudentSchoolId = data.StudentSchoolId
 	sd.data.Sex = data.Sex
+	sd.data.GradeLevel = data.GradeLevel
 
 	return nil
 }

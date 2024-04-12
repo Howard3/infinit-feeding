@@ -21,6 +21,20 @@ templ CreateStudent() {
 			Name:        "sex",
 			Placeholder: "Select a sex",
 		})
+		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Grade Level</label>
+        @components.TomSelect(components.SelectConfig{
+            Options: map[string]string{
+                "1": "1",
+                "2": "2",
+                "3": "3",
+                "4": "4",
+                "5": "5",
+                "6": "6",
+            },
+            MaxItems:    1,
+            Name:        "grade_level",
+            Placeholder: "Select a grade level",
+        })
 		@components.SubmitButton("Create Student")
 	}
 }

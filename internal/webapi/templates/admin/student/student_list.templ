@@ -24,7 +24,13 @@ templ StudentList(students *student.ListStudentsResponse, pagination components.
 							Name
 						</th>
 						<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
-							Date of Birth 
+						    Age	
+						</th>
+						<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
+						    Grade Level	
+						</th>
+						<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
+						    Student ID	
 						</th>
 						<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
 							Active 
@@ -41,7 +47,13 @@ templ StudentList(students *student.ListStudentsResponse, pagination components.
 								{ student.FirstName } { student.LastName }
 							</td>
 							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
-								{ student.DateOfBirth.Format("2006-01-02") }
+								{ fmt.Sprintf("%d", student.Age) }
+							</td>
+							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
+								{ fmt.Sprintf("%d", student.Grade) }
+							</td>
+							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
+								{ student.StudentID }
 							</td>
 							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
 								if student.Active {
