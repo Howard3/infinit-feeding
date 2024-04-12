@@ -4,7 +4,7 @@ ALTER TABLE student_projections ADD COLUMN age INT;
 ALTER TABLE student_projections ADD COLUMN grade INT;
 ALTER TABLE student_projections DROP COLUMN date_of_enrollment;
 
-CREATE TABLE IF NOT EXISTS projection_updates (
+CREATE TABLE IF NOT EXISTS student_projection_updates (
     what TEXT NOT NULL
 );
 
