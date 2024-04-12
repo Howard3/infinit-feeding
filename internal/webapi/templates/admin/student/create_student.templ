@@ -1,12 +1,26 @@
 package studenttempl 
 
-import "geevly/internal/webapi/templates/components"
+import (
+	"geevly/internal/webapi/templates/components"
+	"geevly/gen/go/eda"
+)
 
 templ CreateStudent() {
 	@components.FormWrapper("Create Student", "/admin/student/create", "/admin/student") {
 		@components.TextField("First Name", "first_name", "Enter first name", "")
 		@components.TextField("Last Name", "last_name", "Enter last name", "")
 		@components.DateField("Date of Birth", "date_of_birth", "")
+		@components.TextField("Student ID", "student_school_id", "Enter the student ID", "")
+		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
+		@components.TomSelect(components.SelectConfig{
+			Options: map[string]string{
+				eda.Student_MALE.String():   "Male",
+				eda.Student_FEMALE.String(): "Female",
+			},
+			MaxItems:    1,
+			Name:        "sex",
+			Placeholder: "Select a sex",
+		})
 		@components.SubmitButton("Create Student")
 	}
 }

@@ -81,7 +81,7 @@ func (sr *sqlRepository) saveEvent(ctx context.Context, evt *gosignal.Event) err
 }
 
 func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repository {
-	db, err := sql.Open(string(conn.Type), conn.URI)
+	db, err := conn.Open()
 	if err != nil {
 		panic(fmt.Errorf("failed to open database: %w", err))
 	}

@@ -149,11 +149,13 @@ func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, er
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ADD_STUDENT,
 		data: &eda.Student_Create_Event{
-			FirstName:   cmd.FirstName,
-			LastName:    cmd.LastName,
-			DateOfBirth: cmd.DateOfBirth,
-			Status:      eda.Student_INACTIVE,
-			Sex:         cmd.Sex,
+			FirstName:       cmd.FirstName,
+			LastName:        cmd.LastName,
+			DateOfBirth:     cmd.DateOfBirth,
+			Status:          eda.Student_INACTIVE,
+			Sex:             cmd.Sex,
+			GradeLevel:      cmd.GradeLevel,
+			StudentSchoolId: cmd.StudentSchoolId,
 		},
 		version: 0,
 	})
@@ -229,12 +231,14 @@ func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 	}
 
 	sd.data = &eda.Student{
-		FirstName:     data.FirstName,
-		LastName:      data.LastName,
-		DateOfBirth:   data.DateOfBirth,
-		Sex:           data.Sex,
-		Status:        eda.Student_INACTIVE,
-		FeedingReport: make([]*eda.Student_Feeding, 0),
+		FirstName:       data.FirstName,
+		LastName:        data.LastName,
+		DateOfBirth:     data.DateOfBirth,
+		Sex:             data.Sex,
+		Status:          eda.Student_INACTIVE,
+		StudentSchoolId: data.StudentSchoolId,
+		GradeLevel:      data.GradeLevel,
+		FeedingReport:   make([]*eda.Student_Feeding, 0),
 	}
 
 	return nil
@@ -334,6 +338,17 @@ func (sd Aggregate) GetStudent() *eda.Student {
 // GetFullName returns the student's full nam
 func (sd Aggregate) GetFullName() string {
 	return fmt.Sprintf("%s %s", sd.data.FirstName, sd.data.LastName)
+}
+
+// GetAge returns the student's agg
+func (sd Aggregate) GetAge() int {
+	dobYear := sd.data.DateOfBirth.GetYear()
+	dobMonth := sd.data.DateOfBirth.GetMonth()
+	dobDay := sd.data.DateOfBirth.GetDay()
+	dobTime := time.Date(int(dobYear), time.Month(dobMonth), int(dobDay), 0, 0, 0, 0, time.UTC)
+	since := time.Since(dobTime)
+	years := since.Seconds() / 60 / 60 / 24 / 365
+	return int(years)
 }
 
 // IsActive returns the active state of the student

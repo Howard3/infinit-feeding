@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/Howard3/gosignal/drivers/queue"
-	_ "github.com/tursodatabase/libsql-client-go/libsql"
 
 	"geevly/internal/file"
 	"geevly/internal/infrastructure"
@@ -14,6 +13,9 @@ import (
 	"geevly/internal/student"
 	"geevly/internal/user"
 	"geevly/internal/webapi"
+
+	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 
 	"github.com/joho/godotenv"
 )

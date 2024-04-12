@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"geevly/gen/go/eda"
 	"geevly/internal/infrastructure"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -37,14 +38,16 @@ type Repository interface {
 }
 
 type ProjectedStudent struct {
-	ID               uint
-	FirstName        string
-	LastName         string
-	SchoolID         string
-	DateOfBirth      time.Time
-	DateOfEnrollment time.Time
-	Version          uint
-	Active           bool
+	ID          uint
+	FirstName   string
+	LastName    string
+	SchoolID    string
+	DateOfBirth time.Time
+	StudentID   string
+	Grade       uint
+	Version     uint
+	Active      bool
+	Age         uint
 }
 
 // sqlRepository is the implementation of the Repository interface using SQL
@@ -56,7 +59,7 @@ type sqlRepository struct {
 
 // NewRepository creates a new instance of the sqlRepository
 func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repository {
-	db, err := sql.Open(string(conn.Type), conn.URI)
+	db, err := conn.Open()
 	if err != nil {
 		panic(fmt.Errorf("failed to open database: %w", err))
 	}
@@ -69,18 +72,101 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 
 	repo.queue = queue
 	repo.setupEventSourcing(conn)
+	repo.updateProjections()
 
 	return repo
 }
 
+func (r *sqlRepository) updateProjections() {
+	slog.Info("updating projections")
+	whatToUpdate := r.checkForProjectionUpdates()
+	if len(whatToUpdate) == 0 {
+		slog.Info("no projections to update")
+		return
+	}
+
+	if len(whatToUpdate) > 1 {
+		panic(fmt.Errorf("multiple projections to update: %v", whatToUpdate))
+	}
+
+	// only support student_projections for now
+	if whatToUpdate[0] != "student_projections" {
+		panic(fmt.Errorf("unsupported projection: %s", whatToUpdate[0]))
+	}
+
+	slog.Info("updating student projections")
+
+	ids := r.getUniqueIDsForAggregates()
+	for _, id := range ids {
+		slog.Info("updating student projection for ID", "id", id)
+		student, err := r.loadStudent(context.Background(), id)
+		if err != nil {
+			panic(fmt.Errorf("failed to load student: %w", err))
+		}
+
+		if err := r.upsertStudent(student); err != nil {
+			panic(fmt.Errorf("failed to upsert student: %w", err))
+		}
+	}
+
+	r.clearProjectionUpdates()
+}
+
+func (r *sqlRepository) getUniqueIDsForAggregates() []uint64 {
+	ids := []uint64{}
+	query := `SELECT DISTINCT aggregate_id FROM student_events`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		panic(fmt.Errorf("get unique IDs for aggregates: %w", err))
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err != nil {
+			panic(fmt.Errorf("scan unique ID: %w", err))
+		}
+
+		ids = append(ids, id)
+	}
+
+	return ids
+}
+
+func (r *sqlRepository) checkForProjectionUpdates() []string {
+	whatToUpdate := []string{}
+	query := `SELECT what from student_projection_updates`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		panic(fmt.Errorf("failed to check for projection updates: %w", err))
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var what string
+		if err := rows.Scan(&what); err != nil {
+			panic(fmt.Errorf("failed to scan projection update: %w", err))
+		}
+
+		whatToUpdate = append(whatToUpdate, what)
+	}
+
+	return whatToUpdate
+}
+
+func (r *sqlRepository) clearProjectionUpdates() {
+	slog.Info("clearing projection updates")
+
+	query := `DELETE FROM student_projection_updates`
+	if _, err := r.db.Exec(query); err != nil {
+		panic(fmt.Errorf("failed to clear projection updates: %w", err))
+	}
+}
+
 // GetNewID - returns a new unique ID
 // given the table structure
-//
-//	CREATE TABLE IF NOT EXISTS aggregate_id_tracking (
-//		type VARCHAR(255) NOT NULL,
-//	 next_id INT NOT NULL,
-//	);
-//
 // get the next ID for the given type
 func (r *sqlRepository) GetNewID(ctx context.Context) (uint64, error) {
 	const typ = "student"
@@ -131,7 +217,7 @@ func (r *sqlRepository) CountStudents(ctx context.Context) (uint, error) {
 
 func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error) {
 	query := `SELECT
-		id, first_name, last_name, school_id, date_of_birth, date_of_enrollment, version, active
+		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
 		FROM student_projections
 		LIMIT ? OFFSET ?;
 	`
@@ -155,7 +241,8 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 	students := []*ProjectedStudent{}
 	for rows.Next() {
 		student := &ProjectedStudent{}
-		var dateOfBirth, dateOfEnrollment sql.NullString
+		var dateOfBirth, studentID sql.NullString
+		var grade, age sql.NullInt64
 
 		if err := rows.Scan(
 			&student.ID,
@@ -163,7 +250,9 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 			&student.LastName,
 			&student.SchoolID,
 			&dateOfBirth,
-			&dateOfEnrollment,
+			&studentID,
+			&age,
+			&grade,
 			&student.Version,
 			&student.Active,
 		); err != nil {
@@ -171,7 +260,9 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 		}
 
 		student.DateOfBirth = r.parseDate(dateOfBirth.String)
-		student.DateOfEnrollment = r.parseDate(dateOfEnrollment.String)
+		student.StudentID = studentID.String
+		student.Grade = uint(grade.Int64)
+		student.Age = uint(age.Int64)
 
 		students = append(students, student)
 	}
@@ -197,16 +288,18 @@ func (r *sqlRepository) parseDate(datestr string) time.Time {
 // upsertStudent - persists the student projection to the database
 func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 	query := `INSERT INTO student_projections
-		(id, first_name, last_name, school_id, date_of_birth, date_of_enrollment, version, active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade)
+		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade)
 		ON CONFLICT (id) DO UPDATE SET 
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
 			school_id = excluded.school_id,
 			date_of_birth = excluded.date_of_birth,
-			date_of_enrollment = excluded.date_of_enrollment,
 			version = excluded.version,
 			active = excluded.active,
+			student_id = excluded.student_id,
+			age = excluded.age,
+			grade = excluded.grade,
 			updated_at = CURRENT_TIMESTAMP;
 	`
 
@@ -214,6 +307,7 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 	dob := agg.data.DateOfBirth
 	dateOfBirth := time.Date(int(dob.Year), time.Month(dob.Month), int(dob.Day), 0, 0, 0, 0, time.UTC)
 	doe := agg.data.DateOfEnrollment
+	age := agg.GetAge()
 	var dateOfEnrollment sql.NullTime
 
 	if doe != nil {
@@ -223,14 +317,16 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 
 	_, err := r.db.Exec(
 		query,
-		agg.ID,
-		agg.data.FirstName,
-		agg.data.LastName,
-		agg.data.SchoolId,
-		dateOfBirth,
-		dateOfEnrollment,
-		agg.Version,
-		active,
+		sql.Named("id", agg.ID),
+		sql.Named("first_name", agg.data.FirstName),
+		sql.Named("last_name", agg.data.LastName),
+		sql.Named("school_id", agg.data.SchoolId),
+		sql.Named("date_of_birth", dateOfBirth),
+		sql.Named("version", agg.Version),
+		sql.Named("active", active),
+		sql.Named("student_id", agg.data.StudentSchoolId),
+		sql.Named("age", age),
+		sql.Named("grade", agg.data.GradeLevel),
 	)
 
 	if err != nil {
