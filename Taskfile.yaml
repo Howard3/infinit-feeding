@@ -14,7 +14,7 @@ tasks:
   build:templates:
     desc: "build templ files"
     cmds:
-      - templ fmt ./internal/webapi/templates/
+      #      - templ fmt ./internal/webapi/templates/
       - templ generate
   build:tailwind:
     desc: "build tailwind css"

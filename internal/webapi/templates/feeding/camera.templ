@@ -1,0 +1,25 @@
+package feedingtempl
+
+templ Camera() {
+    <div id="reader" width="600px"></div>
+    @startCamera()
+}
+
+script startCamera() {
+    function onScanSuccess(decodedText, decodedResult) {
+      // handle the scanned code as you like, for example:
+      window.location.href = "/feeding/code/" + decodedText;
+      foundCode(decodedText);
+    }
+    
+    function onScanFailure(error) {
+      // handle scan failure, usually better to ignore and keep scanning.
+    }
+    
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader",
+      { fps: 10 },
+      /* verbose= */ false);
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+}
+

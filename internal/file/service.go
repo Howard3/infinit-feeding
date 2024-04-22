@@ -47,11 +47,13 @@ func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.Fil
 		return "", ErrNoFileData
 	}
 
-	if file.DomainReference == "" {
+	if file.DomainReference == 0 {
 		return "", ErrFileDomainReferenceNotDefined
 	}
 
-	if err := s.storage.StoreFile(ctx, file.DomainReference, id.String(), fileData); err != nil {
+	drString := eda.File_DomainReference_name[int32(file.DomainReference)]
+
+	if err := s.storage.StoreFile(ctx, drString, id.String(), fileData); err != nil {
 		return "", errors.Join(ErrFailedToStoreFile, err)
 	}
 

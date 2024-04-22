@@ -9,7 +9,8 @@ import "google/protobuf/timestamp.proto";
 // File represents a file in the system and commands, events, and responses that are associated with files.
 message File {
     string name = 1; // The name of the file
-    string domain_reference = 2; // Reference to the domain or context this file belongs to
+    string domain_reference_old = 2; // DEPRECATED Reference to the domain or context this file belongs to
+    DomainReference domain_reference = 9;
     string mime_type = 3; // The MIME type of the file
     int64 size = 4; // The size of the file in bytes
     string extension = 5; // The file extension
@@ -17,9 +18,16 @@ message File {
     google.protobuf.Timestamp created_at = 7; // The time the file was created
     bool deleted = 8; // Whether the file has been logically deleted
 
+    enum DomainReference {
+        UNKNOWN = 0;
+        STUDENT = 1;
+        FEEDING_TEMPORARY = 2;
+        FEEDING_HISTORY = 3;
+    }
+
     message Create {
         string name = 1;
-        string domain_reference = 2;
+        DomainReference domain_reference = 2;
         string mime_type = 3;
         int64 size = 4;
         string extension = 5;
@@ -28,7 +36,7 @@ message File {
 
         message Event {
             string name = 1;
-            string domain_reference = 2;
+            DomainReference domain_reference = 2;
             string mime_type = 3;
             int64 size = 4;
             string extension = 5;

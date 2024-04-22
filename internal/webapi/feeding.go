@@ -15,8 +15,14 @@ import (
 
 func (s *Server) feedingRoutes(r chi.Router) {
 	r.Get("/", s.feed)
+	r.Get("/camera", s.camera)
+	r.Get("/code/{code}", s.confirmCode)
 	r.Post(`/upload`, s.feedingUpload)
 	r.Post("/confirm", s.feedingConfirm)
+}
+
+func (s *Server) camera(w http.ResponseWriter, r *http.Request) {
+	s.renderTempl(w, r, feedingtempl.Camera())
 }
 
 func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +51,15 @@ func (s *Server) feedingUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.confirmCodeScreen(w, r, code)
+}
+
+func (s *Server) confirmCode(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+	s.confirmCodeScreen(w, r, []byte(code))
+}
+
+func (s *Server) confirmCodeScreen(w http.ResponseWriter, r *http.Request, code []byte) {
 	student, err := s.StudentSvc.GetStudentByCode(r.Context(), code)
 	if err != nil {
 		s.errorPage(w, r, "Error getting student", fmt.Errorf("error getting student by code %q: %w", code, err))

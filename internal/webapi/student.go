@@ -11,7 +11,7 @@ import (
 func (s *Server) studentProfilePhoto(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "ID")
 	// TODO: pipe reader/writer
-	bytes, err := s.FileSvc.GetFileBytes(r.Context(), DomainReferenceStudents, id)
+	bytes, err := s.FileSvc.GetFileBytes(r.Context(), string(DRStudents), id)
 	if err != nil {
 		s.errorPage(w, r, "Error", err)
 		return
