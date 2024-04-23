@@ -17,12 +17,19 @@ func (s *Server) feedingRoutes(r chi.Router) {
 	r.Get("/", s.feed)
 	r.Get("/camera", s.camera)
 	r.Get("/code/{code}", s.confirmCode)
+	r.Get(`/camera/startFeedingProof/{ID:^\d+}`, s.startFeedingProof)
 	r.Post(`/upload`, s.feedingUpload)
 	r.Post("/confirm", s.feedingConfirm)
 }
 
+func (s *Server) startFeedingProof(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "ID")
+
+	s.renderTempl(w, r, feedingtempl.PhotoCamera(id))
+}
+
 func (s *Server) camera(w http.ResponseWriter, r *http.Request) {
-	s.renderTempl(w, r, feedingtempl.Camera())
+	s.renderTempl(w, r, feedingtempl.QRCamera())
 }
 
 func (s *Server) feed(w http.ResponseWriter, r *http.Request) {

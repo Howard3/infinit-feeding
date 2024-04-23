@@ -1,11 +1,11 @@
 package feedingtempl
 
-templ Camera() {
+templ QRCamera() {
     <div id="reader" width="600px"></div>
-    @startCamera()
+    @startQRCamera()
 }
 
-script startCamera() {
+script startQRCamera() {
     function onScanSuccess(decodedText, decodedResult) {
       // handle the scanned code as you like, for example:
       window.location.href = "/feeding/code/" + decodedText;
@@ -23,3 +23,93 @@ script startCamera() {
     html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 }
 
+templ PhotoCamera(studentID string) {
+    <canvas id="canvas" style="display:none;" class="w-full"></canvas>
+    <img id="photo" src="" alt="Your Photo" style="display:none;" class="w-full"/>
+    <form id="uploadForm" style="display:none;" hx-encoding="multipart/form-data">
+        <input type="file" name="photo" id="fileInput" style="display:none;"/>
+        <input type="hidden" name="studentID" value={studentID}/>
+        <div class="flex flex-row mt-12">
+            <img src="/static/img/back.svg" alt="back" class="w-24 h-24 mx-auto" id="reset"/>
+            <img src="/static/img/check.svg" hx-post="/feeding/proof" alt="upload" class="w-24 h-24 mx-auto"/>
+        </div>
+    </form>
+    <div class="flex flex-col items-center justify-center">
+      <div class="w-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden shadow-lg">
+        <video id="video" width="100%" autoplay></video>
+        <div class="px-6 py-4 my-12">
+            <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto" id="snap"/>
+        </div>
+      </div>
+    </div>
+    @startPhotoCapture()
+}
+
+
+script startPhotoCapture() {
+    document.addEventListener('DOMContentLoaded', function () {
+        var video = document.getElementById('video');
+        var canvas = document.getElementById('canvas');
+        var photo = document.getElementById('photo');
+        var snap = document.getElementById('snap');
+        var reset = document.getElementById('reset');
+        var uploadForm = document.getElementById('uploadForm');
+        var fileInput = document.getElementById('fileInput');
+
+        video.setAttribute('autoplay', '');
+        video.setAttribute('playsinline', ''); // Important for iOS to allow inline video playback without entering full-screen mode.
+        video.play().catch(error => console.error('Error attempting to play video:', error));
+        
+    
+        // Access the device camera and stream to video element
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" } // 'environment' for rear camera, 'user' for front camera
+        })
+        .then(function(stream) {
+            video.srcObject = stream;
+            video.play();
+        })
+        .catch(function(err) {
+            console.log("An error occurred: " + err);
+        });
+    
+        snap.addEventListener('click', function() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            var data = canvas.toDataURL('image/png');
+            photo.setAttribute('src', data);
+            photo.style.display = 'block';
+            uploadForm.style.display = 'block';
+            video.style.display = 'none';
+            snap.style.display = 'none';
+            reset.style.display = 'block';
+        });
+    
+        reset.addEventListener('click', function() {
+            photo.style.display = 'none';
+            uploadForm.style.display = 'none';
+            video.style.display = 'block';
+            snap.style.display = 'block';
+            reset.style.display = 'none';
+        });
+    
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fileInput.files = dataURItoBlob(photo.src); // Assuming a function to convert dataURI to Blob
+            // Implement file upload logic here
+            console.log('Ready to upload the file!');
+        });
+    
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], {type: mimeString});
+        }
+    });
+}
