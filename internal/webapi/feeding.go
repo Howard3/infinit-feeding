@@ -77,9 +77,6 @@ func (s *Server) feedingProofUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: save photo
-	_ = photo
-
 	s.renderTempl(w, r, feedingtempl.Fed(agg))
 }
 

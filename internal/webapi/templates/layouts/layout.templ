@@ -14,6 +14,7 @@ templ FullLayout(main templ.Component) {
 			<script src="/static/cal-heatmap.min.js"></script>
             <script src="/static/html5-qrcode.min.js"></script>
             <link rel="stylesheet" href="/static/cal-heatmap.css"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 		</head>
 		<body>
 			<div class="flex flex-col min-h-screen bg-gray-100">
@@ -36,16 +37,13 @@ templ header() {
 	<header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 		<div class="flex items-center h-14 px-4 border-b gap-4">
 			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
-				Infinit Feeding
+				<img src="/static/img/infinity.svg" class="h-6 inline-block"/> Feeding
 			</a>
-			<nav class="flex-1 grid grid-cols-4 justify-center">
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
-					Admin
-				</a>
+			<nav class="flex-1 grid grid-cols-3 justify-center">
 				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
 					Feeding
 				</a>
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/how-it-works">
+				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer text-nowrap" hx-get="/how-it-works">
 					How it works 
 				</a>
 				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">

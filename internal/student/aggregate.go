@@ -103,7 +103,8 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 }
 
 // feed - handles the feeding of a student
-func (sd *Aggregate) Feed(timestamp, version uint64) (*gosignal.Event, error) {
+func (sd *Aggregate) Feed(cmd *eda.Student_Feeding) (*gosignal.Event, error) {
+	timestamp := cmd.GetUnixTimestamp()
 	if len(sd.data.FeedingReport) > 0 {
 		lastFeeding := sd.data.FeedingReport[len(sd.data.FeedingReport)-1]
 		lastFeedingTimestamp := int64(lastFeeding.UnixTimestamp)
@@ -132,8 +133,9 @@ func (sd *Aggregate) Feed(timestamp, version uint64) (*gosignal.Event, error) {
 		eventType: EVENT_FEED_STUDENT,
 		data: &eda.Student_Feeding_Event{
 			UnixTimestamp: uint64(timestamp),
+			FileId:        cmd.GetFileId(),
 		},
-		version: version,
+		version: cmd.GetVersion(),
 	})
 }
 

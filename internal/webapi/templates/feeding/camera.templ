@@ -24,7 +24,7 @@ script startQRCamera() {
 }
 
 templ PhotoCamera(studentID, version string) {
-    <div id="start_camera" class="pt-12 w-full bg-white rounded-lg overflow-hidden shadow-lg" onclick={ startPhotoCapture() } >
+    <div id="start_camera" class="py-12 w-full bg-white rounded-lg overflow-hidden shadow-lg" onclick={ startPhotoCapture() } >
         <h1 class="text-3xl text-center">Turn on the camera, click here.</h1>
         <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto"/>
     </div>
@@ -40,11 +40,9 @@ templ PhotoCamera(studentID, version string) {
         </div>
     </form>
     <div id="main_camera" class="flex flex-col items-center justify-center hidden">
-      <div class="w-full bg-white rounded-lg overflow-hidden shadow-lg">
-        <video id="video" width="100%" autoplay></video>
-        <div class="px-6 py-4 my-12">
-            <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto" id="snap"/>
-        </div>
+        <video id="video" class="w-full absolute" autoplay></video>
+        <div class="px-6 py-4 my-12 absolute z-50 w-full inline-block align-middle" id="capture_photo">
+            <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto bg-white/25 p-4 rounded" id="snap"/>
       </div>
     </div>
 }
@@ -53,6 +51,7 @@ templ PhotoCamera(studentID, version string) {
 script startPhotoCapture() {
         var startCamera = document.getElementById('start_camera');
         var mainCamera = document.getElementById('main_camera');
+        var capturePhoto = document.getElementById('capture_photo');
         var video = document.getElementById('video');
         var canvas = document.getElementById('canvas');
         var photo = document.getElementById('photo');
@@ -77,15 +76,20 @@ script startPhotoCapture() {
                 // hide start camera button
                 startCamera.style.display = 'none';
                 mainCamera.style.display = 'block'; 
+                setTimeout(() => {
+                    capturePhoto.style.height = video.videoHeight + 'px';
+                }, 1000)
             });
         })
         .catch(function(err) {
             console.log("An error occurred: " + err);
         });
     
-        snap.addEventListener('click', function() {
+        capturePhoto.addEventListener('click', function() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
+            mainCamera.height = video.videoHeight;
+            mainCamera.style.height = video.videoHeight + 'px';
             canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
             var data = canvas.toDataURL('image/png');
             var justBase64Data = data.split(',')[1];

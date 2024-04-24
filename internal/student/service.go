@@ -40,7 +40,7 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 	return s.withAgg(ctx, aggID, func(agg *Aggregate) (*gosignal.Event, error) {
 		switch cmd := cmd.(type) {
 		case *eda.Student_Feeding:
-			return agg.Feed(cmd.UnixTimestamp, cmd.Version)
+			return agg.Feed(cmd)
 		case *eda.Student_Enroll:
 			if err := s.acl.ValidateSchoolID(ctx, cmd.GetSchoolId()); err != nil {
 				return nil, fmt.Errorf("failed to validate school ID: %w", err)

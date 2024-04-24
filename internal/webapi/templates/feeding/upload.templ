@@ -13,26 +13,12 @@ templ Index() {
 						<h3 class="text-lg font-medium">Take a Photo</h3>
 						<p class="text-sm leading-none text-gray-500">Position the item in the frame and tap to take a photo.</p>
 					</div>
-					<div class="grid items-center gap-2">
-						<h3 class="text-lg font-medium">Upload a Photo</h3>
-						<p class="text-sm leading-none text-gray-500">Select a photo from your device's library.</p>
-					</div>
 					<div class="flex justify-center items-center">
 						<button 
                             hx-get="/feeding/camera"
                             class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md px-8 mx-auto">
 							Use Camera
 						</button>
-					</div>
-					<div class="flex justify-center items-center">
-						<label class="cursor-pointer flex justify-center items-center border border-gray-300 rounded-md py-2 px-4 text-sm transition-colors hover:bg-gray-50">
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-2">
-								<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-								<circle cx="12" cy="13" r="3"></circle>
-							</svg>
-							Choose File
-							<input class="sr-only" id="photo" type="file" name="file" hx-post="/feeding/upload" hx-trigger="change"/>
-						</label>
 					</div>
 				</div>
 			</div>
