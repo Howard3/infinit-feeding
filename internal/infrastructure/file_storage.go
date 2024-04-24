@@ -46,7 +46,7 @@ func (s *S3Storage) StoreFile(ctx context.Context, domainReference, id string, f
 		Body:   bytes.NewReader(fileData),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to put object: %v", err)
+		return fmt.Errorf("failed to put object with %d bytes: %v", len(fileData), err)
 	}
 
 	return nil

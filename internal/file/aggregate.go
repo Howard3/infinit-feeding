@@ -8,7 +8,6 @@ import (
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/sourcing"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Event types
@@ -62,7 +61,6 @@ func (a *Aggregate) onFileCreated(evt gosignal.Event) error {
 		Size:            eventData.Size,
 		Extension:       eventData.Extension,
 		Metadata:        eventData.Metadata,
-		CreatedAt:       eventData.CreatedAt,
 		Deleted:         false,
 	}
 	return nil
@@ -88,7 +86,7 @@ func (a *Aggregate) DeleteFile(cmd *eda.File_Delete) (*gosignal.Event, error) {
 }
 
 // CreateFile creates a new file
-func (a *Aggregate) CreateFile(cmd *eda.File) (*gosignal.Event, error) {
+func (a *Aggregate) CreateFile(cmd *eda.File_Create) (*gosignal.Event, error) {
 	if cmd == nil {
 		return nil, errors.New("file data not provided")
 	}
@@ -97,10 +95,6 @@ func (a *Aggregate) CreateFile(cmd *eda.File) (*gosignal.Event, error) {
 		return nil, errors.New("file already created")
 
 	}
-
-	// update the file data
-	cmd.CreatedAt = timestamppb.New(time.Now())
-	a.data = cmd
 
 	return a.ApplyEvent(FileEvent{
 		eventType: EventFileCreated,
@@ -111,7 +105,6 @@ func (a *Aggregate) CreateFile(cmd *eda.File) (*gosignal.Event, error) {
 			Size:            cmd.Size,
 			Extension:       cmd.Extension,
 			Metadata:        cmd.Metadata,
-			CreatedAt:       cmd.CreatedAt,
 		},
 		version: 0,
 	})

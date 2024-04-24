@@ -23,38 +23,44 @@ script startQRCamera() {
     html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 }
 
-templ PhotoCamera(studentID string) {
+templ PhotoCamera(studentID, version string) {
+    <div id="start_camera" class="pt-12 w-full bg-white rounded-lg overflow-hidden shadow-lg" onclick={ startPhotoCapture() } >
+        <h1 class="text-3xl text-center">Turn on the camera, click here.</h1>
+        <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto"/>
+    </div>
     <canvas id="canvas" style="display:none;" class="w-full"></canvas>
     <img id="photo" src="" alt="Your Photo" style="display:none;" class="w-full"/>
-    <form id="uploadForm" style="display:none;" hx-encoding="multipart/form-data">
-        <input type="file" name="photo" id="fileInput" style="display:none;"/>
-        <input type="hidden" name="studentID" value={studentID}/>
-        <div class="flex flex-row mt-12">
+    <form id="upload_form" style="display:none;">
+        <input type="hidden" name="base64_photo" id="base64_photo" value=""/>
+        <input type="hidden" name="student_id" value={ studentID }/>
+        <input type="hidden" name="version" value={ version }/>
+        <div class="flex flex-row mt-12" hx-push-url="false">
             <img src="/static/img/back.svg" alt="back" class="w-24 h-24 mx-auto" id="reset"/>
             <img src="/static/img/check.svg" hx-post="/feeding/proof" alt="upload" class="w-24 h-24 mx-auto"/>
         </div>
     </form>
-    <div class="flex flex-col items-center justify-center">
-      <div class="w-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden shadow-lg">
+    <div id="main_camera" class="flex flex-col items-center justify-center hidden">
+      <div class="w-full bg-white rounded-lg overflow-hidden shadow-lg">
         <video id="video" width="100%" autoplay></video>
         <div class="px-6 py-4 my-12">
             <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto" id="snap"/>
         </div>
       </div>
     </div>
-    @startPhotoCapture()
 }
 
 
 script startPhotoCapture() {
-    document.addEventListener('DOMContentLoaded', function () {
+        var startCamera = document.getElementById('start_camera');
+        var mainCamera = document.getElementById('main_camera');
         var video = document.getElementById('video');
         var canvas = document.getElementById('canvas');
         var photo = document.getElementById('photo');
         var snap = document.getElementById('snap');
         var reset = document.getElementById('reset');
-        var uploadForm = document.getElementById('uploadForm');
-        var fileInput = document.getElementById('fileInput');
+        var uploadForm = document.getElementById('upload_form');
+        var base64Photo = document.getElementById('base64_photo');
+
 
         video.setAttribute('autoplay', '');
         video.setAttribute('playsinline', ''); // Important for iOS to allow inline video playback without entering full-screen mode.
@@ -67,7 +73,11 @@ script startPhotoCapture() {
         })
         .then(function(stream) {
             video.srcObject = stream;
-            video.play();
+            video.play().then(() => {
+                // hide start camera button
+                startCamera.style.display = 'none';
+                mainCamera.style.display = 'block'; 
+            });
         })
         .catch(function(err) {
             console.log("An error occurred: " + err);
@@ -78,12 +88,15 @@ script startPhotoCapture() {
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
             var data = canvas.toDataURL('image/png');
+            var justBase64Data = data.split(',')[1];
+            base64Photo.value = justBase64Data;
             photo.setAttribute('src', data);
             photo.style.display = 'block';
             uploadForm.style.display = 'block';
             video.style.display = 'none';
             snap.style.display = 'none';
             reset.style.display = 'block';
+            video.srcObject.getVideoTracks().forEach(track => track.stop());
         });
     
         reset.addEventListener('click', function() {
@@ -92,13 +105,16 @@ script startPhotoCapture() {
             video.style.display = 'block';
             snap.style.display = 'block';
             reset.style.display = 'none';
-        });
-    
-        uploadForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            fileInput.files = dataURItoBlob(photo.src); // Assuming a function to convert dataURI to Blob
-            // Implement file upload logic here
-            console.log('Ready to upload the file!');
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" } // 'environment' for rear camera, 'user' for front camera
+            })
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.play().then(() => {
+                    // hide start camera button
+                    document.getElementById('start_camera').style.display = 'none';
+                });
+            })
         });
     
         function dataURItoBlob(dataURI) {
@@ -111,5 +127,4 @@ script startPhotoCapture() {
             }
             return new Blob([ab], {type: mimeString});
         }
-    });
 }

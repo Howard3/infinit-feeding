@@ -20,12 +20,6 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-type DomainReference string
-
-const DRStudents DomainReference = "students"
-const DRFeedingTemporary DomainReference = "feeding_temporary"
-const DRFeedingPermanent DomainReference = "feeding"
-
 func (s *Server) studentAdminRoutes(r chi.Router) {
 	r.Get("/", s.adminListStudents)
 	r.Get("/create", s.adminCreateStudentForm)
@@ -341,8 +335,9 @@ func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fileID, err := s.FileSvc.CreateFile(r.Context(), fileBytes, &eda.File{
-		DomainReference: eda.File_DomainReference(eda.File_DomainReference_value[string(DRStudents)]),
+	fileID, err := s.FileSvc.CreateFile(r.Context(), fileBytes, &eda.File_Create{
+		Name:            "profile_photo",
+		DomainReference: eda.File_STUDENT_PROFILE_PHOTO,
 	})
 
 	if err != nil {

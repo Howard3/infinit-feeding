@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"encoding/base64"
 	"fmt"
 	"geevly/gen/go/eda"
 	"geevly/internal/webapi/feeding"
@@ -17,15 +18,17 @@ func (s *Server) feedingRoutes(r chi.Router) {
 	r.Get("/", s.feed)
 	r.Get("/camera", s.camera)
 	r.Get("/code/{code}", s.confirmCode)
-	r.Get(`/camera/startFeedingProof/{ID:^\d+}`, s.startFeedingProof)
+	r.Get(`/camera/startFeedingProof/{ID:^\d+}/{version:^\d+}`, s.startFeedingProof)
+	r.Post("/proof", s.feedingProofUpload)
 	r.Post(`/upload`, s.feedingUpload)
 	r.Post("/confirm", s.feedingConfirm)
 }
 
 func (s *Server) startFeedingProof(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "ID")
+	version := chi.URLParam(r, "version")
 
-	s.renderTempl(w, r, feedingtempl.PhotoCamera(id))
+	s.renderTempl(w, r, feedingtempl.PhotoCamera(id, version))
 }
 
 func (s *Server) camera(w http.ResponseWriter, r *http.Request) {
@@ -34,6 +37,50 @@ func (s *Server) camera(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) feed(w http.ResponseWriter, r *http.Request) {
 	s.renderTempl(w, r, feedingtempl.Index())
+}
+
+func (s *Server) feedingProofUpload(w http.ResponseWriter, r *http.Request) {
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	studID := *vex.ReturnUint64(ex, "student_id")
+	base64Photo := *vex.ReturnString(ex, "base64_photo")
+	studVer := *vex.ReturnUint64(ex, "version")
+	ctx := r.Context()
+
+	if err := ex.Errors(); err != nil {
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
+		return
+	}
+
+	photo, err := base64.StdEncoding.DecodeString(base64Photo)
+	if err != nil {
+		s.errorPage(w, r, "Error decoding base64 photo", err)
+		return
+	}
+
+	fileID, err := s.FileSvc.CreateFile(ctx, photo, &eda.File_Create{
+		Name:            "feeding_proof",
+		DomainReference: eda.File_FEEDING_HISTORY,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error saving photo", err)
+		return
+	}
+
+	agg, err := s.StudentSvc.RunCommand(r.Context(), studID, &eda.Student_Feeding{
+		UnixTimestamp: uint64(time.Now().Unix()),
+		FileId:        fileID,
+		Version:       studVer,
+	})
+
+	if err != nil {
+		s.errorPage(w, r, "Error confirming feeding", err)
+		return
+	}
+
+	// TODO: save photo
+	_ = photo
+
+	s.renderTempl(w, r, feedingtempl.Fed(agg))
 }
 
 func (s *Server) feedingUpload(w http.ResponseWriter, r *http.Request) {

@@ -17,7 +17,7 @@ var ErrNoFileData = errors.New("no file data provided")
 var ErrFileDomainReferenceNotDefined = errors.New("file domain reference not defined")
 
 // ErrFailedToStoreFile is returned when the file storage fails to store the file
-var ErrFailedToStoreFile = errors.New("failed to store file")
+var ErrFailedToStoreFile = errors.New("store file")
 
 type Storage interface {
 	StoreFile(ctx context.Context, domainReference, fileID string, fileData []byte) error
@@ -40,7 +40,7 @@ func NewService(repo Repository, storage Storage) *Service {
 }
 
 // CreateFile handles the creation of a new file, storing it, and creating an event
-func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.File) (string, error) {
+func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.File_Create) (string, error) {
 	id := ulid.Make()
 
 	if file == nil {
@@ -54,7 +54,8 @@ func (s *Service) CreateFile(ctx context.Context, fileData []byte, file *eda.Fil
 	drString := eda.File_DomainReference_name[int32(file.DomainReference)]
 
 	if err := s.storage.StoreFile(ctx, drString, id.String(), fileData); err != nil {
-		return "", errors.Join(ErrFailedToStoreFile, err)
+		newErr := errors.Join(fmt.Errorf("in domain %s", drString), ErrFailedToStoreFile, err)
+		return "", newErr
 	}
 
 	agg := &Aggregate{}

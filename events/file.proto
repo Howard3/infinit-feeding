@@ -15,12 +15,12 @@ message File {
     int64 size = 4; // The size of the file in bytes
     string extension = 5; // The file extension
     events.metadata.Metadata metadata = 6;
-    google.protobuf.Timestamp created_at = 7; // The time the file was created
+    reserved 7;
     bool deleted = 8; // Whether the file has been logically deleted
 
     enum DomainReference {
         UNKNOWN = 0;
-        STUDENT = 1;
+        STUDENT_PROFILE_PHOTO = 1;
         FEEDING_TEMPORARY = 2;
         FEEDING_HISTORY = 3;
     }
@@ -40,7 +40,6 @@ message File {
             string mime_type = 3;
             int64 size = 4;
             string extension = 5;
-            google.protobuf.Timestamp created_at = 6;
             events.metadata.Metadata metadata = 7;
         }
     }

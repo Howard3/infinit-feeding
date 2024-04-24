@@ -40,9 +40,11 @@ message Student {
     message Feeding {
         uint64 unix_timestamp = 1;
         uint64 version = 2;
+        string file_id = 3;
 
         message Event {
             uint64 unix_timestamp = 1;
+            string file_id = 2;
         }
     }
 

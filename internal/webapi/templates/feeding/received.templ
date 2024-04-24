@@ -43,11 +43,10 @@ templ Received(student *student.Aggregate) {
 		</div>
 		@studentInfo(student)
 		<div class="p-6 flex flex-col gap-4 items-center">
-			<form className="grid gap-2" hx-confirm="Are you sure you want to record feeding?" hx-push-url="false">
+			<form className="grid gap-2" hx-push-url="false">
 				<div className="font-semibold">Record Feeding:</div>
-				@components.PrimaryButton("Record Feeding", templ.Attributes{
-					"hx-post":   "/feeding/confirm",
-					"hx-params": "*",
+				@components.PrimaryButton("Take Feeding Proof", templ.Attributes{
+					"hx-get":   fmt.Sprintf("/feeding/camera/startFeedingProof/%s/%d", student.GetID(), student.GetVersion()),
 				})
 				@components.HiddenField("student_id", student.GetID())
 				@components.HiddenField("student_ver", fmt.Sprintf("%d", student.GetVersion()))
