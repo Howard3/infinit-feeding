@@ -28,7 +28,7 @@ templ Index() {
 						<h3 class="text-lg font-medium">Enter Student School ID</h3>
 						<p class="text-sm leading-none text-gray-500">No QR Code? Enter the Student School issued ID.</p>
 					</div>
-					<form class="flex justify-center items-center flex-col">
+					<form class="flex justify-center items-center flex-col rounded bg-gray-50 p-3 border b-gray-300">
 		                @components.TextField("Student School ID", "student_school_id", "Enter student School ID", "")
 						<button
                             hx-get="/feeding/studentBy/studentSchoolID"
