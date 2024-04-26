@@ -19,6 +19,23 @@ func (s *Server) studentProfilePhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: don't assume the file is jpeg
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+	w.Write(bytes)
+}
+
+func (s *Server) studentFeedingPhoto(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "ID")
+
+	drString := eda.File_DomainReference_name[int32(eda.File_FEEDING_HISTORY)]
+	bytes, err := s.FileSvc.GetFileBytes(r.Context(), drString, id)
+	if err != nil {
+		s.errorPage(w, r, "Error", err)
+		return
+	}
+
+	// TODO: don't assume the file is jpeg
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
 	w.Write(bytes)

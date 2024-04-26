@@ -36,6 +36,7 @@ type Repository interface {
 	insertStudentCode(ctx context.Context, id uint64, code []byte) error
 	getStudentIDByCode(ctx context.Context, code []byte) (uint64, error)
 	getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error)
+	getEvent(ctx context.Context, id, version uint64) (*gosignal.Event, error)
 }
 
 type ProjectedStudent struct {
@@ -354,6 +355,22 @@ func (r *sqlRepository) getEventHistory(ctx context.Context, id uint64) ([]gosig
 	cfg := src.NewRepoLoaderConfigurator().SkipSnapshot(true).Build()
 	sID := fmt.Sprintf("%d", id)
 	return r.eventSourcing.LoadEvents(ctx, sID, cfg)
+}
+
+// GetEvent returns a single event by ID and version
+func (r *sqlRepository) getEvent(ctx context.Context, id, version uint64) (*gosignal.Event, error) {
+	cfg := src.NewRepoLoaderConfigurator().SkipSnapshot(true).MinVersion(version).MaxVersion(version).Build()
+	sID := fmt.Sprintf("%d", id)
+	evts, err := r.eventSourcing.LoadEvents(ctx, sID, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get event: %w", err)
+	}
+
+	if len(evts) == 0 {
+		return nil, fmt.Errorf("event not found")
+	}
+
+	return &evts[0], nil
 }
 
 // insert code into lookup table

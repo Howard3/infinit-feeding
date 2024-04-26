@@ -94,6 +94,11 @@ func (s *StudentService) saveEvent(ctx context.Context, evt *gosignal.Event) err
 	return nil
 }
 
+// GetStudentEvent returns a specific event for a student Aggregate
+func (s *StudentService) GetStudentEvent(ctx context.Context, studentID, eventID uint64) (*gosignal.Event, error) {
+	return s.repo.getEvent(ctx, studentID, eventID)
+}
+
 func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*ListStudentsResponse, error) {
 	students, err := s.repo.ListStudents(ctx, limit, page)
 	if err != nil {

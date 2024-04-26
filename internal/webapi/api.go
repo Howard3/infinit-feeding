@@ -117,6 +117,7 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/student", func(r chi.Router) {
 		r.Get("/profile/photo/{ID}", s.studentProfilePhoto)
+		r.Get("/feeding/photo/{ID}", s.studentFeedingPhoto)
 	})
 
 	c.Route("/admin", func(r chi.Router) {

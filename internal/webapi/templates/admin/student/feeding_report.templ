@@ -1,0 +1,25 @@
+package studenttempl
+
+import ( 
+	"geevly/gen/go/eda"
+    "fmt"
+    "time"
+)
+
+func feedingTimestampToTimstamp(ts int64) string {
+    return time.UnixMilli(ts).Format("2006-01-02 15:04:05")
+}
+
+templ FeedingReport(evt *eda.Student_Feeding_Event) {
+    <div class="flex-col pb-3 w-full">
+        Feeding occurred at { feedingTimestampToTimstamp(int64(evt.GetUnixTimestamp())) }
+        <div class="w-full text-center">
+        <h1 class="text-3xl font-bold pb-3">Feeding Proof</h1>
+        if evt.FileId == "" {
+            No Photo on file for this feeding event
+        } else {
+            <img class="rounded-xl border border-black mx-auto" src={ fmt.Sprintf("/student/feeding/photo/%s", evt.FileId) } />
+        }
+        </div>
+    </div>
+}

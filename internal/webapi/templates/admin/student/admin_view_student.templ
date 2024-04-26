@@ -158,7 +158,7 @@ templ StudentHistorySection(evts []gosignal.Event) {
 				<div class="grid min-w-[400px] w-full divide-y">
 					for _, evt := range evts {
 						<div class="grid grid-cols-3 items-center p-3 bg-gray-100">
-							<div class="text-sm text-gray-500">
+							<div class="text-sm text-gray-500" hx-target="#content" hx-push-url="true">
 								switch evt.Type {
 									case student.EVENT_ADD_STUDENT:
 										Student created 
@@ -175,7 +175,10 @@ templ StudentHistorySection(evts []gosignal.Event) {
 									case student.EVENT_SET_PROFILE_PHOTO:
 										Profile photo updated
 									case student.EVENT_FEED_STUDENT:
-										Student fed
+										Student fed 
+                                        @components.Button("View", templ.Attributes{
+                                            "hx-get": fmt.Sprintf("/admin/student/%s/feedingReport/%d", evt.AggregateID, evt.Version),
+                                        })
 									default:
 										Unknown event: { evt.Type }
 								}

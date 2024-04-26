@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"geevly/internal/student"
 	studenttempl "geevly/internal/webapi/templates/admin/student"
 	templates "geevly/internal/webapi/templates/admin/student"
 	components "geevly/internal/webapi/templates/components"
@@ -16,6 +17,7 @@ import (
 
 	vex "github.com/Howard3/valueextractor"
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/proto"
 
 	qrcode "github.com/skip2/go-qrcode"
 )
@@ -30,6 +32,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 		r.Use(s.setStudentIDMiddleware)
 		r.Get(`/{ID:(^\d+)}`, s.adminViewStudent)
 		r.Post(`/{ID:(^\d+)}`, s.adminUpdateStudent)
+		r.Get(`/{ID:(^\d+)}/feedingReport/{EVENTID:(^\d+)}`, s.feedingReport)
 		r.Get(`/{ID:(^\d+)}/history`, s.adminStudentHistory)
 		r.Put(`/{ID:(^\d+)}/toggleStatus`, s.toggleStudentStatus)
 		r.Post(`/{ID:(^\d+)}/enroll`, s.adminEnrollStudent)
@@ -61,6 +64,36 @@ func (s *Server) getStudentIDFromContext(ctx context.Context) uint64 {
 		panic("No student ID in context")
 	}
 	return id
+}
+
+func (s *Server) feedingReport(w http.ResponseWriter, r *http.Request) {
+	sID := s.getStudentIDFromContext(r.Context())
+	eID := chi.URLParam(r, "EVENTID")
+
+	eidUint, err := strconv.ParseUint(eID, 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Invalid ID", err)
+		return
+	}
+
+	evt, err := s.StudentSvc.GetStudentEvent(r.Context(), sID, eidUint)
+	if err != nil {
+		s.errorPage(w, r, "Error getting event", err)
+		return
+	}
+
+	if evt.Type != student.EVENT_FEED_STUDENT {
+		s.errorPage(w, r, "Invalid event type", fmt.Errorf("Invalid event type"))
+		return
+	}
+
+	eventData := &eda.Student_Feeding_Event{}
+	if err = proto.Unmarshal(evt.Data, eventData); err != nil {
+		s.errorPage(w, r, "Error unmarshalling event data", err)
+		return
+	}
+
+	s.renderTempl(w, r, studenttempl.FeedingReport(eventData))
 }
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
