@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"geevly/gen/go/eda"
+	"geevly/internal/student"
 	"geevly/internal/webapi/feeding"
 	feedingtempl "geevly/internal/webapi/templates/feeding"
 	"io"
@@ -18,10 +19,22 @@ func (s *Server) feedingRoutes(r chi.Router) {
 	r.Get("/", s.feed)
 	r.Get("/camera", s.camera)
 	r.Get("/code/{code}", s.confirmCode)
+	r.Get("/studentBy/studentSchoolID", s.confirmStudentByStudentSchoolID)
 	r.Get(`/camera/startFeedingProof/{ID:^\d+}/{version:^\d+}`, s.startFeedingProof)
 	r.Post("/proof", s.feedingProofUpload)
 	r.Post(`/upload`, s.feedingUpload)
 	r.Post("/confirm", s.feedingConfirm)
+}
+
+func (s *Server) confirmStudentByStudentSchoolID(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("student_school_id")
+	student, err := s.StudentSvc.GetStudentByStudentSchoolID(r.Context(), id)
+	if err != nil {
+		s.errorPage(w, r, "Error getting student", fmt.Errorf("error getting student by student school ID %q: %w", id, err))
+		return
+	}
+
+	s.confirmStudent(w, r, student)
 }
 
 func (s *Server) startFeedingProof(w http.ResponseWriter, r *http.Request) {
@@ -117,6 +130,10 @@ func (s *Server) confirmCodeScreen(w http.ResponseWriter, r *http.Request, code 
 		return
 	}
 
+	s.confirmStudent(w, r, student)
+}
+
+func (s *Server) confirmStudent(w http.ResponseWriter, r *http.Request, student *student.Aggregate) {
 	if !student.IsActive() {
 		s.errorPage(w, r, "Student is not active", fmt.Errorf("student %q is not active", student.ID))
 		return

@@ -35,6 +35,7 @@ type Repository interface {
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
 	insertStudentCode(ctx context.Context, id uint64, code []byte) error
 	getStudentIDByCode(ctx context.Context, code []byte) (uint64, error)
+	getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error)
 }
 
 type ProjectedStudent struct {
@@ -368,6 +369,18 @@ func (r *sqlRepository) insertStudentCode(ctx context.Context, id uint64, code [
 	}
 
 	return nil
+}
+
+// getStudentIDByStudentSchoolID - returns the student ID by the given student school ID
+func (r *sqlRepository) getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error) {
+	query := `SELECT id FROM student_projections WHERE student_id = ?`
+	var id uint64
+
+	if err := r.db.QueryRow(query, studentSchoolID).Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to get student ID by student school ID: %w", err)
+	}
+
+	return id, nil
 }
 
 // getStudentIDByCode - returns the student ID by the given code

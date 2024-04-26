@@ -151,3 +151,13 @@ func (s *StudentService) GetStudentByCode(ctx context.Context, code []byte) (*Ag
 
 	return s.GetStudent(ctx, id)
 }
+
+// GetStudentByStudentSchoolID returns a student by a student school ID
+func (s *StudentService) GetStudentByStudentSchoolID(ctx context.Context, studentSchoolID string) (*Aggregate, error) {
+	id, err := s.repo.getStudentIDByStudentSchoolID(ctx, studentSchoolID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get student ID by student school ID: %w", err)
+	}
+
+	return s.GetStudent(ctx, id)
+}

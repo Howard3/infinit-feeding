@@ -1,5 +1,9 @@
 package feedingtempl 
 
+import (
+	"geevly/internal/webapi/templates/components"
+)
+
 templ Index() {
 	<section class="w-full py-12 md:py-24 lg:py-32 xl:py-48" hx-encoding="multipart/form-data" hx-push-url="false">
 		<div class="container px-4 md:px-6 mx-auto">
@@ -11,7 +15,7 @@ templ Index() {
 				<div class="grid md:grid-cols-2 items-center gap-6 w-full max-w-3xl mx-auto px-4 py-6">
 					<div class="grid items-center gap-2">
 						<h3 class="text-lg font-medium">Take a Photo</h3>
-						<p class="text-sm leading-none text-gray-500">Position the item in the frame and tap to take a photo.</p>
+						<p class="text-sm leading-none text-gray-500">Position the QR in the frame and tap to take a photo.</p>
 					</div>
 					<div class="flex justify-center items-center">
 						<button 
@@ -20,6 +24,18 @@ templ Index() {
 							Use Camera
 						</button>
 					</div>
+					<div class="grid items-center gap-2">
+						<h3 class="text-lg font-medium">Enter Student School ID</h3>
+						<p class="text-sm leading-none text-gray-500">No QR Code? Enter the Student School issued ID.</p>
+					</div>
+					<form class="flex justify-center items-center flex-col">
+		                @components.TextField("Student School ID", "student_school_id", "Enter student School ID", "")
+						<button
+                            hx-get="/feeding/studentBy/studentSchoolID"
+                            class="inline-flex items-center mt-6 justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md px-8 mx-auto">
+						    Submit	
+						</button>
+					</form>
 				</div>
 			</div>
 		</div>
