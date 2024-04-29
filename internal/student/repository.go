@@ -390,6 +390,10 @@ func (r *sqlRepository) insertStudentCode(ctx context.Context, id uint64, code [
 
 // getStudentIDByStudentSchoolID - returns the student ID by the given student school ID
 func (r *sqlRepository) getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error) {
+	if studentSchoolID == "" {
+		return 0, fmt.Errorf("student school ID is required")
+	}
+
 	query := `SELECT id FROM student_projections WHERE student_id = ?`
 	var id uint64
 
