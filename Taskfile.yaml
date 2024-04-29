@@ -29,3 +29,11 @@ tasks:
     dir: "events"
     cmds:
       - buf generate
+  deploy:production:
+    desc: "deploy to production"
+    cmds:
+      - fly deploy -a infinit-feeding
+  deploy:staging:
+    desc: "deploy to staging"
+    cmds:
+      - fly deploy -a infinit-feeding-staging
