@@ -24,11 +24,12 @@ templ FormWrapper(title, postURL, returnURL string) {
 	</div>
 }
 
+// TODO: make autocomplete/1p ignore configurable
 templ TextField(label, fieldName, placeholder, value string) {
 	<div class="space-y-2">
 		<label
 			class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-			for="first-name"
+            for={ fieldName }
 		>
 			{ label }
 		</label>
@@ -39,6 +40,8 @@ templ TextField(label, fieldName, placeholder, value string) {
 			placeholder={ placeholder }
 			required=""
 			value={ value }
+            autocomplete="off"
+            data-1p-ignore
 		/>
 	</div>
 }
