@@ -53,8 +53,10 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Exporting report for school %d from %s to %s", schoolID, startDate.String(), endDate.String())))
+	//	w.Write([]byte(fmt.Sprintf("Exporting report for school %d from %s to %s", schoolID, startDate.String(), endDate.String())))
 	_ = schoolID
 	_ = startDate
 	_ = endDate
+
+	s.renderTempl(w, r, reportstempl.FeedingReport())
 }
