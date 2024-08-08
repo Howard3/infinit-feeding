@@ -124,6 +124,7 @@ func (s *Server) Start(ctx context.Context) {
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)
 		r.Route("/user", s.userAdminRouter)
+		r.Route("/reports", s.adminReports)
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			s.renderTempl(w, r, admin.AdminHome())
 		})

@@ -31,6 +31,7 @@ type Repository interface {
 	loadStudent(ctx context.Context, id uint64) (*Aggregate, error)
 	CountStudents(ctx context.Context) (uint, error)
 	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
+	ListStudentsForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error)
 	GetNewID(ctx context.Context) (uint64, error)
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
 	insertStudentCode(ctx context.Context, id uint64, code []byte) error
@@ -50,6 +51,24 @@ type ProjectedStudent struct {
 	Version     uint
 	Active      bool
 	Age         uint
+}
+
+// source schema:
+// CREATE TABLE IF NOT EXISTS student_feeding_projections (
+//
+//		student_id TEXT NOT NULL,
+//	 feeding_id INT NOT NULL,
+//		feeding_id INT NOT NULL,
+//		school_id TEXT NOT NULL,
+//		feeding_timestamp TIMESTAMPTZ NOT NULL,
+//		PRIMARY KEY(student_id, feeding_id)
+//
+// );
+type ProjectedFeedingEvent struct {
+	StudentID       string
+	FeedingID       uint64
+	SchoolID        string
+	FeedingDateTime time.Time
 }
 
 // sqlRepository is the implementation of the Repository interface using SQL
@@ -74,12 +93,12 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 
 	repo.queue = queue
 	repo.setupEventSourcing(conn)
-	repo.updateProjections()
+	repo.updateProjections(context.Background()) // TODO: consider bubbling up the context further
 
 	return repo
 }
 
-func (r *sqlRepository) updateProjections() {
+func (r *sqlRepository) updateProjections(ctx context.Context) {
 	slog.Info("updating projections")
 	whatToUpdate := r.checkForProjectionUpdates()
 	if len(whatToUpdate) == 0 {
@@ -87,15 +106,103 @@ func (r *sqlRepository) updateProjections() {
 		return
 	}
 
-	if len(whatToUpdate) > 1 {
-		panic(fmt.Errorf("multiple projections to update: %v", whatToUpdate))
+	for _, v := range whatToUpdate {
+		switch v {
+		case "student_projections":
+			r.updateStudentProjections()
+		case "student_feeding_projections":
+			r.rebuildStudentFeedingProjections(ctx)
+		default:
+			panic(fmt.Errorf("unsupported projection: %s", v))
+		}
 	}
 
-	// only support student_projections for now
-	if whatToUpdate[0] != "student_projections" {
-		panic(fmt.Errorf("unsupported projection: %s", whatToUpdate[0]))
+	r.clearProjectionUpdates()
+}
+
+// rebuildStudentFeedingProjections - completely rebuilds the student feeding projections
+// NOTE: this is a very expensive operation and should only be used in exceptional circumstances
+func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (err error) {
+	slog.Info("updating student feeding projections")
+
+	ids := r.getUniqueIDsForAggregates()
+	projections := make([]ProjectedFeedingEvent, 0)
+
+	slog.Info("loading student feeding reports", "count", len(ids))
+
+	// populate the projections; this is necessary to do prior to starting the transaction because
+	// the loadStudent method may make it's own inserts (snapshotting); transactions will be blocking.
+	for _, id := range ids {
+		student, err := r.loadStudent(ctx, id)
+		if err != nil {
+			return fmt.Errorf("failed to load student: %w", err)
+		}
+
+		for _, report := range student.data.FeedingReport {
+			timestamp := time.Unix(int64(report.UnixTimestamp), 0)
+			projection := ProjectedFeedingEvent{
+				StudentID:       student.GetID(),
+				FeedingID:       report.Id,
+				SchoolID:        student.data.SchoolId,
+				FeedingDateTime: timestamp,
+			}
+
+			projections = append(projections, projection)
+		}
 	}
 
+	// start a transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		panic(fmt.Errorf("failed to begin transaction: %w", err))
+	}
+
+	defer func() {
+		if err != nil {
+			slog.Error("rolling back transaction", "error", err)
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	slog.Info("deleting student feeding projections")
+
+	// delete all feeding projections since we're doing a full update
+	query := `DELETE FROM student_feeding_projections`
+	if _, err := tx.Exec(query); err != nil {
+		panic(fmt.Errorf("failed to delete student feeding projections: %w", err))
+	}
+
+	slog.Info("Updating student feeding projections", "count", len(ids))
+
+	for _, projection := range projections {
+		slog.Info("inserting feeding projection", "student_id", projection.StudentID, "feeding_id", projection.FeedingID)
+		if err := r.insertFeedingProjection(tx, projection); err != nil {
+			return fmt.Errorf("failed to insert feeding projection: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// insertFeedingProjection - inserts a feeding projection into the database
+func (r *sqlRepository) insertFeedingProjection(tx *sql.Tx, pfe ProjectedFeedingEvent) error {
+	query := `INSERT INTO student_feeding_projections
+		(student_id, feeding_id, school_id, feeding_timestamp)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT (student_id, feeding_id) DO NOTHING;
+	`
+
+	_, err := tx.Exec(query, pfe.StudentID, pfe.FeedingID, pfe.SchoolID, pfe.FeedingDateTime)
+	if err != nil {
+		return fmt.Errorf("failed to insert student feeding projection: %w", err)
+	}
+
+	return nil
+}
+
+func (r *sqlRepository) updateStudentProjections() {
 	slog.Info("updating student projections")
 
 	ids := r.getUniqueIDsForAggregates()
@@ -110,8 +217,6 @@ func (r *sqlRepository) updateProjections() {
 			panic(fmt.Errorf("failed to upsert student: %w", err))
 		}
 	}
-
-	r.clearProjectionUpdates()
 }
 
 func (r *sqlRepository) getUniqueIDsForAggregates() []uint64 {
@@ -430,4 +535,50 @@ func (r *sqlRepository) upsertStudentProfilePhoto(agg *Aggregate) error {
 	}
 
 	return nil
+}
+
+// ListStudentsForSchool - returns all students for a school
+func (r *sqlRepository) ListStudentsForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error) {
+	query := `SELECT
+		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
+		FROM student_projections
+		WHERE school_id = ?;
+	`
+
+	rows, err := r.db.Query(query, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get students for school: %w", err)
+	}
+	defer rows.Close()
+
+	students := []*ProjectedStudent{}
+	for rows.Next() {
+		student := &ProjectedStudent{}
+		var dateOfBirth, studentID sql.NullString
+		var grade, age sql.NullInt64
+
+		if err := rows.Scan(
+			&student.ID,
+			&student.FirstName,
+			&student.LastName,
+			&student.SchoolID,
+			&dateOfBirth,
+			&studentID,
+			&age,
+			&grade,
+			&student.Version,
+			&student.Active,
+		); err != nil {
+			return nil, fmt.Errorf("scan student: %w", err)
+		}
+
+		student.DateOfBirth = r.parseDate(dateOfBirth.String)
+		student.StudentID = studentID.String
+		student.Grade = uint(grade.Int64)
+		student.Age = uint(age.Int64)
+
+		students = append(students, student)
+	}
+
+	return students, nil
 }
