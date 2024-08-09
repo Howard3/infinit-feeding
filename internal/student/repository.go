@@ -38,6 +38,7 @@ type Repository interface {
 	getStudentIDByCode(ctx context.Context, code []byte) (uint64, error)
 	getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error)
 	getEvent(ctx context.Context, id, version uint64) (*gosignal.Event, error)
+	QueryFeedingHistory(ctx context.Context, query FeedingHistoryQuery) (*StudentFeedingProjections, error)
 }
 
 type ProjectedStudent struct {
@@ -581,4 +582,148 @@ func (r *sqlRepository) ListStudentsForSchool(ctx context.Context, schoolID stri
 	}
 
 	return students, nil
+}
+
+type FeedingHistoryQuery struct {
+	SchoolID string
+	From     time.Time
+	To       time.Time
+}
+
+func (fhq FeedingHistoryQuery) Validate() error {
+	if fhq.SchoolID == "" {
+		return fmt.Errorf("school ID is required")
+	}
+
+	if fhq.From.IsZero() {
+		return fmt.Errorf("from date is required")
+	}
+
+	if fhq.To.IsZero() {
+		return fmt.Errorf("to date is required")
+	}
+
+	if fhq.From.After(fhq.To) {
+		return fmt.Errorf("from date must be before to date")
+	}
+
+	return nil
+}
+
+type JoinedFeedingProjection struct {
+	Student      ProjectedStudent
+	FeedingEvent ProjectedFeedingEvent
+}
+
+type StudentFeedingProjections struct {
+	projections []JoinedFeedingProjection
+}
+
+// GetAll - returns all feeding projections
+func (sfp *StudentFeedingProjections) GetAll() []JoinedFeedingProjection {
+	return sfp.projections
+}
+
+// GroupedByStudentReturn - represents a grouping of feeding projections by student
+type GroupedByStudentReturn struct {
+	Student       ProjectedStudent
+	FeedingEvents []ProjectedFeedingEvent
+}
+
+func (gbsr *GroupedByStudentReturn) WasFedOnDay(t time.Time) bool {
+	for _, evt := range gbsr.FeedingEvents {
+		if evt.FeedingDateTime.Year() == t.Year() && evt.FeedingDateTime.Month() == t.Month() && evt.FeedingDateTime.Day() == t.Day() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GroupByStudent - groups the feeding projections by student ID
+func (sfp *StudentFeedingProjections) GroupByStudent() []*GroupedByStudentReturn {
+	grouped := []*GroupedByStudentReturn{}
+	indexTracker := map[string]int{}
+
+	for _, projection := range sfp.projections {
+		key := projection.Student.StudentID
+		if _, ok := indexTracker[key]; !ok {
+			groupedRet := &GroupedByStudentReturn{
+				Student:       projection.Student,
+				FeedingEvents: []ProjectedFeedingEvent{},
+			}
+
+			grouped = append(grouped, groupedRet)
+			indexTracker[key] = len(grouped) - 1
+		}
+
+		idx := indexTracker[key]
+		grouped[idx].FeedingEvents = append(grouped[idx].FeedingEvents, projection.FeedingEvent)
+	}
+
+	return grouped
+}
+
+// QueryFeedingHistory - returns the feeding history for students
+func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHistoryQuery) (*StudentFeedingProjections, error) {
+	if err := query.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid query: %w", err)
+	}
+
+	// query for feeding events
+	q := `SELECT
+		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
+		sfp.feeding_id, sfp.school_id, sfp.feeding_timestamp
+		FROM student_feeding_projections sfp
+		JOIN student_projections sp ON sp.id = sfp.student_id
+		WHERE sfp.school_id = ? AND sfp.feeding_timestamp >= ? AND sfp.feeding_timestamp <= ?
+		ORDER BY sp.last_name ASC, sfp.feeding_timestamp ASC;
+	`
+	rows, err := r.db.Query(q, query.SchoolID, query.From, query.To)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query feeding history: %w", err)
+	}
+	defer rows.Close()
+
+	projections := &StudentFeedingProjections{}
+	for rows.Next() {
+		var projection JoinedFeedingProjection
+		var dateOfBirth, studentID, feedingTimestamp sql.NullString
+		var grade, age sql.NullInt64
+
+		if err := rows.Scan(
+			&projection.Student.ID,
+			&projection.Student.FirstName,
+			&projection.Student.LastName,
+			&projection.Student.SchoolID,
+			&dateOfBirth,
+			&studentID,
+			&age,
+			&grade,
+			&projection.Student.Version,
+			&projection.Student.Active,
+			&projection.FeedingEvent.FeedingID,
+			&projection.FeedingEvent.SchoolID,
+			&feedingTimestamp,
+		); err != nil {
+			return nil, fmt.Errorf("scan feeding projection: %w", err)
+		}
+
+		projection.Student.DateOfBirth = r.parseDate(dateOfBirth.String)
+		projection.Student.StudentID = studentID.String
+		projection.Student.Grade = uint(grade.Int64)
+		projection.Student.Age = uint(age.Int64)
+
+		// parse feeding timestamp from 2024-05-05 19:59:48-05:00
+		t, err := time.Parse("2006-01-02 15:04:05-07:00", feedingTimestamp.String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse feeding timestamp: %w", err)
+		}
+
+		projection.FeedingEvent.FeedingDateTime = t
+
+		projections.projections = append(projections.projections, projection)
+	}
+
+	return projections, nil
 }

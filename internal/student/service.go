@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"geevly/gen/go/eda"
+	"time"
 
 	"github.com/Howard3/gosignal"
 	"google.golang.org/protobuf/proto"
@@ -165,4 +166,19 @@ func (s *StudentService) GetStudentByStudentSchoolID(ctx context.Context, studen
 	}
 
 	return s.GetStudent(ctx, id)
+}
+
+type StudentFeedingHistory struct {
+	Student *ProjectedStudent
+	Events  []*ProjectedFeedingEvent
+}
+
+func (s *StudentService) GetSchoolFeedingEvents(ctx context.Context, schoolID string, from, to time.Time) ([]*GroupedByStudentReturn, error) {
+	q := FeedingHistoryQuery{SchoolID: schoolID, From: from, To: to}
+	events, err := s.repo.QueryFeedingHistory(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query feeding history: %w", err)
+	}
+
+	return events.GroupByStudent(), nil
 }

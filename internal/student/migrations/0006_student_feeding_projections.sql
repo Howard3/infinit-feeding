@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS student_feeding_projections (
     feeding_id INT NOT NULL,
     school_id TEXT NOT NULL,
     feeding_timestamp TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY(student_id, feeding_id)
+    PRIMARY KEY(student_id, feeding_id),
+    FOREIGN KEY(student_id) REFERENCES student_projections(id) ON DELETE CASCADE
 );
 
 INSERT INTO student_projection_updates (what) VALUES ('student_feeding_projections');

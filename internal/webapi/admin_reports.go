@@ -44,7 +44,7 @@ func AsDate(ref *time.Time) vex.Converter {
 
 func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 	ex := vex.Using(&vex.FormExtractor{Request: r})
-	schoolID := vex.Result(ex, "school_id", vex.AsUint64)
+	schoolID := vex.Result(ex, "school_id", vex.AsString)
 	startDate := vex.Result(ex, "start_date", AsDate)
 	endDate := vex.Result(ex, "end_date", AsDate)
 
@@ -53,10 +53,16 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//	w.Write([]byte(fmt.Sprintf("Exporting report for school %d from %s to %s", schoolID, startDate.String(), endDate.String())))
-	_ = schoolID
-	_ = startDate
-	_ = endDate
+	students, err := s.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, startDate, endDate)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching feeding events", err)
+		return
+	}
 
-	s.renderTempl(w, r, reportstempl.FeedingReport())
+	dateColumns := make([]time.Time, 0)
+	for d := startDate; d.Before(endDate); d = d.AddDate(0, 0, 1) {
+		dateColumns = append(dateColumns, d)
+	}
+
+	s.renderTempl(w, r, reportstempl.FeedingReport(students, dateColumns))
 }
