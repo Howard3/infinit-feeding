@@ -73,6 +73,22 @@ func (eh *eventHandlers) handleSetProfilePhotoEvent(ctx context.Context, aggID u
 	}
 }
 
+// handleFeedStudentEvent is a method that handles the FeedStudentEvent
+func (eh *eventHandlers) handleFeedStudentEvent(ctx context.Context, aggID uint64) {
+	student, err := eh.repo.loadStudent(ctx, aggID)
+	if err != nil {
+		slog.Error("failed to load student", "error", err)
+		return
+	}
+
+	// TODO: use the event version here because if somehow we end up with a later version of the event
+	// we may miss a prior feeding event.
+	if err := eh.repo.upsertFeedingEventProjection(student); err != nil {
+		slog.Error("failed to upsert student feed", "error", err)
+		return
+	}
+}
+
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	id, err := strconv.ParseUint(evt.AggregateID, 10, 64)
@@ -90,5 +106,7 @@ func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 		eh.HandleGenerateCodeEvent(ctx, id)
 	case EVENT_SET_PROFILE_PHOTO:
 		eh.handleSetProfilePhotoEvent(ctx, id)
+	case EVENT_FEED_STUDENT:
+		eh.handleFeedStudentEvent(ctx, id)
 	}
 }

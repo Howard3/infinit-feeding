@@ -27,6 +27,7 @@ var migrations embed.FS
 type Repository interface {
 	upsertStudent(student *Aggregate) error
 	upsertStudentProfilePhoto(student *Aggregate) error
+	upsertFeedingEventProjection(student *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
 	loadStudent(ctx context.Context, id uint64) (*Aggregate, error)
 	CountStudents(ctx context.Context) (uint, error)
@@ -140,6 +141,7 @@ func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (e
 		}
 
 		for _, report := range student.data.FeedingReport {
+			// BUG: doesn't consider the school at the time of feeding, just the current student state.
 			timestamp := time.Unix(int64(report.UnixTimestamp), 0)
 			projection := ProjectedFeedingEvent{
 				StudentID:       student.GetID(),
@@ -198,6 +200,36 @@ func (r *sqlRepository) insertFeedingProjection(tx *sql.Tx, pfe ProjectedFeeding
 	_, err := tx.Exec(query, pfe.StudentID, pfe.FeedingID, pfe.SchoolID, pfe.FeedingDateTime)
 	if err != nil {
 		return fmt.Errorf("failed to insert student feeding projection: %w", err)
+	}
+
+	return nil
+}
+
+// upsertFeedingEventProjection - persists the feeding event projection to the database
+func (r *sqlRepository) upsertFeedingEventProjection(student *Aggregate) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	// BUG: doesn't consider the school at the time of feeding, just the current student state.
+	pfe := ProjectedFeedingEvent{
+		StudentID:       student.GetID(),
+		FeedingID:       student.data.FeedingReport[len(student.data.FeedingReport)-1].Id,
+		SchoolID:        student.data.SchoolId,
+		FeedingDateTime: time.Unix(int64(student.data.FeedingReport[len(student.data.FeedingReport)-1].UnixTimestamp), 0),
+	}
+
+	if err := r.insertFeedingProjection(tx, pfe); err != nil {
+		return fmt.Errorf("failed to insert feeding projection: %w", err)
 	}
 
 	return nil
