@@ -17,6 +17,13 @@ templ Home(schools map[string]string) {
                 })
                 @components.DateField("Start Date", "start_date", "")
                 @components.DateField("End Date", "end_date", "")
+                @components.TomSelect(components.SelectConfig{
+                    Options:     map[string]string{"html": "HTML", "csv": "CSV"},
+                    MaxItems:    1,
+                    Name:        "output",
+                    Placeholder: "Select an output",
+                    Value:      "html",
+                })
                 @components.SubmitButton("Export Report")
             </form>
             </div>

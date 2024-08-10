@@ -1,7 +1,9 @@
 package webapi
 
 import (
+	"encoding/csv"
 	"fmt"
+	"geevly/internal/student"
 	reportstempl "geevly/internal/webapi/templates/admin/reports"
 	"net/http"
 	"time"
@@ -47,9 +49,15 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 	schoolID := vex.Result(ex, "school_id", vex.AsString)
 	startDate := vex.Result(ex, "start_date", AsDate)
 	endDate := vex.Result(ex, "end_date", AsDate)
+	output := vex.Result(ex, "output", vex.AsString)
 
 	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
+		return
+	}
+
+	if output != "html" && output != "csv" {
+		s.errorPage(w, r, "Invalid output format", fmt.Errorf("invalid output format: %s", output))
 		return
 	}
 
@@ -64,5 +72,61 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 		dateColumns = append(dateColumns, d)
 	}
 
-	s.renderTempl(w, r, reportstempl.FeedingReport(students, dateColumns))
+	switch output {
+	case "html":
+		s.renderTempl(w, r, reportstempl.FeedingReport(students, dateColumns))
+	case "csv":
+		s.feedingReportCSV(w, students, dateColumns)
+	default:
+		s.errorPage(w, r, "Invalid output format", fmt.Errorf("invalid output format: %s", output))
+	}
+}
+
+func (s *Server) feedingReportCSV(w http.ResponseWriter, students []*student.GroupedByStudentReturn, dateColumns []time.Time) {
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=feeding_report_%s.csv", time.Now().Format("2006-01-02")))
+
+	csvWriter := csv.NewWriter(w)
+	defer csvWriter.Flush()
+
+	rows := make([][]string, 0, len(students)+2)
+	// write Header
+	header := []string{"Student ID", "Student Last Name"}
+	for _, d := range dateColumns {
+		header = append(header, d.Format("2006-01-02"))
+	}
+	header = append(header, "Total")
+	rows = append(rows, header)
+	totalFed := 0
+	totalFedByDay := make(map[time.Time]int)
+
+	for _, student := range students {
+		row := make([]string, 0, len(dateColumns)+3)
+		row = append(row, student.Student.StudentID, student.Student.LastName)
+		daysFed := 0
+		for _, d := range dateColumns {
+			fedOnThisDay := student.WasFedOnDay(d)
+			if fedOnThisDay {
+				row = append(row, "1")
+				daysFed++
+				totalFedByDay[d]++
+			} else {
+				row = append(row, "")
+			}
+		}
+		row = append(row, fmt.Sprintf("%d", daysFed))
+		rows = append(rows, row)
+		totalFed += daysFed
+	}
+
+	// write total row
+	totalRow := make([]string, 0, len(header))
+	totalRow = append(totalRow, "", "Total")
+	for _, d := range dateColumns {
+		totalRow = append(totalRow, fmt.Sprintf("%d", totalFedByDay[d]))
+	}
+	totalRow = append(totalRow, fmt.Sprintf("%d", totalFed))
+	rows = append(rows, totalRow)
+
+	csvWriter.WriteAll(rows)
 }
