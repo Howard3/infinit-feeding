@@ -1,5 +1,14 @@
 package layouts 
 
+import (
+	"os"
+)
+
+func getClerkPublishableKey() string {
+	clerkPublishableKey := os.Getenv("CLERK_PUBLISHABLE_KEY")
+	return clerkPublishableKey
+}
+
 templ FullLayout(main templ.Component) {
 	<!DOCTYPE html>
 	<html>
@@ -15,6 +24,24 @@ templ FullLayout(main templ.Component) {
             <script src="/static/html5-qrcode.min.js"></script>
             <link rel="stylesheet" href="/static/cal-heatmap.css"/>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			// TODO: embed clerk in the project, don't load from CDN
+			<script src="https://cdn.jsdelivr.net/npm/clerk-js@2.16.0/dist/clerk.browser.min.js"></script>
+			// load clerk
+            <script
+              async
+              crossorigin="anonymous"
+              data-clerk-publishable-key={ getClerkPublishableKey() }
+              src="https://subtle-stingray-12.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+              type="text/javascript"
+            ></script>
+            <script>
+                window.addEventListener('load', async function () {
+                    await Clerk.load()
+                    console.log('ClerkJS is loaded')
+                    Clerk.mountUserButton(document.getElementById('user-button'));
+					Clerk.mountSignIn(document.getElementById('sign-in'));
+                })
+            </script>
 		</head>
 		<body>
 			<div class="flex flex-col min-h-screen bg-gray-100">
@@ -39,16 +66,19 @@ templ header() {
 			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
 				<img src="/static/img/infinity.svg" class="h-6 inline-block"/> Feeding
 			</a>
-			<nav class="flex-1 grid grid-cols-3 justify-center">
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
-					Feeding
-				</a>
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer text-nowrap" hx-get="/how-it-works">
-					How it works 
-				</a>
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
-					About Us
-				</a>
+			<nav class="flex-1 flex justify-between items-center">
+				<div class="flex space-x-4">
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
+						Feeding
+					</a>
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer text-nowrap" hx-get="/how-it-works">
+						How it works 
+					</a>
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
+						About Us
+					</a>
+				</div>
+				<div class="flex-shrink-0" id="user-button"></div>
 			</nav>
 		</div>
 	</header>

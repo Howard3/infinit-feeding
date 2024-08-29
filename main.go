@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 
 	"github.com/Howard3/gosignal/drivers/queue"
+	"github.com/clerkinc/clerk-sdk-go/clerk"
 
 	"geevly/internal/file"
 	"geevly/internal/infrastructure"
@@ -38,6 +40,11 @@ func main() {
 		Region:       os.Getenv("S3_REGION"),
 	}
 
+	clerkClient, err := clerk.NewClient(os.Getenv("CLERK_SECRET_KEY"))
+	if err != nil {
+		panic(fmt.Errorf("error creating clerk client: %w", err))
+	}
+
 	// configure a sqlite connection
 	db := infrastructure.SQLConnection{
 		Type: "libsql",
@@ -58,13 +65,13 @@ func main() {
 	studentRepo := student.NewRepository(db, &mq)
 	studentService := student.NewStudentService(studentRepo, studentACL)
 
-	// TODO: load config from env, put here.
 	server := webapi.Server{
 		StaticFS:   getStaticFS(),
 		StudentSvc: studentService,
 		SchoolSvc:  schoolService,
 		UserSvc:    userService,
 		FileSvc:    fileService,
+		Clerk:      clerkClient,
 	}
 	server.Start(ctx)
 }

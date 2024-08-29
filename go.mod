@@ -9,6 +9,7 @@ require (
 	github.com/Howard3/valueextractor v1.1.2
 	github.com/a-h/templ v0.2.747
 	github.com/aws/aws-sdk-go v1.50.37
+	github.com/clerkinc/clerk-sdk-go v1.49.1
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.22
@@ -22,6 +23,7 @@ require (
 	github.com/ClickHouse/ch-go v0.61.2 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.18.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/libsql/sqlite-antlr4-parser v0.0.0-20240327125255-dbf53b6cbf06 // indirect

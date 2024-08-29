@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/a-h/templ"
+	"github.com/clerkinc/clerk-sdk-go/clerk"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -29,6 +30,7 @@ type Server struct {
 	SchoolSvc     *school.Service
 	UserSvc       *user.Service
 	FileSvc       *file.Service
+	Clerk         clerk.Client
 }
 
 func (s *Server) verifyConfig() {
@@ -99,6 +101,7 @@ func (s *Server) Start(ctx context.Context) {
 	c.Use(middleware.Recoverer)
 	c.Use(middleware.Compress(5))
 	c.Use(middleware.Logger)
+	c.Use(clerk.WithSessionV2(s.Clerk))
 
 	// serve static files
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
@@ -121,6 +124,8 @@ func (s *Server) Start(ctx context.Context) {
 	})
 
 	c.Route("/admin", func(r chi.Router) {
+		r.Use(s.requireAuth)
+		r.Use(s.requireStaff)
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)
 		r.Route("/user", s.userAdminRouter)
@@ -132,8 +137,74 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/feeding", s.feedingRoutes)
 
+	c.Get("/sign-in", s.signIn)
+
 	slog.Info("Starting server", "listen_address", s.getListenAddress())
 	if err := http.ListenAndServe(s.getListenAddress(), c); err != nil {
 		panic(fmt.Errorf("failed to start server: %w", err))
 	}
+}
+
+func (s *Server) requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _ := clerk.SessionFromContext(r.Context())
+		if session == nil {
+			http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) signIn(w http.ResponseWriter, r *http.Request) {
+	s.renderTempl(w, r, templates.SignIn())
+}
+
+func (s *Server) requireStaff(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _ := clerk.SessionFromContext(r.Context())
+		if session == nil {
+			http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
+			return
+		}
+
+		userID := session.Claims.Subject
+		user, err := s.Clerk.Users().Read(userID)
+		if err != nil {
+			http.Error(w, "Failed to read user data", http.StatusInternalServerError)
+			return
+		}
+
+		isAdmin, err := getMetadataValue[bool](user.PrivateMetadata, "admin")
+		if err != nil {
+			http.Error(w, "Invalid user metadata", http.StatusForbidden)
+			return
+		}
+
+		if !isAdmin {
+			s.renderTempl(w, r, templates.PermissionDenied())
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func getMetadataValue[T any](metadata any, key string) (out T, err error) {
+	m, ok := metadata.(map[string]interface{})
+	if !ok {
+		return out, fmt.Errorf("metadata is not a map")
+	}
+
+	value, ok := m[key]
+	if !ok {
+		return out, fmt.Errorf("key not found")
+	}
+
+	v, ok := value.(T)
+	if !ok {
+		return out, fmt.Errorf("value is not of type %T", out)
+	}
+
+	return v, nil
 }
