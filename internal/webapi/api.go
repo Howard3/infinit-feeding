@@ -33,6 +33,11 @@ type Server struct {
 	Clerk         clerk.Client
 }
 
+type Roles struct {
+	Admin      bool
+	IsSignedIn bool
+}
+
 func (s *Server) verifyConfig() {
 	if s.StaticFS == nil {
 		panic("StaticFS is required")
@@ -55,9 +60,18 @@ func (s *Server) errorPage(w http.ResponseWriter, r *http.Request, title string,
 }
 
 func (s *Server) renderTempl(w http.ResponseWriter, r *http.Request, page templ.Component) {
-	page = layouts.Layout(r, page)
+	// add roles to the context for the layout
+	ctx := r.Context()
+	roles, ok := ctx.Value("roles").(Roles)
+	params := layouts.Params{}
+	if ok {
+		params.IsAdmin = roles.Admin
+		params.IsSignedIn = roles.IsSignedIn
+	}
 
-	if err := page.Render(r.Context(), w); err != nil {
+	page = layouts.Layout(r, page, params)
+
+	if err := page.Render(ctx, w); err != nil {
 		slog.Error("failed to render component", "error", err)
 	}
 }
@@ -102,6 +116,7 @@ func (s *Server) Start(ctx context.Context) {
 	c.Use(middleware.Compress(5))
 	c.Use(middleware.Logger)
 	c.Use(clerk.WithSessionV2(s.Clerk))
+	c.Use(s.AddRolesToContext)
 
 	// serve static files
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
@@ -125,7 +140,7 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/admin", func(r chi.Router) {
 		r.Use(s.requireAuth)
-		r.Use(s.requireStaff)
+		r.Use(s.requireAdmin)
 		r.Route("/student", s.studentAdminRoutes)
 		r.Route("/school", s.schoolAdminRoutes)
 		r.Route("/user", s.userAdminRouter)
@@ -160,32 +175,13 @@ func (s *Server) signIn(w http.ResponseWriter, r *http.Request) {
 	s.renderTempl(w, r, templates.SignIn())
 }
 
-func (s *Server) requireStaff(next http.Handler) http.Handler {
+func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session, _ := clerk.SessionFromContext(r.Context())
-		if session == nil {
-			http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
-			return
-		}
-
-		userID := session.Claims.Subject
-		user, err := s.Clerk.Users().Read(userID)
-		if err != nil {
-			http.Error(w, "Failed to read user data", http.StatusInternalServerError)
-			return
-		}
-
-		isAdmin, err := getMetadataValue[bool](user.PrivateMetadata, "admin")
-		if err != nil {
-			http.Error(w, "Invalid user metadata", http.StatusForbidden)
-			return
-		}
-
-		if !isAdmin {
+		roles, ok := r.Context().Value("roles").(Roles)
+		if !ok || !roles.Admin {
 			s.renderTempl(w, r, templates.PermissionDenied())
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -207,4 +203,35 @@ func getMetadataValue[T any](metadata any, key string) (out T, err error) {
 	}
 
 	return v, nil
+}
+
+func (s *Server) AddRolesToContext(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _ := clerk.SessionFromContext(r.Context())
+		if session == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		userID := session.Claims.Subject
+		user, err := s.Clerk.Users().Read(userID)
+		if err != nil {
+			http.Error(w, "Failed to read user data", http.StatusInternalServerError)
+			return
+		}
+
+		roles := Roles{
+			Admin: false,
+		}
+
+		isAdmin, err := getMetadataValue[bool](user.PrivateMetadata, "admin")
+		if err == nil {
+			roles.Admin = isAdmin
+		}
+
+		roles.IsSignedIn = true
+
+		ctx := context.WithValue(r.Context(), "roles", roles)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

@@ -6,10 +6,22 @@ func isHTMXRequest(r *http.Request) bool {
 	return r.Header.Get("HX-Request") != ""
 }
 
-templ Layout(r *http.Request, component templ.Component) {
+type Params struct {
+	IsAdmin bool
+	IsSignedIn bool
+}
+
+func (p Params) export() map[string]any {
+	return map[string]any{
+		"IsAdmin": p.IsAdmin,
+		"IsSignedIn": p.IsSignedIn,
+	}
+}
+
+templ Layout(r *http.Request, component templ.Component, params Params) {
 	if isHTMXRequest(r) {
-		@HTMXLayout(component)
+		@HTMXLayout(component, params)
 	} else {
-		@FullLayout(component)
+		@FullLayout(component, params)
 	}
 }

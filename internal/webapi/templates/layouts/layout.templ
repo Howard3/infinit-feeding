@@ -9,7 +9,7 @@ func getClerkPublishableKey() string {
 	return clerkPublishableKey
 }
 
-templ FullLayout(main templ.Component) {
+templ FullLayout(main templ.Component, params Params) {
 	<!DOCTYPE html>
 	<html>
 		<head>
@@ -24,6 +24,7 @@ templ FullLayout(main templ.Component) {
             <script src="/static/html5-qrcode.min.js"></script>
             <link rel="stylesheet" href="/static/cal-heatmap.css"/>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			@templ.JSONScript("params", params.export())
 			// TODO: embed clerk in the project, don't load from CDN
 			<script src="https://cdn.jsdelivr.net/npm/clerk-js@2.16.0/dist/clerk.browser.min.js"></script>
 			// load clerk
@@ -35,17 +36,31 @@ templ FullLayout(main templ.Component) {
               type="text/javascript"
             ></script>
             <script>
+				function readParamsValue(key) {
+					const element = document.getElementById('params');
+					const params = JSON.parse(element.textContent);
+					return params[key];
+				}
+
                 window.addEventListener('load', async function () {
                     await Clerk.load()
-                    console.log('ClerkJS is loaded')
-                    Clerk.mountUserButton(document.getElementById('user-button'));
-					Clerk.mountSignIn(document.getElementById('sign-in'));
+					if (readParamsValue('IsSignedIn')) {
+						Clerk.mountUserButton(document.getElementById('user-button'));
+					}
                 })
+            </script>
+			// refresh token on every request
+            <script>
+                window.addEventListener('htmx:beforeRequest', async function (event) {
+                    if (Clerk && Clerk.session) {
+						await Clerk.session.getToken()
+                    }
+                });
             </script>
 		</head>
 		<body>
 			<div class="flex flex-col min-h-screen bg-gray-100">
-				@header()
+				@header(params)
 				<div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2">
 					<div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 						@main
@@ -56,11 +71,11 @@ templ FullLayout(main templ.Component) {
 	</html>
 }
 
-templ HTMXLayout(main templ.Component) {
+templ HTMXLayout(main templ.Component, params Params) {
 	@main
 }
 
-templ header() {
+templ header(params Params) {
 	<header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 		<div class="flex items-center h-14 px-4 border-b gap-4">
 			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
@@ -68,6 +83,11 @@ templ header() {
 			</a>
 			<nav class="flex-1 flex justify-between items-center">
 				<div class="flex space-x-4">
+					if (params.IsAdmin) {
+						<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
+							Admin
+						</a>
+					}
 					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
 						Feeding
 					</a>
@@ -78,7 +98,13 @@ templ header() {
 						About Us
 					</a>
 				</div>
-				<div class="flex-shrink-0" id="user-button"></div>
+				if (params.IsSignedIn) {
+					<div class="flex-shrink-0" id="user-button"></div>
+				} else {
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/sign-in">
+						Sign In
+					</a>
+				}
 			</nav>
 		</div>
 	</header>
