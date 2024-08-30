@@ -25,6 +25,12 @@ templ List(users *ListResponse, pagination components.Pagination) {
 				@components.PrimaryButton("Add User", templ.Attributes{"hx-get": "/admin/user/create"})
 			</span>
 		</h1>
+		<div class="flex items-center">
+			<input type="text" name="search" placeholder="Search users..." class="px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500" hx-get="/admin/user"/>
+			<button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500" hx-get="/admin/user" hx-include="[name='search']">
+				Search
+			</button>
+		</div>
 	</div>
 	if users != nil {
 		<div class="flex flex-col gap-2">

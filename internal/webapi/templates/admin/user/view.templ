@@ -94,8 +94,4 @@ templ View(params ViewParams) {
 			</form>
 		</div>
 	</div>
-	// Embed History Section
-	<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/user/%s/history", params.ID) } hx-target="this">
-		Loading...
-	</div>
 }

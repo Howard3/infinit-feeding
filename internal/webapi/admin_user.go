@@ -22,7 +22,6 @@ func (s *Server) userAdminRouter(r chi.Router) {
 		r.Use(s.setUserIDMiddleware)
 		r.Get(`/{ID}`, s.adminViewUser)
 		r.Post(`/{ID}`, s.adminUpdateUser)
-		r.Get(`/{ID}/history`, s.adminUserHistory)
 		r.Put(`/{ID}/setRole`, s.setUserRole)
 	})
 }
@@ -126,11 +125,15 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 	page := int(s.pageQuery(r))
 	limit := int(s.limitQuery(r))
 	offset := (page - 1) * limit
+	order := "username"
+	search := r.URL.Query().Get("search")
 
 	// Get the list of users from Clerk
 	params := clerk.ListAllUsersParams{
-		Limit:  &limit,
-		Offset: &offset,
+		Limit:   &limit,
+		Offset:  &offset,
+		OrderBy: &order,
+		Query:   &search,
 	}
 	clerkUsers, err := s.Clerk.Users().ListAll(params)
 	if err != nil {
