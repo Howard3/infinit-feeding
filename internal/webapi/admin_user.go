@@ -2,7 +2,9 @@ package webapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	usertempl "geevly/internal/webapi/templates/admin/user"
 	components "geevly/internal/webapi/templates/components"
@@ -21,8 +23,7 @@ func (s *Server) userAdminRouter(r chi.Router) {
 		r.Get(`/{ID}`, s.adminViewUser)
 		r.Post(`/{ID}`, s.adminUpdateUser)
 		r.Get(`/{ID}/history`, s.adminUserHistory)
-		r.Put(`/{ID}/toggleStatus`, s.toggleUserStatus)
-
+		r.Put(`/{ID}/setRole`, s.setUserRole)
 	})
 }
 
@@ -55,17 +56,70 @@ func (s *Server) adminViewUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isAdmin, err := getMetadataValue[bool](clerkUser.PrivateMetadata, "admin")
+	if err != nil {
+		isAdmin = false
+	}
+
 	// Convert Clerk user to our internal user model
 	user := &usertempl.ViewParams{
 		ID:        userID,
 		FirstName: *clerkUser.FirstName,
 		LastName:  *clerkUser.LastName,
-		Email:     clerkUser.EmailAddresses[0].EmailAddress,
+		Username:  *clerkUser.Username,
 		Active:    !clerkUser.Banned,
+		IsAdmin:   isAdmin,
 	}
 
 	// Render the user view template
 	s.renderTempl(w, r, usertempl.View(*user)) // Using 1 as a placeholder for version
+}
+
+func (s *Server) setUserRole(w http.ResponseWriter, r *http.Request) {
+	userID := s.getUserIDFromContext(r.Context())
+	role := r.URL.Query().Get("role")
+
+	// Get the user from Clerk
+	clerkUser, err := s.Clerk.Users().Read(userID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching user", err)
+		return
+	}
+
+	value := r.URL.Query().Get("value")
+	valueBool, err := strconv.ParseBool(value)
+	if err != nil {
+		s.errorPage(w, r, "Error parsing value", err)
+		return
+	}
+
+	privateMetadata := clerkUser.PrivateMetadata
+	switch role {
+	case "system_admin":
+		privateMetadata, err = setMetadataValue(privateMetadata, "admin", valueBool)
+		if err != nil {
+			s.errorPage(w, r, "Error setting metadata", err)
+			return
+		}
+	case "active":
+		if valueBool {
+			s.Clerk.Users().Unban(userID)
+		} else {
+			s.Clerk.Users().Ban(userID)
+		}
+	}
+
+	// Update the user in Clerk
+	_, err = s.Clerk.Users().Update(userID, &clerk.UpdateUser{
+		PrivateMetadata: privateMetadata,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error updating user", err)
+		return
+	}
+
+	// Redirect to the view user page
+	http.Redirect(w, r, fmt.Sprintf("/admin/user/%s", userID), http.StatusSeeOther)
 }
 
 func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
@@ -88,10 +142,10 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 	users := make([]usertempl.User, len(clerkUsers))
 	for i, cu := range clerkUsers {
 		users[i] = usertempl.User{
-			ID:     cu.ID,
-			Email:  cu.EmailAddresses[0].EmailAddress,
-			Active: !cu.Banned,
-			Name:   *cu.FirstName + " " + *cu.LastName,
+			ID:       cu.ID,
+			Username: *cu.Username,
+			Active:   !cu.Banned,
+			Name:     *cu.FirstName + " " + *cu.LastName,
 		}
 	}
 
@@ -121,11 +175,69 @@ func (s *Server) adminCreateUserForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request) {
-	// TODO: create user
+	// Parse form data
+	err := r.ParseForm()
+	if err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
+		return
+	}
+
+	// Extract user details from form
+	firstName := r.FormValue("first_name")
+	lastName := r.FormValue("last_name")
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	// Create user params
+	params := clerk.CreateUserParams{
+		Username:  &username,
+		FirstName: &firstName,
+		LastName:  &lastName,
+		Password:  &password,
+	}
+
+	// Create user in Clerk
+	_, err = s.Clerk.Users().Create(params)
+	if err != nil {
+		s.errorPage(w, r, "Error creating user", err)
+		return
+	}
+
+	// Redirect to user list page
+	http.Redirect(w, r, "/admin/user", http.StatusSeeOther)
 }
 
 func (s *Server) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
-	// TODO: update user
+	// Parse form data
+	err := r.ParseForm()
+	if err != nil {
+		s.errorPage(w, r, "Error parsing form", err)
+		return
+	}
+
+	userID := s.getUserIDFromContext(r.Context())
+
+	// Extract updated user details from form
+	firstName := r.FormValue("first_name")
+	lastName := r.FormValue("last_name")
+	username := r.FormValue("username")
+
+	// Create update params
+	params := clerk.UpdateUser{
+		FirstName: &firstName,
+		LastName:  &lastName,
+		Username:  &username,
+	}
+
+	// Update user in Clerk
+	_, err = s.Clerk.Users().Update(userID, &params)
+	if err != nil {
+		s.errorPage(w, r, "Error updating user", err)
+		return
+	}
+
+	// Redirect back to the user's view page
+	http.Redirect(w, r, fmt.Sprintf("/admin/user/%s", userID), http.StatusSeeOther)
 }
 
 func (s *Server) toggleUserStatus(w http.ResponseWriter, r *http.Request) {

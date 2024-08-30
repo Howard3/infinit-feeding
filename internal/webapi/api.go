@@ -203,6 +203,16 @@ func getMetadataValue[T any](metadata any, key string) (out T, err error) {
 	return v, nil
 }
 
+func setMetadataValue(metadata any, key string, value any) (any, error) {
+	m, ok := metadata.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("metadata is not a map")
+	}
+
+	m[key] = value
+	return m, nil
+}
+
 func (s *Server) AddRolesToContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, _ := clerk.SessionFromContext(r.Context())

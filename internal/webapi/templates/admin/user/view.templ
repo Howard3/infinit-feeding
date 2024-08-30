@@ -10,12 +10,9 @@ type ViewParams struct {
 	ID      string 
 	FirstName string
 	LastName  string
-	Email     string
 	Active    bool
-}
-
-func toggleStatusURL(id string, active bool) string {
-	return fmt.Sprintf("/admin/user/%s/toggleStatus?active=%s", id, fmt.Sprintf("%t", !active))
+	Username  string
+	IsAdmin   bool
 }
 
 templ View(params ViewParams) {
@@ -26,7 +23,7 @@ templ View(params ViewParams) {
 					<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto p-6" data-v0-t="card">
 						@components.TextField("First Name", "first_name", "Enter first name", params.FirstName)
 						@components.TextField("Last Name", "last_name", "Enter last name", params.LastName)
-						@components.TextField("Email", "email", "Enter email", params.Email)
+						@components.TextField("Username", "username", "Enter username", params.Username)
 						<div class="p-3 flex flex-row w-full">
 							<div class="flex items-center w-1/2 gap-3" hx-params="none">
 								if params.Active {
@@ -35,7 +32,8 @@ templ View(params ViewParams) {
 									<span class="text-sm font-medium text-red-500">Inactive</span>
 								}
 								<a
-									hx-put={ toggleStatusURL(params.ID, params.Active) }
+									hx-put={ fmt.Sprintf("/admin/user/%s/setRole?role=active&value=%t", params.ID, !params.Active) }
+									hx-confirm="Are you sure you want to toggle the status of this user?"
 									class="pl-3 cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
 								>Toggle status</a>
 							</div>
@@ -63,7 +61,17 @@ templ View(params ViewParams) {
 									System Admin
 								</h3>
 							</div>
-							@components.PrimaryButton("Enable Super Admin", nil)
+							if params.IsAdmin {
+								@components.PrimaryButton("Disable Super Admin", templ.Attributes{
+									"hx-confirm": "Are you sure you want to disable Super Admin for this user?",
+									"hx-put": fmt.Sprintf("/admin/user/%s/setRole?role=system_admin&value=false", params.ID),
+								})
+							} else {
+								@components.PrimaryButton("Enable Super Admin", templ.Attributes{
+									"hx-confirm": "Are you sure you want to enable Super Admin for this user?",
+									"hx-put": fmt.Sprintf("/admin/user/%s/setRole?role=system_admin&value=true", params.ID),
+								})
+							}
 						</div>
 						<div class="flex items-center space-x-4">
 							<div class="flex-1">

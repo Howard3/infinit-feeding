@@ -7,7 +7,7 @@ import (
 
 type User struct {
 	ID        string `json:"id"`
-	Email     string `json:"email"`
+	Username  string `json:"username"`
 	Name      string `json:"name"`
 	Active    bool   `json:"active"`
 }
@@ -36,7 +36,7 @@ templ List(users *ListResponse, pagination components.Pagination) {
 								Name
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
-								Email 
+								Username
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
 								Active 
@@ -53,7 +53,7 @@ templ List(users *ListResponse, pagination components.Pagination) {
 									{ user.Name }
 								</td>
 								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
-									{ user.Email }
+									{ user.Username }
 								</td>
 								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
 									if user.Active {
