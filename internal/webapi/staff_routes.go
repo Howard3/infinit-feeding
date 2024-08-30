@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -50,6 +51,12 @@ func (s *Server) staffHome(w http.ResponseWriter, r *http.Request) {
 	schools, err := s.SchoolSvc.GetSchoolsByIDs(r.Context(), feederEnrollments)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	// if there is only one school, redirect to the school students page
+	if len(schools) == 1 {
+		http.Redirect(w, r, fmt.Sprintf("/staff/school/%d", schools[0].ID), http.StatusSeeOther)
 		return
 	}
 
