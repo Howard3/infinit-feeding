@@ -182,3 +182,7 @@ func (s *StudentService) GetSchoolFeedingEvents(ctx context.Context, schoolID st
 
 	return events.GroupByStudent(), nil
 }
+
+func (s *StudentService) ListForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error) {
+	return s.repo.ListStudentsForSchool(ctx, schoolID)
+}

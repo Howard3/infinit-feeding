@@ -34,6 +34,7 @@ type Server struct {
 type Roles struct {
 	Admin      bool
 	IsSignedIn bool
+	IsFeeder   bool
 }
 
 func (s *Server) verifyConfig() {
@@ -65,6 +66,7 @@ func (s *Server) renderTempl(w http.ResponseWriter, r *http.Request, page templ.
 	if ok {
 		params.IsAdmin = roles.Admin
 		params.IsSignedIn = roles.IsSignedIn
+		params.IsFeeder = roles.IsFeeder
 	}
 
 	page = layouts.Layout(r, page, params)
@@ -148,6 +150,11 @@ func (s *Server) Start(ctx context.Context) {
 		})
 	})
 
+	c.Group(func(r chi.Router) {
+		r.Use(s.requireAuth)
+		r.Route("/staff", s.staffRoutes)
+	})
+
 	c.Route("/feeding", s.feedingRoutes)
 
 	c.Get("/sign-in", s.signIn)
@@ -184,6 +191,17 @@ func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Server) requireFeeder(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		roles, ok := r.Context().Value("roles").(Roles)
+		if !ok || !roles.IsFeeder {
+			s.renderTempl(w, r, templates.PermissionDenied())
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func getMetadataValue[T any](metadata any, key string) (out T, err error) {
 	m, ok := metadata.(map[string]interface{})
 	if !ok {
@@ -213,28 +231,44 @@ func setMetadataValue(metadata any, key string, value any) (any, error) {
 	return m, nil
 }
 
+func (s *Server) getSessionUserID(r *http.Request) (string, error) {
+	session, _ := clerk.SessionFromContext(r.Context())
+	if session == nil {
+		return "", fmt.Errorf("session not found in context")
+	}
+	return session.Claims.Subject, nil
+}
+
+func (s *Server) getSessionUser(r *http.Request) (*clerk.User, error) {
+	userID, err := s.getSessionUserID(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Clerk.Users().Read(userID)
+}
+
 func (s *Server) AddRolesToContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session, _ := clerk.SessionFromContext(r.Context())
-		if session == nil {
+		user, err := s.getSessionUser(r)
+		if err != nil {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		userID := session.Claims.Subject
-		user, err := s.Clerk.Users().Read(userID)
-		if err != nil {
-			http.Error(w, "Failed to read user data", http.StatusInternalServerError)
-			return
-		}
-
 		roles := Roles{
-			Admin: false,
+			Admin:    false,
+			IsFeeder: false,
 		}
 
 		isAdmin, err := getMetadataValue[bool](user.PrivateMetadata, "admin")
 		if err == nil {
 			roles.Admin = isAdmin
+		}
+
+		feederEnrollments, err := getMetadataValue[string](user.PrivateMetadata, "feeder_enrollments")
+		if err == nil {
+			roles.IsFeeder = feederEnrollments != ""
 		}
 
 		roles.IsSignedIn = true

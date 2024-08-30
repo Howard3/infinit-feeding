@@ -1,0 +1,48 @@
+package stafftempl
+
+import (
+	"geevly/internal/student"
+	"fmt"
+	"geevly/internal/school"
+)
+
+type StudentWithFeedingStatus struct {
+	Student *student.ProjectedStudent
+	FedToday bool
+}
+
+templ SchoolStudents(schoolID string, school *school.Aggregate, students []StudentWithFeedingStatus) {
+	<div class="container mx-auto px-4 py-8">
+		<h1 class="text-2xl font-bold mb-4">Students in School "{ school.GetData().Name }"</h1>
+		<table class="w-full bg-white shadow rounded-lg">
+			<thead>
+				<tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+					<th class="py-3 px-6 text-left">Name</th>
+					<th class="py-3 px-6 text-left">Grade</th>
+					<th class="py-3 px-6 text-left">Student ID</th>
+					<th class="py-3 px-6 text-left">Fed Today</th>
+				</tr>
+			</thead>
+			<tbody class="text-gray-600 text-sm font-light">
+				for i, student := range students {
+					<tr class={templ.KV("border-b border-gray-200 hover:bg-gray-100", true),
+						templ.KV("bg-red-100", !student.FedToday),
+						templ.KV("bg-green-100", student.FedToday),
+						templ.KV("bg-opacity-50", true),
+						templ.KV("bg-gray-50", i%2 == 0)}>
+						<td class="py-3 px-6 text-left">{ student.Student.FirstName } { student.Student.LastName }</td>
+						<td class="py-3 px-6 text-left">{ fmt.Sprintf("%d", student.Student.Grade) }</td>
+						<td class="py-3 px-6 text-left">{ student.Student.StudentID }</td>
+						<td class="py-3 px-6 text-left">
+							if student.FedToday {
+								<span class="text-green-600">✓</span>
+							} else {
+								<span class="text-red-600">✗</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

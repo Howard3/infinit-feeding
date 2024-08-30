@@ -1,0 +1,23 @@
+package stafftempl
+
+import (
+	"geevly/internal/webapi/templates/components"
+	"geevly/internal/school"
+	"fmt"
+)
+
+templ Home(feederEnrollments []*school.Aggregate) {
+	<div class="container mx-auto px-4 py-8">
+		<h1 class="text-2xl font-bold mb-4">Staff Dashboard</h1>
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			for _, school := range feederEnrollments {
+				<div class="bg-white shadow rounded-lg p-4">
+					<h2 class="text-xl font-semibold mb-2">{ school.GetData().Name}</h2>
+					@components.PrimaryButton("View Students", templ.Attributes{
+						"hx-get": fmt.Sprintf("/staff/school/%d", school.ID),
+					})
+				</div>
+			}
+		</div>
+	</div>
+}

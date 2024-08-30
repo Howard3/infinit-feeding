@@ -88,6 +88,11 @@ templ header(params Params) {
 							Admin
 						</a>
 					}
+					if (params.IsFeeder) {
+						<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/staff">
+							Staff
+						</a>
+					}
 					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
 						Feeding
 					</a>

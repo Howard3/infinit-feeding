@@ -118,3 +118,16 @@ func (s *Service) MapSchoolsByID(ctx context.Context) (map[uint64]string, error)
 func (s *Service) ValidateSchoolID(ctx context.Context, schoolID uint64) error {
 	return s.repo.validateSchoolID(ctx, schoolID)
 }
+
+// GetSchoolsByIDs returns a list of schools by their IDs
+func (s *Service) GetSchoolsByIDs(ctx context.Context, schoolIDs []uint64) ([]*Aggregate, error) {
+	out := make([]*Aggregate, 0)
+	for _, schoolID := range schoolIDs {
+		school, err := s.Get(ctx, schoolID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, school)
+	}
+	return out, nil
+}
