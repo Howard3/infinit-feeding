@@ -12,6 +12,7 @@ import (
 // ErrSchoolIDInvalid is an error that is returned when a school ID is invalid
 var ErrSchoolIDInvalid = fmt.Errorf("error validating school")
 
+// AclStudents is a service that validates student data. It's an anti-corruption layer
 type AclStudents struct {
 	schoolSvc *school.Service
 	fileSvc   *file.Service

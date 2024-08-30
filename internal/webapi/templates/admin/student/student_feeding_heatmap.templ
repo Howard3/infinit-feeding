@@ -5,11 +5,14 @@ import (
 	"geevly/gen/go/eda"
 )
 
-type HeatmapData []HeatmapEntry
+type HeatmapData [] HeatmapEntry
 type HeatmapEntry struct {
 	Date  string `json:"date"`
 	Count int    `json:"count"`
 }
+
+// FIXME: https://github.com/a-h/templ/issues/834
+var _ = templruntime.GeneratedTemplate
 
 func convertStudentFeedingToHeatmap(fr []*eda.Student_Feeding) HeatmapData {
 	data := make([]HeatmapEntry, 0)

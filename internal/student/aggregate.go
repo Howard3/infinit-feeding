@@ -142,6 +142,9 @@ func (sd *Aggregate) Feed(cmd *eda.Student_Feeding) (*gosignal.Event, error) {
 func (sd *Aggregate) handleFeedStudent(evt wrappedEvent) error {
 	data := evt.data.(*eda.Student_Feeding)
 
+	data.Id = sd.data.FeedingNextId
+	sd.data.FeedingNextId++ // handle incrementing the next id
+
 	sd.data.FeedingReport = append(sd.data.FeedingReport, data)
 
 	return nil

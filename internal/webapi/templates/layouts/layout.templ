@@ -1,6 +1,15 @@
 package layouts 
 
-templ FullLayout(main templ.Component) {
+import (
+	"os"
+)
+
+func getClerkPublishableKey() string {
+	clerkPublishableKey := os.Getenv("CLERK_PUBLISHABLE_KEY")
+	return clerkPublishableKey
+}
+
+templ FullLayout(main templ.Component, params Params) {
 	<!DOCTYPE html>
 	<html>
 		<head>
@@ -15,10 +24,43 @@ templ FullLayout(main templ.Component) {
             <script src="/static/html5-qrcode.min.js"></script>
             <link rel="stylesheet" href="/static/cal-heatmap.css"/>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			@templ.JSONScript("params", params.export())
+			// TODO: embed clerk in the project, don't load from CDN
+			<script src="https://cdn.jsdelivr.net/npm/clerk-js@2.16.0/dist/clerk.browser.min.js"></script>
+			// load clerk
+            <script
+              async
+              crossorigin="anonymous"
+              data-clerk-publishable-key={ getClerkPublishableKey() }
+              src="https://subtle-stingray-12.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+              type="text/javascript"
+            ></script>
+            <script>
+				function readParamsValue(key) {
+					const element = document.getElementById('params');
+					const params = JSON.parse(element.textContent);
+					return params[key];
+				}
+
+                window.addEventListener('load', async function () {
+                    await Clerk.load()
+					if (readParamsValue('IsSignedIn')) {
+						Clerk.mountUserButton(document.getElementById('user-button'));
+					}
+                })
+            </script>
+			// refresh token on every request
+            <script>
+                window.addEventListener('htmx:beforeRequest', async function (event) {
+                    if (Clerk && Clerk.session) {
+						await Clerk.session.getToken()
+                    }
+                });
+            </script>
 		</head>
 		<body>
 			<div class="flex flex-col min-h-screen bg-gray-100">
-				@header()
+				@header(params)
 				<div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2">
 					<div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 						@main
@@ -29,26 +71,45 @@ templ FullLayout(main templ.Component) {
 	</html>
 }
 
-templ HTMXLayout(main templ.Component) {
+templ HTMXLayout(main templ.Component, params Params) {
 	@main
 }
 
-templ header() {
+templ header(params Params) {
 	<header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 		<div class="flex items-center h-14 px-4 border-b gap-4">
 			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
 				<img src="/static/img/infinity.svg" class="h-6 inline-block"/> Feeding
 			</a>
-			<nav class="flex-1 grid grid-cols-3 justify-center">
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
-					Feeding
-				</a>
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer text-nowrap" hx-get="/how-it-works">
-					How it works 
-				</a>
-				<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
-					About Us
-				</a>
+			<nav class="flex-1 flex justify-between items-center">
+				<div class="flex space-x-4">
+					if (params.IsAdmin) {
+						<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/admin">
+							Admin
+						</a>
+					}
+					if (params.IsFeeder) {
+						<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/staff">
+							Staff
+						</a>
+					}
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
+						Feeding
+					</a>
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer text-nowrap" hx-get="/how-it-works">
+						How it works 
+					</a>
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
+						About Us
+					</a>
+				</div>
+				if (params.IsSignedIn) {
+					<div class="flex-shrink-0" id="user-button"></div>
+				} else {
+					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/sign-in">
+						Sign In
+					</a>
+				}
 			</nav>
 		</div>
 	</header>

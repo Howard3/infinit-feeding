@@ -1,0 +1,33 @@
+package reportstempl
+
+import "geevly/internal/webapi/templates/components"
+
+templ Home(schools map[string]string) {
+    <div class="flex flex-col space-y-4">
+        <div class="flex flex-row space-x-4">
+	        <div class="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg space-y-6">
+		    <div class="flex items-center">
+            <form action="/admin/reports/export" method="post" class="space-y-4">
+                <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
+                @components.TomSelect(components.SelectConfig{
+                    Options:     schools,
+                    MaxItems:    1,
+                    Name:        "school_id",
+                    Placeholder: "Select a school",
+                })
+                @components.DateField("Start Date", "start_date", "")
+                @components.DateField("End Date", "end_date", "")
+                @components.TomSelect(components.SelectConfig{
+                    Options:     map[string]string{"html": "HTML", "csv": "CSV"},
+                    MaxItems:    1,
+                    Name:        "output",
+                    Placeholder: "Select an output",
+                    Value:      "html",
+                })
+                @components.SubmitButton("Export Report")
+            </form>
+            </div>
+	        </div>
+        </div>
+    </div>
+}

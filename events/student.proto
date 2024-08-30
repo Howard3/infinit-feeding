@@ -20,6 +20,7 @@ message Student {
 
     repeated HealthReport health_reports = 10;
     repeated Feeding feeding_report = 11;
+    uint64 feeding_next_id = 15;
 
     enum Status {
         UNKNOWN_STATUS = 0;
@@ -41,6 +42,7 @@ message Student {
         uint64 unix_timestamp = 1;
         uint64 version = 2;
         string file_id = 3;
+        uint64 id = 4;
 
         message Event {
             uint64 unix_timestamp = 1;

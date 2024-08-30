@@ -1,0 +1,85 @@
+package reportstempl
+
+import "geevly/internal/student"
+import "time"
+import "fmt"
+
+func formatDateColumnHeader(date time.Time) string {
+    return date.Format("<span>2006</span><span>01</span><span>02</span>")
+}
+
+func sumForDateColumn(date time.Time, feedingHistory []*student.GroupedByStudentReturn) string {
+    sum := 0
+    for _, student := range feedingHistory {
+        if student.WasFedOnDay(date) {
+            sum++
+        }
+    }
+    return fmt.Sprintf("%d", sum) 
+}
+
+func totalSum(feedingHistory []*student.GroupedByStudentReturn) string {
+    sum := 0
+    for _, student := range feedingHistory {
+        sum += len(student.FeedingEvents)
+    }
+    return fmt.Sprintf("%d", sum)
+}
+
+templ FeedingReport(feedingHistory []*student.GroupedByStudentReturn, dateColumns []time.Time) {
+  <div class="p-6">
+    <div class="relative overflow-show w-full block">
+      <table class="w-full table-auto border-collapse border border-gray-500 rounded-lg">
+        <thead>
+          <tr class="bg-gray-500 text-white font-bold">
+            <th class="px-4 py-3 text-left">Student ID</th>
+            <th class="px-4 py-3 text-left">Student Name</th>
+            for _, date := range dateColumns {
+              <th class="px-1 py-3 text-center">
+                <div class="flex flex-col items-center">
+                  @templ.Raw(formatDateColumnHeader(date))
+                </div>
+              </th>
+            }
+            <th class="px-4 py-3 text-left">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+        for i, student := range feedingHistory {
+          <tr class={"bg-gray", templ.KV("opacity-75 bg-gray-100", i % 2 == 0)}>
+            <td class="border-b px-4">{student.Student.StudentID}</td>
+            <td class="border-b px-4 text-nowrap">{student.Student.LastName}</td>
+            // TODO: cache the date columns, a bit heavy to recalc every row.
+            for _, date := range dateColumns {
+                if (*student).WasFedOnDay(date) {
+                    <td class="border-b bg-green-500 text-white text-center">✓</td>
+                } else {
+                    <td class="border-b bg-red-500 text-white text-center">✗</td>
+                }
+            }
+            <td class="border-b px-4 font-medium">
+                {fmt.Sprintf("%d", len(student.FeedingEvents))}
+            </td>
+          </tr>
+        }
+        </tbody>
+        <tfoot>
+          <tr class="bg-gray-500 text-white font-bold">
+            <td class="px-4 py-3"></td>
+            <td class="px-4 py-3"></td>
+            for _, date := range dateColumns {
+              <td class="px-4 py-3 text-center">
+                <div class="flex flex-col items-center">
+                  {sumForDateColumn(date, feedingHistory)}
+                </div>
+              </td>
+            }
+            <td class="px-4 py-3 text-center font-bold">
+              {totalSum(feedingHistory)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+}

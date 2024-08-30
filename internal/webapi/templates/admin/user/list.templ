@@ -2,11 +2,22 @@ package usertempl
 
 import (
 	"geevly/internal/webapi/templates/components"
-	"geevly/internal/user"
 	"fmt"
 )
 
-templ List(users *user.ListResponse, pagination components.Pagination) {
+type User struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Name      string `json:"name"`
+	Active    bool   `json:"active"`
+}
+
+type ListResponse struct {
+	Users []User `json:"users"`
+	Pagination components.Pagination `json:"pagination"`
+}
+
+templ List(users *ListResponse, pagination components.Pagination) {
 	<div class="flex items-center justify-between p-4 border-b bg-gray-100">
 		<h1 class="text-lg font-medium">
 			Users
@@ -14,6 +25,12 @@ templ List(users *user.ListResponse, pagination components.Pagination) {
 				@components.PrimaryButton("Add User", templ.Attributes{"hx-get": "/admin/user/create"})
 			</span>
 		</h1>
+		<div class="flex items-center">
+			<input type="text" name="search" placeholder="Search users..." class="px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500" hx-get="/admin/user"/>
+			<button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500" hx-get="/admin/user" hx-include="[name='search']">
+				Search
+			</button>
+		</div>
 	</div>
 	if users != nil {
 		<div class="flex flex-col gap-2">
@@ -25,7 +42,7 @@ templ List(users *user.ListResponse, pagination components.Pagination) {
 								Name
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
-								Email 
+								Username
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
 								Active 
@@ -42,7 +59,7 @@ templ List(users *user.ListResponse, pagination components.Pagination) {
 									{ user.Name }
 								</td>
 								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
-									{ user.Email }
+									{ user.Username }
 								</td>
 								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
 									if user.Active {
