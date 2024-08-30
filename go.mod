@@ -23,7 +23,8 @@ require (
 	github.com/ClickHouse/ch-go v0.61.2 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.18.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+	github.com/clerk/clerk-sdk-go/v2 v2.0.6 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/libsql/sqlite-antlr4-parser v0.0.0-20240327125255-dbf53b6cbf06 // indirect

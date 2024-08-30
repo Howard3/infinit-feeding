@@ -13,7 +13,6 @@ import (
 	"geevly/internal/infrastructure"
 	"geevly/internal/school"
 	"geevly/internal/student"
-	"geevly/internal/user"
 	"geevly/internal/webapi"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -51,9 +50,6 @@ func main() {
 		URI:  os.Getenv("DB_URI"),
 	}
 
-	userRepo := user.NewRepository(db, &mq)
-	userService := user.NewService(userRepo)
-
 	fileRepo := file.NewRepository(db, &mq)
 	fileService := file.NewService(fileRepo, &s3)
 
@@ -69,7 +65,6 @@ func main() {
 		StaticFS:   getStaticFS(),
 		StudentSvc: studentService,
 		SchoolSvc:  schoolService,
-		UserSvc:    userService,
 		FileSvc:    fileService,
 		Clerk:      clerkClient,
 	}

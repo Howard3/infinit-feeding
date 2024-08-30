@@ -23,6 +23,8 @@ github.com/aws/aws-sdk-go v1.50.37/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3Tj
 github.com/brianvoe/gofakeit/v6 v6.19.0/go.mod h1:Ow6qC71xtwm79anlwKRlWZW6zVq9D2XHE4QSSMP/rU8=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
+github.com/clerk/clerk-sdk-go/v2 v2.0.6 h1:aK0E/xT/MYaHd7KSNUeb2JJEu/bMFV13TVROGwohagg=
+github.com/clerk/clerk-sdk-go/v2 v2.0.6/go.mod h1:SD9fe+omcaigqL/B3fbzIFREkeBqiC0CwSM7/qt7Xw4=
 github.com/clerkinc/clerk-sdk-go v1.49.1 h1:3YfEFuXrM7fg6+GYxXR0umbV3aboErNUlOcFMuR5rfY=
 github.com/clerkinc/clerk-sdk-go v1.49.1/go.mod h1:pejhMTTDAuw5aBpiHBEOOOHMAsxNfPvKfM5qexFJYlc=
 github.com/containerd/continuity v0.4.3 h1:6HVkalIp+2u1ZLH1J/pYX2oBVXlJZvh1X1A7bEZ9Su8=
@@ -52,6 +54,8 @@ github.com/go-faster/errors v0.7.1 h1:MkJTnDoEdi9pDabt1dpWf7AA8/BaSYZqibYyhZ20AY
 github.com/go-faster/errors v0.7.1/go.mod h1:5ySTjWFiphBs07IKuiL69nxdfd5+fzh1u7FPGZP2quo=
 github.com/go-jose/go-jose/v3 v3.0.0 h1:s6rrhirfEP/CGIoc6p+PZAeogN2SxKav6Wp7+dyMWVo=
 github.com/go-jose/go-jose/v3 v3.0.0/go.mod h1:RNkWWRld676jZEYoV3+XK8L2ZnNSvIsxFMht0mSX+u8=
+github.com/go-jose/go-jose/v3 v3.0.1 h1:pWmKFVtt+Jl0vBZTIpz/eAKwsm6LkIxDVVbFHKkchhA=
+github.com/go-jose/go-jose/v3 v3.0.1/go.mod h1:RNkWWRld676jZEYoV3+XK8L2ZnNSvIsxFMht0mSX+u8=
 github.com/go-sql-driver/mysql v1.7.1 h1:lUIinVbN1DY0xBg0eMOzmmtGoHwWBbvnWubQUrtU8EI=
 github.com/go-sql-driver/mysql v1.7.1/go.mod h1:OXbVy3sEdcQ2Doequ6Z5BW6fXNQTmx+9S1MCJN5yJMI=
 github.com/gogo/protobuf v1.3.2 h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=

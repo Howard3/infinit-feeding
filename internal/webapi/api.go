@@ -16,7 +16,6 @@ import (
 	"geevly/internal/file"
 	"geevly/internal/school"
 	"geevly/internal/student"
-	"geevly/internal/user"
 	"geevly/internal/webapi/templates"
 	"geevly/internal/webapi/templates/admin"
 	"geevly/internal/webapi/templates/layouts"
@@ -28,7 +27,6 @@ type Server struct {
 	StaticFS      fs.FS
 	StudentSvc    *student.StudentService
 	SchoolSvc     *school.Service
-	UserSvc       *user.Service
 	FileSvc       *file.Service
 	Clerk         clerk.Client
 }

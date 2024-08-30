@@ -1,37 +1,43 @@
 package usertempl 
 
 import (
-	"geevly/gen/go/eda"
 	"fmt"
 	"geevly/internal/webapi/templates/components"
 )
 
-func toggleStatusURL(id uint64, ver uint64, active bool) string {
-	return fmt.Sprintf("/admin/user/%d/toggleStatus?version=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
+// ViewParams is the parameters for the view template
+type ViewParams struct {
+	ID      string 
+	FirstName string
+	LastName  string
+	Email     string
+	Active    bool
 }
 
-templ View(id uint64, user *eda.User, ver uint64) {
+func toggleStatusURL(id string, active bool) string {
+	return fmt.Sprintf("/admin/user/%s/toggleStatus?active=%s", id, fmt.Sprintf("%t", !active))
+}
+
+templ View(params ViewParams) {
 	<div class="grid gap-6 md:grid-cols-2 m-3">
 		<div class="flex-col flex gap-3">
-			<form hx-post={ fmt.Sprintf("/admin/user/%d", id) } hx-push-url="false">
+			<form hx-post={ fmt.Sprintf("/admin/user/%s", params.ID) } hx-push-url="false">
 				<div class="space-y-4">
 					<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto p-6" data-v0-t="card">
-						@components.TextField("First Name", "first_name", "Enter first name", user.Name.First)
-						@components.TextField("Last Name", "last_name", "Enter last name", user.Name.Last)
-						@components.TextField("Email", "email", "Enter email", user.Email)
-						@components.HiddenField("version", fmt.Sprintf("%d", ver))
+						@components.TextField("First Name", "first_name", "Enter first name", params.FirstName)
+						@components.TextField("Last Name", "last_name", "Enter last name", params.LastName)
+						@components.TextField("Email", "email", "Enter email", params.Email)
 						<div class="p-3 flex flex-row w-full">
 							<div class="flex items-center w-1/2 gap-3" hx-params="none">
-								if user.Active {
+								if params.Active {
 									<span class="text-sm font-medium text-green-500">Active</span>
 								} else {
 									<span class="text-sm font-medium text-red-500">Inactive</span>
 								}
 								<a
-									hx-put={ toggleStatusURL(id, ver, user.Active) }
+									hx-put={ toggleStatusURL(params.ID, params.Active) }
 									class="pl-3 cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
 								>Toggle status</a>
-								@components.HiddenField("version", fmt.Sprintf("%d", ver))
 							</div>
 							<div class="text-right w-1/2">
 								@components.SubmitButton("Update")
@@ -81,7 +87,7 @@ templ View(id uint64, user *eda.User, ver uint64) {
 		</div>
 	</div>
 	// Embed History Section
-	<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/user/%d/history", id) } hx-target="this">
+	<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/user/%s/history", params.ID) } hx-target="this">
 		Loading...
 	</div>
 }

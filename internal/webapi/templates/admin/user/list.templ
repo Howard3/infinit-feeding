@@ -2,11 +2,22 @@ package usertempl
 
 import (
 	"geevly/internal/webapi/templates/components"
-	"geevly/internal/user"
 	"fmt"
 )
 
-templ List(users *user.ListResponse, pagination components.Pagination) {
+type User struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Active    bool   `json:"active"`
+}
+
+type ListResponse struct {
+	Users []User `json:"users"`
+	Pagination components.Pagination `json:"pagination"`
+}
+
+templ List(users *ListResponse, pagination components.Pagination) {
 	<div class="flex items-center justify-between p-4 border-b bg-gray-100">
 		<h1 class="text-lg font-medium">
 			Users
