@@ -197,7 +197,7 @@ func getMetadataValue[T any](metadata any, key string) (out T, err error) {
 
 	v, ok := value.(T)
 	if !ok {
-		return out, fmt.Errorf("value is not of type %T", out)
+		return out, fmt.Errorf("value is not of type %T, value: %v and type: %T", out, value, value)
 	}
 
 	return v, nil

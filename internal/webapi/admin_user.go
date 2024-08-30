@@ -3,8 +3,11 @@ package webapi
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	usertempl "geevly/internal/webapi/templates/admin/user"
 	components "geevly/internal/webapi/templates/components"
@@ -23,6 +26,7 @@ func (s *Server) userAdminRouter(r chi.Router) {
 		r.Get(`/{ID}`, s.adminViewUser)
 		r.Post(`/{ID}`, s.adminUpdateUser)
 		r.Put(`/{ID}/setRole`, s.setUserRole)
+		r.Put(`/{ID}/school/{schoolID}/feederEnrollment`, s.setUserFeederInSchool)
 	})
 }
 
@@ -60,14 +64,42 @@ func (s *Server) adminViewUser(w http.ResponseWriter, r *http.Request) {
 		isAdmin = false
 	}
 
+	// Get the user's schools from Clerk
+	feederEnrollments, err := getMetadataValue[string](clerkUser.PrivateMetadata, "feeder_enrollments")
+	if err != nil {
+		log.Printf("Error getting feeder enrollments: %v", err)
+		feederEnrollments = ""
+	}
+	feederEnrollmentsSlice := []string{}
+	if feederEnrollments != "" {
+		feederEnrollmentsSlice = strings.Split(feederEnrollments, ",")
+	}
+
+	// Get a list of all schools
+	schools, err := s.SchoolSvc.List(r.Context(), 1000, 1)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	schoolList := make([]usertempl.School, len(schools.Schools))
+	for i, school := range schools.Schools {
+		schoolList[i] = usertempl.School{
+			ID:   strconv.FormatUint(uint64(school.ID), 10),
+			Name: school.Name,
+		}
+	}
+
 	// Convert Clerk user to our internal user model
 	user := &usertempl.ViewParams{
-		ID:        userID,
-		FirstName: *clerkUser.FirstName,
-		LastName:  *clerkUser.LastName,
-		Username:  *clerkUser.Username,
-		Active:    !clerkUser.Banned,
-		IsAdmin:   isAdmin,
+		ID:                userID,
+		FirstName:         *clerkUser.FirstName,
+		LastName:          *clerkUser.LastName,
+		Username:          *clerkUser.Username,
+		Active:            !clerkUser.Banned,
+		IsAdmin:           isAdmin,
+		Schools:           schoolList,
+		FeederEnrollments: feederEnrollmentsSlice,
 	}
 
 	// Render the user view template
@@ -243,10 +275,68 @@ func (s *Server) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/admin/user/%s", userID), http.StatusSeeOther)
 }
 
-func (s *Server) toggleUserStatus(w http.ResponseWriter, r *http.Request) {
-	// TODO: toggle user status
-}
+func (s *Server) setUserFeederInSchool(w http.ResponseWriter, r *http.Request) {
+	userID := s.getUserIDFromContext(r.Context())
+	schoolID := chi.URLParam(r, "schoolID")
+	enroll := r.URL.Query().Get("enroll")
 
-func (s *Server) adminUserHistory(w http.ResponseWriter, r *http.Request) {
-	// TODO: get user history
+	enrollBool, err := strconv.ParseBool(enroll)
+	if err != nil {
+		s.errorPage(w, r, "Error parsing enroll value", err)
+		return
+	}
+
+	schoolIDInt, err := strconv.ParseUint(schoolID, 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Error parsing school ID", err)
+		return
+	}
+
+	// verify the schoolID is a valid schoolID
+	if err := s.SchoolSvc.ValidateSchoolID(r.Context(), schoolIDInt); err != nil {
+		s.errorPage(w, r, "Error validating school ID", err)
+		return
+	}
+
+	// attach the school to the user metadata
+	clerkUser, err := s.Clerk.Users().Read(userID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching user", err)
+		return
+	}
+	currentFeeders, err := getMetadataValue[string](clerkUser.PrivateMetadata, "feeder_enrollments")
+	if err != nil {
+		currentFeeders = ""
+	}
+
+	feederSlice := []string{}
+	if currentFeeders != "" {
+		feederSlice = strings.Split(currentFeeders, ",")
+	}
+
+	if enrollBool {
+		if !slices.Contains(feederSlice, schoolID) {
+			feederSlice = append(feederSlice, schoolID)
+		}
+	} else {
+		feederSlice = slices.Delete(feederSlice, slices.Index(feederSlice, schoolID), 1)
+	}
+
+	currentFeeders = strings.Join(feederSlice, ",")
+
+	privateMetadata, err := setMetadataValue(clerkUser.PrivateMetadata, "feeder_enrollments", currentFeeders)
+	if err != nil {
+		s.errorPage(w, r, "Error setting metadata", err)
+		return
+	}
+
+	_, err = s.Clerk.Users().Update(userID, &clerk.UpdateUser{
+		PrivateMetadata: privateMetadata,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error updating user", err)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/admin/user/%s", userID), http.StatusSeeOther)
 }

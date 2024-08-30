@@ -80,12 +80,12 @@ func (s *Service) Update(ctx context.Context, cmd *eda.School_Update) (*eda.Scho
 func (s *Service) List(ctx context.Context, limit, page uint) (*ListResponse, error) {
 	schools, err := s.repo.listSchools(ctx, limit, page)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list students: %w", err)
+		return nil, fmt.Errorf("failed to list schools: %w", err)
 	}
 
 	count, err := s.repo.countSchools(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count students: %w", err)
+		return nil, fmt.Errorf("failed to count schools: %w", err)
 	}
 
 	return &ListResponse{
