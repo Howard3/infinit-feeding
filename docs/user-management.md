@@ -51,8 +51,3 @@ This will take you to the user's detailed profile page.
     - Click "Feeder Enroll" to enroll the user as a feeder in that school
     - Click "Feeder Unenroll" to remove the user's feeder status for that school
 4. Confirm your action when prompted.
-
-## Regenerating User QR Code
-1. On the user's profile page, find the QR Code section.
-2. Click the "Regenerate" button to create a new QR code for the user.
-3. Confirm your action when prompted, as this will invalidate the previous code.
