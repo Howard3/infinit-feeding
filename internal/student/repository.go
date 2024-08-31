@@ -575,7 +575,7 @@ func (r *sqlRepository) ListStudentsForSchool(ctx context.Context, schoolID stri
 	query := `SELECT
 		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
 		FROM student_projections
-		WHERE school_id = ?;
+		WHERE school_id = ? AND active = TRUE;
 	`
 
 	rows, err := r.db.Query(query, schoolID)
