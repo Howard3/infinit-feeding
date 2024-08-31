@@ -21,3 +21,13 @@ templ Home(feederEnrollments []*school.Aggregate) {
 		</div>
 	</div>
 }
+
+templ NoSchoolAssigned() {
+	<div class="container mx-auto px-4 py-8">
+		<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
+			<h2 class="font-bold text-lg mb-2">No School Assigned</h2>
+			<p>You are not currently assigned to any school.</p>
+			<p class="mt-2">Please contact an administrator to get assigned to a school.</p>
+		</div>
+	</div>
+}

@@ -27,6 +27,11 @@ func (s *Server) getFeederEnrollments(r *http.Request) ([]uint64, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(feederEnrollments) == 0 {
+		return nil, nil
+	}
+
 	feederEnrollmentsStrSlice := strings.Split(feederEnrollments, ",")
 	feederEnrollmentsSlice := make([]uint64, 0)
 	for _, feederEnrollment := range feederEnrollmentsStrSlice {
@@ -44,6 +49,11 @@ func (s *Server) staffHome(w http.ResponseWriter, r *http.Request) {
 	feederEnrollments, err := s.getFeederEnrollments(r)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeder enrollments", err)
+		return
+	}
+
+	if len(feederEnrollments) == 0 {
+		s.renderTempl(w, r, stafftempl.NoSchoolAssigned())
 		return
 	}
 
