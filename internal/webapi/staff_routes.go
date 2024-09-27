@@ -95,7 +95,7 @@ func (s *Server) staffSchoolStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get feeding events for the school
-	feedingEvents, err := s.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, time.Now().AddDate(0, 0, -1), time.Now())
+	feedingEvents, err := s.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, time.Now().Add(time.Hour*-12), time.Now())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding events", err)
 		return
