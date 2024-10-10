@@ -44,7 +44,7 @@ templ StudentList(students *student.ListStudentsResponse, pagination components.
 					for _, student := range students.Students {
 						<tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
 							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
-								{ student.FirstName } { student.LastName }
+                                { student.LastName }, { student.FirstName }
 							</td>
 							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
 								{ fmt.Sprintf("%d", student.Age) }

@@ -359,6 +359,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 	query := `SELECT
 		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
 		FROM student_projections
+		ORDER BY last_name
 		LIMIT ? OFFSET ?;
 	`
 
