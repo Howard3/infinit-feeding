@@ -49,13 +49,20 @@ templ FullLayout(main templ.Component, params Params) {
 					}
                 })
             </script>
-			// refresh token on every request
             <script>
-                window.addEventListener('htmx:beforeRequest', async function (event) {
-                    if (Clerk && Clerk.session) {
-						await Clerk.session.getToken()
+                // refresh tokens every 45 seconds
+                (() => {
+                    let token = null;
+                    refresh = async function(){
+                        console.log("refreshing")
+                        if (!Clerk || !Clerk.session) {
+                            return
+                        }
+                        token = await Clerk.session.getToken()
                     }
-                });
+                    console.log("starting refresher")
+                    setInterval(this.refresh, 45_000)
+                })()
             </script>
 		</head>
 		<body>
