@@ -54,13 +54,11 @@ templ FullLayout(main templ.Component, params Params) {
                 (() => {
                     let token = null;
                     refresh = async function(){
-                        console.log("refreshing")
                         if (!Clerk || !Clerk.session) {
                             return
                         }
                         token = await Clerk.session.getToken()
                     }
-                    console.log("starting refresher")
                     setInterval(this.refresh, 45_000)
                 })()
             </script>
