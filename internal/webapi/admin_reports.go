@@ -61,6 +61,12 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	studentList, err := s.StudentSvc.ListForSchool(r.Context(), schoolID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
 	students, err := s.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, startDate, endDate)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding events", err)
@@ -72,6 +78,8 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 		dateColumns = append(dateColumns, d)
 	}
 
+	students = s.addMissingStudentsToReport(studentList, students)
+
 	switch output {
 	case "html":
 		s.renderTempl(w, r, reportstempl.FeedingReport(students, dateColumns))
@@ -80,6 +88,29 @@ func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.errorPage(w, r, "Invalid output format", fmt.Errorf("invalid output format: %s", output))
 	}
+}
+
+// addMissingStudentsToReport ensures that all students in the studentList are included in the report,
+// even if they don't have any feeding events. This function adds students from the studentList
+// who are not present in the groupedByFeedingEvents to the report with empty feeding event data.
+// It returns an updated slice of GroupedByStudentReturn that includes all students.
+func (s *Server) addMissingStudentsToReport(studentList []*student.ProjectedStudent, groupedByFeedingEvents []*student.GroupedByStudentReturn) []*student.GroupedByStudentReturn {
+	// Create a map of existing students in groupedByFeedingEvents for quick lookup
+	existingStudents := make(map[string]bool)
+	for _, event := range groupedByFeedingEvents {
+		existingStudents[event.Student.StudentID] = true
+	}
+
+	// Add missing students to groupedByFeedingEvents
+	for _, projectedStudent := range studentList {
+		if _, exists := existingStudents[projectedStudent.StudentID]; !exists {
+			groupedByFeedingEvents = append(groupedByFeedingEvents, &student.GroupedByStudentReturn{
+				Student: *projectedStudent,
+			})
+		}
+	}
+
+	return groupedByFeedingEvents
 }
 
 func (s *Server) feedingReportCSV(w http.ResponseWriter, students []*student.GroupedByStudentReturn, dateColumns []time.Time) {
