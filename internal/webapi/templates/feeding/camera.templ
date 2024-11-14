@@ -23,31 +23,6 @@ script startQRCamera() {
     html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 }
 
-templ PhotoCamera(studentID, version string) {
-    <div id="start_camera" class="py-12 w-full bg-white rounded-lg overflow-hidden shadow-lg" onclick={ startPhotoCapture() } >
-        <h1 class="text-3xl text-center">Turn on the camera, click here.</h1>
-        <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto"/>
-    </div>
-    <canvas id="canvas" style="display:none;" class="w-full"></canvas>
-    <img id="photo" src="" alt="Your Photo" style="display:none;" class="w-full"/>
-    <form id="upload_form" style="display:none;">
-        <input type="hidden" name="base64_photo" id="base64_photo" value=""/>
-        <input type="hidden" name="student_id" value={ studentID }/>
-        <input type="hidden" name="version" value={ version }/>
-        <div class="flex flex-row mt-12" hx-push-url="false">
-            <img src="/static/img/back.svg" alt="back" class="w-24 h-24 mx-auto" id="reset"/>
-            <img src="/static/img/check.svg" hx-post="/feeding/proof" alt="upload" class="w-24 h-24 mx-auto"/>
-        </div>
-    </form>
-    <div id="main_camera" class="flex flex-col items-center justify-center hidden">
-        <video id="video" class="w-full absolute" autoplay></video>
-        <div class="px-6 py-4 my-12 absolute z-50 w-full inline-block align-middle" id="capture_photo">
-            <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto bg-white/25 p-4 rounded" id="snap"/>
-      </div>
-    </div>
-}
-
-
 script startPhotoCapture() {
         var startCamera = document.getElementById('start_camera');
         var mainCamera = document.getElementById('main_camera');
@@ -91,15 +66,40 @@ script startPhotoCapture() {
             mainCamera.height = video.videoHeight;
             mainCamera.style.height = video.videoHeight + 'px';
             canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            var data = canvas.toDataURL('image/png');
-            var justBase64Data = data.split(',')[1];
-            base64Photo.value = justBase64Data;
-            photo.setAttribute('src', data);
-            photo.style.display = 'block';
-            uploadForm.style.display = 'block';
-            video.style.display = 'none';
-            snap.style.display = 'none';
-            reset.style.display = 'block';
+
+            // convert canvas to dataurl
+            const data = canvas.toDataURL('image/jpeg');
+
+            // convert dataurl to blob
+            const blob = dataURLtoBlob(data);         
+
+            // Use CompressorJS to compress the blob
+            new Compressor(blob, {
+                quality: 0.6,
+                success(compressedBlob) {
+                    // Convert the compressed Blob back to a DataURL
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const compressedDataURL = e.target.result;
+
+                        const justBase64Data = compressedDataURL.split(',')[1];
+                        base64Photo.value = justBase64Data;
+
+                        photo.setAttribute('src', compressedDataURL);
+                        photo.style.display = 'block';
+                        uploadForm.style.display = 'block';
+                        video.style.display = 'none';
+                        snap.style.display = 'none';
+                        reset.style.display = 'block';
+                    };
+                    reader.readAsDataURL(compressedBlob);
+                },
+                error(err) {
+                    console.error('Compression failed:', err);
+                }
+            });
+
+
             video.srcObject.getVideoTracks().forEach(track => track.stop());
         });
     
@@ -120,15 +120,41 @@ script startPhotoCapture() {
                 });
             })
         });
-    
-        function dataURItoBlob(dataURI) {
-            var byteString = atob(dataURI.split(',')[1]);
-            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            var ab = new ArrayBuffer(byteString.length);
-            var ia = new Uint8Array(ab);
-            for (var i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
+
+            // Convert DataURL to Blob
+        function dataURLtoBlob(dataURL) {
+            var arr = dataURL.split(',');
+            var mime = arr[0].match(/:(.*?);/)[1];
+            var bstr = atob(arr[1]);
+            var n = bstr.length;
+            var u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
             }
-            return new Blob([ab], {type: mimeString});
+            return new Blob([u8arr], { type: mime });
         }
+}
+
+templ PhotoCamera(studentID, version string) {
+    <div id="start_camera" class="py-12 w-full bg-white rounded-lg overflow-hidden shadow-lg" onclick={ startPhotoCapture() } >
+        <h1 class="text-3xl text-center">Turn on the camera, click here.</h1>
+        <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto"/>
+    </div>
+    <canvas id="canvas" style="display:none;" class="w-full"></canvas>
+    <img id="photo" src="" alt="Your Photo" style="display:none;" class="w-full"/>
+    <form id="upload_form" style="display:none;">
+        <input type="hidden" name="base64_photo" id="base64_photo" value=""/>
+        <input type="hidden" name="student_id" value={ studentID }/>
+        <input type="hidden" name="version" value={ version }/>
+        <div class="flex flex-row mt-12" hx-push-url="false">
+            <img src="/static/img/back.svg" alt="back" class="w-24 h-24 mx-auto" id="reset"/>
+            <img src="/static/img/check.svg" hx-post="/feeding/proof" alt="upload" class="w-24 h-24 mx-auto"/>
+        </div>
+    </form>
+    <div id="main_camera" class="flex flex-col items-center justify-center hidden">
+        <video id="video" class="w-full absolute" autoplay></video>
+        <div class="px-6 py-4 my-12 absolute z-50 w-full inline-block align-middle" id="capture_photo">
+            <img src="/static/img/camera.svg" alt="Capture Photo" class="w-24 h-24 mx-auto bg-white/25 p-4 rounded" id="snap"/>
+      </div>
+    </div>
 }
