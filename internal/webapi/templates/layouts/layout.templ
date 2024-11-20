@@ -69,6 +69,7 @@ templ FullLayout(main templ.Component, params Params) {
                 posthog.init('phc_J5LWIbUbSoCcHYGOAblDIALizP6o0dKIu46vyDgLYmg',{api_host:'https://us.i.posthog.com', person_profiles: 'identified_only' // or 'always' to create profiles for anonymous users as well
                     })
             </script>
+			<script src="/static/posthog.js"></script> // Posthog hooks & configuration
 		</head>
 		<body>
 			<div class="flex flex-col min-h-screen bg-gray-100">
