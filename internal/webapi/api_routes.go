@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
+	_ "geevly/docs" // This is where the generated swagger docs are
+
 	"github.com/go-chi/chi/v5"
+	httpSwagger "github.com/swaggo/http-swagger"
 	_ "github.com/swaggo/swag"
 )
 
@@ -22,6 +25,7 @@ import (
 
 // @host      localhost:3000
 // @BasePath  /api
+// @schemes   http
 
 type ListStudentsResponse struct {
 	Students []StudentResponse `json:"students"`
@@ -46,6 +50,11 @@ type ListLocationsResponse struct {
 }
 
 func (s *Server) apiRoutes(r chi.Router) {
+	// Swagger documentation endpoint
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"), // Changed from /api/swagger/doc.json
+	))
+
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/students", s.apiListStudents)
 		r.Get("/locations", s.apiListLocations)
