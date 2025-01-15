@@ -7,6 +7,7 @@ import (
 	components "geevly/internal/webapi/templates/components"
 	layouts "geevly/internal/webapi/templates/layouts"
 	"net/http"
+	"sort"
 	"strconv"
 
 	vex "github.com/Howard3/valueextractor"
@@ -20,6 +21,7 @@ func (s *Server) schoolAdminRoutes(r chi.Router) {
 	r.Get("/{ID}", s.adminViewSchool)
 	r.Post("/{ID}", s.adminUpdateSchool)
 	r.Get("/{ID}/history", s.adminSchoolHistory)
+	r.Get("/locations", s.getSchoolLocations)
 }
 
 func (s *Server) adminListSchools(w http.ResponseWriter, r *http.Request) {
@@ -144,4 +146,34 @@ func (s *Server) adminSchoolHistory(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) toggleSchoolStatus(w http.ResponseWriter, r *http.Request) {
 	// ...
+}
+
+func (s *Server) getSchoolLocations(w http.ResponseWriter, r *http.Request) {
+	locations, err := s.SchoolSvc.ListLocations(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error getting locations", err)
+		return
+	}
+
+	// Group locations by country
+	locationMap := make(map[string][]string)
+	for _, loc := range locations {
+		locationMap[loc.Country] = append(locationMap[loc.Country], loc.City)
+	}
+
+	// Convert to format needed by template
+	countries := make([]string, 0, len(locationMap))
+	for country := range locationMap {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+
+	// If no locations exist yet, provide empty selection option
+	if len(countries) == 0 {
+		countries = append(countries, "")
+		locationMap[""] = []string{""}
+	}
+
+	// TODO: Return the data in appropriate format (JSON/Template)
+	// You can now use countries and locationMap[country] in your templates
 }

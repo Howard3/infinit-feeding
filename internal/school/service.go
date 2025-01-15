@@ -131,3 +131,8 @@ func (s *Service) GetSchoolsByIDs(ctx context.Context, schoolIDs []uint64) ([]*A
 	}
 	return out, nil
 }
+
+// ListLocations returns a list of locations
+func (s *Service) ListLocations(ctx context.Context) ([]Location, error) {
+	return s.repo.listLocations(ctx)
+}

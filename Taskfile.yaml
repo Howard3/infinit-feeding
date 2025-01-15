@@ -42,3 +42,7 @@ tasks:
     desc: "deploy to staging"
     cmds:
       - fly deploy -a infinit-feeding-staging
+  swagger:
+    desc: "generate swagger docs"
+    cmds:
+      - ./scripts/swagger.sh

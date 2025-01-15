@@ -20,6 +20,11 @@ var ErrSchoolIDInvalid = fmt.Errorf("school ID is invalid")
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+type Location struct {
+	Country string
+	City    string
+}
+
 type Repository interface {
 	loadSchool(ctx context.Context, id uint64) (*Aggregate, error)
 	upsertProjection(school *Aggregate) error
@@ -30,6 +35,7 @@ type Repository interface {
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
 	validateSchoolID(ctx context.Context, id uint64) error
 	mapSchoolsByID(ctx context.Context) (map[uint64]string, error)
+	listLocations(ctx context.Context) ([]Location, error)
 }
 
 // ProjectedSchool is a struct that represents a school projection
@@ -39,6 +45,8 @@ type ProjectedSchool struct {
 	Active    bool   // is this scool currently active
 	Version   int    // version of the school
 	UpdatedAt time.Time
+	Country   string // Add these fields to match the projection
+	City      string
 }
 
 type sqlRepository struct {
@@ -99,7 +107,11 @@ func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) (
 	return r.eventSourcing.Store(ctx, evts)
 }
 func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) ([]*ProjectedSchool, error) {
-	query := `SELECT id, name, active, version, updated_at FROM schools LIMIT ? OFFSET ?;`
+	query := `
+		SELECT id, name, active, version, updated_at, country, city 
+		FROM schools 
+		LIMIT ? OFFSET ?;
+	`
 
 	if limit > MaxPageSize {
 		limit = MaxPageSize
@@ -126,6 +138,8 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 			&school.Active,
 			&school.Version,
 			&school.UpdatedAt,
+			&school.Country,
+			&school.City,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan school: %w", err)
 		}
@@ -236,4 +250,33 @@ func (r *sqlRepository) validateSchoolID(ctx context.Context, id uint64) error {
 	}
 
 	return nil
+}
+
+func (r *sqlRepository) listLocations(ctx context.Context) ([]Location, error) {
+	query := `
+		SELECT DISTINCT country, city 
+		FROM schools 
+		WHERE country IS NOT NULL 
+		  AND country != '' 
+		  AND city IS NOT NULL 
+		  AND city != ''
+		ORDER BY country, city;
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list locations: %w", err)
+	}
+	defer rows.Close()
+
+	var locations []Location
+	for rows.Next() {
+		var loc Location
+		if err := rows.Scan(&loc.Country, &loc.City); err != nil {
+			return nil, fmt.Errorf("failed to scan location: %w", err)
+		}
+		locations = append(locations, loc)
+	}
+
+	return locations, nil
 }

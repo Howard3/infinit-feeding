@@ -35,9 +35,20 @@ type StudentResponse struct {
 	SchoolID  string `json:"schoolId"`
 }
 
+// Add new response types
+type LocationResponse struct {
+	Country string   `json:"country"`
+	Cities  []string `json:"cities"`
+}
+
+type ListLocationsResponse struct {
+	Locations []LocationResponse `json:"locations"`
+}
+
 func (s *Server) apiRoutes(r chi.Router) {
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/students", s.apiListStudents)
+		r.Get("/locations", s.apiListLocations)
 	})
 }
 
@@ -79,8 +90,61 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+}
+
+// @Summary     List locations
+// @Description Get a list of all active school locations
+// @Tags        locations
+// @Accept      json
+// @Produce     json
+// @Success     200  {object}  ListLocationsResponse
+// @Failure     500  {object}  ErrorResponse
+// @Router      /locations [get]
+func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
+	locations, err := s.SchoolSvc.ListLocations(r.Context())
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching locations")
 		return
 	}
+
+	// Group locations by country
+	locationMap := make(map[string][]string)
+	for _, loc := range locations {
+		locationMap[loc.Country] = append(locationMap[loc.Country], loc.City)
+	}
+
+	// Convert to response format
+	response := ListLocationsResponse{
+		Locations: make([]LocationResponse, 0, len(locationMap)),
+	}
+
+	for country, cities := range locationMap {
+		response.Locations = append(response.Locations, LocationResponse{
+			Country: country,
+			Cities:  cities,
+		})
+	}
+
+	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// Helper method for JSON responses
+func (s *Server) respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	response, err := json.Marshal(payload)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error encoding response")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(response)
+}
+
+// Helper method for error responses
+func (s *Server) respondWithError(w http.ResponseWriter, code int, message string) {
+	s.respondWithJSON(w, code, ErrorResponse{Error: message})
 }
 
 // ErrorResponse represents an error response

@@ -157,7 +157,7 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/feeding", s.feedingRoutes)
 
-	c.Get("/sign-in", s.signIn)
+	s.apiRoutes(c)
 
 	slog.Info("Starting server", "listen_address", s.getListenAddress())
 	if err := http.ListenAndServe(s.getListenAddress(), c); err != nil {
