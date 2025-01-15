@@ -10,6 +10,7 @@ import (
 	"geevly/internal/infrastructure"
 	"log/slog"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Howard3/gosignal"
@@ -40,6 +41,7 @@ type Repository interface {
 	getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error)
 	getEvent(ctx context.Context, id, version uint64) (*gosignal.Event, error)
 	QueryFeedingHistory(ctx context.Context, query FeedingHistoryQuery) (*StudentFeedingProjections, error)
+	ListStudentsBySchoolIDs(ctx context.Context, schoolIDs []uint64) ([]*ProjectedStudent, error)
 }
 
 type ProjectedStudent struct {
@@ -759,4 +761,59 @@ func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHi
 	}
 
 	return projections, nil
+}
+
+// ListStudentsBySchoolIDs returns all active students for the given school IDs
+func (r *sqlRepository) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs []uint64) ([]*ProjectedStudent, error) {
+	if len(schoolIDs) == 0 {
+		return []*ProjectedStudent{}, nil
+	}
+
+	query := `SELECT
+		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
+		FROM student_projections
+		WHERE active = TRUE AND school_id = ?` + strings.Repeat(" OR school_id = ?", len(schoolIDs)-1) + `
+		ORDER BY last_name ASC;`
+
+	args := make([]interface{}, len(schoolIDs))
+	for i, id := range schoolIDs {
+		args[i] = id
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list students by school IDs: %w", err)
+	}
+	defer rows.Close()
+
+	students := []*ProjectedStudent{}
+	for rows.Next() {
+		student := &ProjectedStudent{}
+		var dateOfBirth, studentID sql.NullString
+		var grade, age sql.NullInt64
+
+		if err := rows.Scan(
+			&student.ID,
+			&student.FirstName,
+			&student.LastName,
+			&student.SchoolID,
+			&dateOfBirth,
+			&studentID,
+			&age,
+			&grade,
+			&student.Version,
+			&student.Active,
+		); err != nil {
+			return nil, fmt.Errorf("scan student: %w", err)
+		}
+
+		student.DateOfBirth = r.parseDate(dateOfBirth.String)
+		student.StudentID = studentID.String
+		student.Grade = uint(grade.Int64)
+		student.Age = uint(age.Int64)
+
+		students = append(students, student)
+	}
+
+	return students, nil
 }

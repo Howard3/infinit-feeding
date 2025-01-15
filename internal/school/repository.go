@@ -36,6 +36,7 @@ type Repository interface {
 	validateSchoolID(ctx context.Context, id uint64) error
 	mapSchoolsByID(ctx context.Context) (map[uint64]string, error)
 	listLocations(ctx context.Context) ([]Location, error)
+	getSchoolIDsByLocation(ctx context.Context, location Location) ([]uint64, error)
 }
 
 // ProjectedSchool is a struct that represents a school projection
@@ -279,4 +280,35 @@ func (r *sqlRepository) listLocations(ctx context.Context) ([]Location, error) {
 	}
 
 	return locations, nil
+}
+
+// getSchoolIDsByLocation returns all school IDs for a given location
+func (r *sqlRepository) getSchoolIDsByLocation(ctx context.Context, location Location) ([]uint64, error) {
+	var query string
+	var args []interface{}
+
+	if location.City != "" {
+		query = `SELECT id FROM schools WHERE country = ? AND city = ?`
+		args = []interface{}{location.Country, location.City}
+	} else {
+		query = `SELECT id FROM schools WHERE country = ?`
+		args = []interface{}{location.Country}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get school IDs by location: %w", err)
+	}
+	defer rows.Close()
+
+	var schoolIDs []uint64
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan school ID: %w", err)
+		}
+		schoolIDs = append(schoolIDs, id)
+	}
+
+	return schoolIDs, nil
 }

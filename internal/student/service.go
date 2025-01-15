@@ -186,3 +186,8 @@ func (s *StudentService) GetSchoolFeedingEvents(ctx context.Context, schoolID st
 func (s *StudentService) ListForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error) {
 	return s.repo.ListStudentsForSchool(ctx, schoolID)
 }
+
+// ListStudentsBySchoolIDs returns all active students for the given school IDs
+func (s *StudentService) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs []uint64) ([]*ProjectedStudent, error) {
+	return s.repo.ListStudentsBySchoolIDs(ctx, schoolIDs)
+}

@@ -136,3 +136,12 @@ func (s *Service) GetSchoolsByIDs(ctx context.Context, schoolIDs []uint64) ([]*A
 func (s *Service) ListLocations(ctx context.Context) ([]Location, error) {
 	return s.repo.listLocations(ctx)
 }
+
+// GetSchoolIDsByLocation returns a list of school IDs for a given location
+func (s *Service) GetSchoolIDsByLocation(ctx context.Context, location Location) ([]uint64, error) {
+	if location.Country == "" {
+		return nil, fmt.Errorf("country is required")
+	}
+
+	return s.repo.getSchoolIDsByLocation(ctx, location)
+}

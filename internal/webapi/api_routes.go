@@ -7,6 +7,7 @@ import (
 	"os"
 
 	_ "geevly/docs" // This is where the generated swagger docs are
+	"geevly/internal/school"
 
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -100,6 +101,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 
 		r.Get("/students", s.apiListStudents)
 		r.Get("/locations", s.apiListLocations)
+		r.Get("/students/by-location", s.apiListStudentsByLocation)
 	})
 }
 
@@ -176,6 +178,71 @@ func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 		response.Locations = append(response.Locations, LocationResponse{
 			Country: country,
 			Cities:  cities,
+		})
+	}
+
+	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// @Summary     List students by location
+// @Description Get a list of students filtered by country and optionally city
+// @Tags        students
+// @Accept      json
+// @Produce     json
+// @Param       country query    string  true   "Country name"
+// @Param       city    query    string  false  "City name"
+// @Success     200    {object}  ListStudentsResponse
+// @Failure     400    {object}  ErrorResponse
+// @Failure     500    {object}  ErrorResponse
+// @Router      /students/by-location [get]
+// @Security    ApiKeyAuth
+func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Request) {
+	country := r.URL.Query().Get("country")
+	if country == "" {
+		s.respondWithError(w, http.StatusBadRequest, "country parameter is required")
+		return
+	}
+
+	city := r.URL.Query().Get("city")
+
+	// Get school IDs for the location
+	schoolIDs, err := s.SchoolSvc.GetSchoolIDsByLocation(r.Context(), school.Location{
+		Country: country,
+		City:    city,
+	})
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching schools for location")
+		return
+	}
+
+	if len(schoolIDs) == 0 {
+		// Return empty response if no schools found
+		s.respondWithJSON(w, http.StatusOK, ListStudentsResponse{
+			Students: []StudentResponse{},
+			Total:    0,
+		})
+		return
+	}
+
+	// Get students for these school IDs
+	students, err := s.StudentSvc.ListStudentsBySchoolIDs(r.Context(), schoolIDs)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching students")
+		return
+	}
+
+	// Convert to response format
+	response := ListStudentsResponse{
+		Students: make([]StudentResponse, 0, len(students)),
+		Total:    int64(len(students)),
+	}
+
+	for _, student := range students {
+		response.Students = append(response.Students, StudentResponse{
+			ID:        student.ID,
+			FirstName: student.FirstName,
+			LastName:  student.LastName,
+			SchoolID:  student.SchoolID,
 		})
 	}
 
