@@ -65,13 +65,15 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 	}
 
 	query := `INSERT INTO schools 
-		(id, name, active, version, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		(id, name, active, version, updated_at, country, city)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET 
 			name = EXCLUDED.name,
 			active = EXCLUDED.active,
 			version = EXCLUDED.version,
-			updated_at = CURRENT_TIMESTAMP
+			updated_at = CURRENT_TIMESTAMP,
+			country = EXCLUDED.country,
+			city = EXCLUDED.city
 		RETURNING id;
 	`
 
@@ -83,6 +85,8 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		agg.data.Name,
 		active,
 		agg.Version,
+		agg.data.Country,
+		agg.data.City,
 	)
 
 	if err != nil {
@@ -90,7 +94,6 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 	}
 
 	return nil
-
 }
 func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) (_ error) {
 	return r.eventSourcing.Store(ctx, evts)

@@ -5,47 +5,57 @@ option go_package = "geevly/eda";
 import "metadata.proto";
 
 message School {
+  string name = 1;
+  string principal = 2;
+  string contact = 3;
+  bool disabled = 4;
+  string country = 5;
+  string city = 6;
+
+  message Create {
     string name = 1;
     string principal = 2;
     string contact = 3;
-    bool disabled = 4;
-    
-    message Create {
-        string name = 1;
-        string principal = 2;
-        string contact = 3;
-        events.metadata.Metadata metadata = 4;
+    events.metadata.Metadata metadata = 4;
+    string country = 5;
+    string city = 6;
 
-        message Event {
-            string name = 1;
-            string principal = 2;
-            string contact = 3;
-        }
-
-        message Response {
-            uint64 id = 1;
-            School school = 2;
-        }
+    message Event {
+      string name = 1;
+      string principal = 2;
+      string contact = 3;
+      string country = 4;
+      string city = 5;
     }
 
-    message Update {
-        uint64 id = 1;
-        string name = 2;
-        string principal = 3;
-        string contact = 4;
-        events.metadata.Metadata metadata = 5;
-        uint64 version = 6;
-
-        message Event {
-            uint64 id = 1;
-            string name = 2;
-            string principal = 3;
-            string contact = 4;
-        }
-
-        message Response {
-            uint64 id = 1;
-            School school = 2;
-        }
+    message Response {
+      uint64 id = 1;
+      School school = 2;
     }
+  }
+
+  message Update {
+    uint64 id = 1;
+    string name = 2;
+    string principal = 3;
+    string contact = 4;
+    events.metadata.Metadata metadata = 5;
+    uint64 version = 6;
+    string country = 7;
+    string city = 8;
+
+    message Event {
+      uint64 id = 1;
+      string name = 2;
+      string principal = 3;
+      string contact = 4;
+      string country = 5;
+      string city = 6;
+    }
+
+    message Response {
+      uint64 id = 1;
+      School school = 2;
+    }
+  }
 }

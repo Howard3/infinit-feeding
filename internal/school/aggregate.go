@@ -102,6 +102,8 @@ func (agg *Aggregate) CreateSchool(cmd *eda.School_Create) (*gosignal.Event, err
 			Name:      cmd.Name,
 			Principal: cmd.Principal,
 			Contact:   cmd.Contact,
+			Country:   cmd.Country,
+			City:      cmd.City,
 		},
 	})
 }
@@ -113,6 +115,8 @@ func (agg *Aggregate) UpdateSchool(cmd *eda.School_Update) (*gosignal.Event, err
 			Name:      cmd.Name,
 			Principal: cmd.Principal,
 			Contact:   cmd.Contact,
+			Country:   cmd.Country,
+			City:      cmd.City,
 		},
 		version: cmd.Version,
 	})
@@ -129,6 +133,8 @@ func (agg *Aggregate) handleAddSchool(we wrappedEvent) error {
 		Name:      data.Name,
 		Principal: data.Principal,
 		Contact:   data.Contact,
+		Country:   data.Country,
+		City:      data.City,
 	}
 
 	return nil
@@ -140,6 +146,8 @@ func (agg *Aggregate) handleUpdateSchool(we wrappedEvent) error {
 	agg.data.Name = data.Name
 	agg.data.Principal = data.Principal
 	agg.data.Contact = data.Contact
+	agg.data.Country = data.Country
+	agg.data.City = data.City
 
 	return nil
 }

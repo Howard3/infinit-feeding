@@ -50,6 +50,8 @@ func (s *Server) adminCreateSchool(w http.ResponseWriter, r *http.Request) {
 		Name:      r.FormValue("name"),
 		Principal: r.FormValue("principal"),
 		Contact:   r.FormValue("contact"),
+		Country:   r.FormValue("country"),
+		City:      r.FormValue("city"),
 	}
 
 	res, err := s.SchoolSvc.Create(r.Context(), &cmd)
@@ -99,6 +101,8 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 	name := vex.Result(ex, "name", vex.AsString)
 	principal := vex.Result(ex, "principal", vex.AsString)
 	contact := vex.Result(ex, "contact", vex.AsString)
+	country := vex.Result(ex, "country", vex.AsString)
+	city := vex.Result(ex, "city", vex.AsString)
 
 	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
@@ -111,6 +115,8 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 		Principal: principal,
 		Contact:   contact,
 		Version:   version,
+		Country:   country,
+		City:      city,
 	}
 
 	if _, err = s.SchoolSvc.Update(r.Context(), &cmd); err != nil {
