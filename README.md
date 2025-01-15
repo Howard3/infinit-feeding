@@ -45,6 +45,28 @@ To run the project, use the Taskfile commands defined for various tasks. Here's 
   task dev
   ```
 
+### API Documentation
+
+The project uses Swagger/OpenAPI for API documentation. To generate or update the API documentation:
+
+1. **Install Swagger Tools**
+   ```bash
+   go install github.com/swaggo/swag/cmd/swag@latest
+   ```
+
+2. **Generate Documentation**
+   ```bash
+   ./scripts/swagger.sh
+   ```
+
+3. **View Documentation**  
+   Once the server is running, visit:
+   ```
+   http://localhost:3000/swagger/index.html
+   ```
+
+The Swagger UI provides an interactive interface to explore and test the API endpoints.
+
 ### Build Dependencies
 
 - **Build All Dependencies**  

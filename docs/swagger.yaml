@@ -1,0 +1,72 @@
+basePath: /api
+definitions:
+  webapi.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  webapi.ListStudentsResponse:
+    properties:
+      students:
+        items:
+          $ref: '#/definitions/webapi.StudentResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  webapi.StudentResponse:
+    properties:
+      firstName:
+        type: string
+      id:
+        type: integer
+      lastName:
+        type: string
+      schoolId:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@infinitfeeding.com
+    name: API Support
+    url: http://www.infinitfeeding.com/support
+  description: API Server for Infinit Feeding application
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Infinit Feeding API
+  version: "1.0"
+paths:
+  /students:
+    get:
+      consumes:
+      - application/json
+      description: Get a paginated list of students
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webapi.ListStudentsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/webapi.ErrorResponse'
+      summary: List students
+      tags:
+      - students
+swagger: "2.0"
