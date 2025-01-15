@@ -2,7 +2,9 @@ package webapi
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 
 	_ "geevly/docs" // This is where the generated swagger docs are
 
@@ -27,6 +29,16 @@ import (
 // @BasePath  /api
 // @schemes   http
 
+// @securityDefinitions.apikey ApiKeyAuth
+// @in                         header
+// @name                       X-API-Key
+// @description               API Key for authentication
+// @example                   your-api-key-here
+
+// @Security                  ApiKeyAuth
+
+// @x-extension-openapi      {"example": "value on a json format"}
+
 type ListStudentsResponse struct {
 	Students []StudentResponse `json:"students"`
 	Total    int64             `json:"total"`
@@ -49,13 +61,43 @@ type ListLocationsResponse struct {
 	Locations []LocationResponse `json:"locations"`
 }
 
+// Add middleware for API key authentication
+func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiKey := r.Header.Get("X-API-Key")
+		expectedKey := os.Getenv("API_KEY")
+
+		if expectedKey == "" {
+			log.Printf("WARNING: API_KEY environment variable not set. API endpoints will be inaccessible.")
+			s.respondWithError(w, http.StatusInternalServerError, "API key not configured")
+			return
+		}
+
+		if apiKey == "" {
+			s.respondWithError(w, http.StatusUnauthorized, "API key required")
+			return
+		}
+
+		if apiKey != expectedKey {
+			s.respondWithError(w, http.StatusUnauthorized, "Invalid API key")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) apiRoutes(r chi.Router) {
-	// Swagger documentation endpoint
+	// Swagger documentation endpoint - no auth required
 	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"), // Changed from /api/swagger/doc.json
+		httpSwagger.URL("/swagger/doc.json"),
 	))
 
+	// API routes with authentication
 	r.Route("/api", func(r chi.Router) {
+		// Apply authentication middleware to all API routes
+		r.Use(s.apiKeyAuth)
+
 		r.Get("/students", s.apiListStudents)
 		r.Get("/locations", s.apiListLocations)
 	})
@@ -71,6 +113,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 // @Success     200  {object}  ListStudentsResponse
 // @Failure     500  {object}  ErrorResponse
 // @Router      /students [get]
+// @Security    ApiKeyAuth
 func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
@@ -110,6 +153,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 // @Success     200  {object}  ListLocationsResponse
 // @Failure     500  {object}  ErrorResponse
 // @Router      /locations [get]
+// @Security    ApiKeyAuth
 func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 	locations, err := s.SchoolSvc.ListLocations(r.Context())
 	if err != nil {
