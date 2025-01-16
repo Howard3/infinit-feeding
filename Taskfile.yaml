@@ -28,12 +28,7 @@ tasks:
     desc: "Generate event go code from proto files if proto files are newer"
     dir: "events"
     cmds:
-      - |
-        if [ $(find . -name '*.proto' -newer gen/go/eda/*.pb.go) ]; then
-          buf generate
-        else
-          echo "Skipping buf generation as no .proto files have been modified since the last generation"
-        fi
+      - buf generate
   deploy:production:
     desc: "deploy to production"
     cmds:

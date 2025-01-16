@@ -1,13 +1,15 @@
 module geevly
 
-go 1.21.6
+go 1.23
+
+toolchain go1.23.4
 
 require google.golang.org/protobuf v1.32.0
 
 require (
 	github.com/Howard3/gosignal v0.2.3
 	github.com/Howard3/valueextractor v1.1.2
-	github.com/a-h/templ v0.2.747
+	github.com/a-h/templ v0.3.819
 	github.com/aws/aws-sdk-go v1.50.37
 	github.com/clerkinc/clerk-sdk-go v1.49.1
 	github.com/go-chi/chi/v5 v5.0.12
@@ -43,11 +45,11 @@ require (
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
 	go.opentelemetry.io/otel/trace v1.23.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
-	golang.org/x/tools v0.19.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/tools v0.24.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	nhooyr.io/websocket v1.8.10 // indirect

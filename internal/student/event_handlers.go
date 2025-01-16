@@ -100,7 +100,7 @@ func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	switch evt.Type {
 	case EVENT_ADD_STUDENT:
 		eh.HandleNewStudentEvent(ctx, id)
-	case EVENT_UPDATE_STUDENT, EVENT_ENROLL_STUDENT, EVENT_UNENROLL_STUDENT, EVENT_SET_STUDENT_STATUS:
+	case EVENT_UPDATE_STUDENT, EVENT_ENROLL_STUDENT, EVENT_UNENROLL_STUDENT, EVENT_SET_STUDENT_STATUS, EVENT_SET_ELIGIBILITY:
 		eh.HandleUpdateStudentEvent(ctx, id)
 	case EVENT_SET_LOOKUP_CODE:
 		eh.HandleGenerateCodeEvent(ctx, id)

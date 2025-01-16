@@ -9,6 +9,7 @@ import (
 
 	_ "geevly/docs" // This is where the generated swagger docs are
 	"geevly/internal/school"
+	"geevly/internal/student"
 
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -112,19 +113,31 @@ func (s *Server) apiRoutes(r chi.Router) {
 // @Tags        students
 // @Accept      json
 // @Produce     json
-// @Param       page  query    int  false  "Page number"     default(1)
-// @Param       limit query    int  false  "Items per page"  default(10)
-// @Success     200  {object}  ListStudentsResponse
-// @Failure     500  {object}  ErrorResponse
+// @Param       page                   query    int     false  "Page number"                   default(1)
+// @Param       limit                  query    int     false  "Items per page"                default(10)
+// @Param       active                 query    bool    false  "Filter active only"            default(false)
+// @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
+// @Success     200      {object}  ListStudentsResponse
+// @Failure     500      {object}  ErrorResponse
 // @Router      /students [get]
 // @Security    ApiKeyAuth
 func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
 
-	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page)
+	var opts []student.ListOption
+
+	if active := r.URL.Query().Get("active"); active == "true" {
+		opts = append(opts, student.ActiveOnly())
+	}
+
+	if eligible := r.URL.Query().Get("eligible_for_sponsorship"); eligible == "true" {
+		opts = append(opts, student.EligibleForSponsorshipOnly())
+	}
+
+	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
 	if err != nil {
-		http.Error(w, "Error fetching students", http.StatusInternalServerError)
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching students")
 		return
 	}
 
@@ -148,11 +161,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-	}
+	s.respondWithJSON(w, http.StatusOK, response)
 }
 
 // @Summary     List locations
@@ -197,8 +206,10 @@ func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 // @Tags        students
 // @Accept      json
 // @Produce     json
-// @Param       country query    string  true   "Country name"
-// @Param       city    query    string  false  "City name"
+// @Param       country                query    string  true   "Country name"
+// @Param       city                   query    string  false  "City name"
+// @Param       active                 query    bool    false  "Filter active only"            default(false)
+// @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
 // @Success     200    {object}  ListStudentsResponse
 // @Failure     400    {object}  ErrorResponse
 // @Failure     500    {object}  ErrorResponse
@@ -232,8 +243,20 @@ func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Get students for these school IDs
-	students, err := s.StudentSvc.ListStudentsBySchoolIDs(r.Context(), schoolIDs)
+	// Build filter options
+	var opts []student.ListOption
+	opts = append(opts, student.InSchools(schoolIDs...))
+
+	if active := r.URL.Query().Get("active"); active == "true" {
+		opts = append(opts, student.ActiveOnly())
+	}
+
+	if eligible := r.URL.Query().Get("eligible_for_sponsorship"); eligible == "true" {
+		opts = append(opts, student.EligibleForSponsorshipOnly())
+	}
+
+	// Use the filter system
+	result, err := s.StudentSvc.ListStudents(r.Context(), 0, 0, opts...)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Error fetching students")
 		return
@@ -241,11 +264,11 @@ func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Reques
 
 	// Convert to response format
 	response := ListStudentsResponse{
-		Students: make([]StudentResponse, 0, len(students)),
-		Total:    int64(len(students)),
+		Students: make([]StudentResponse, 0, len(result.Students)),
+		Total:    int64(result.Count),
 	}
 
-	for _, student := range students {
+	for _, student := range result.Students {
 		photoURL := ""
 		if student.ProfilePhotoID != "" {
 			photoURL = fmt.Sprintf("/student/profile/photo/%s", student.ProfilePhotoID)

@@ -133,18 +133,21 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 	schools := []*ProjectedSchool{}
 	for rows.Next() {
 		school := &ProjectedSchool{}
+		var country, city sql.NullString
 		if err := rows.Scan(
 			&school.ID,
 			&school.Name,
 			&school.Active,
 			&school.Version,
 			&school.UpdatedAt,
-			&school.Country,
-			&school.City,
+			&country,
+			&city,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan school: %w", err)
 		}
 
+		school.Country = country.String
+		school.City = city.String
 		schools = append(schools, school)
 	}
 

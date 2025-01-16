@@ -24,6 +24,13 @@ const MaxPageSize = 100
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// Add this new struct for filter options
+type StudentListFilters struct {
+	ActiveOnly                 bool
+	EligibleForSponsorshipOnly bool
+	SchoolIDs                  []uint64
+}
+
 // Repository incorporates the methods for persisting and loading student aggregates and projections
 type Repository interface {
 	upsertStudent(student *Aggregate) error
@@ -31,8 +38,8 @@ type Repository interface {
 	upsertFeedingEventProjection(student *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
 	loadStudent(ctx context.Context, id uint64) (*Aggregate, error)
-	CountStudents(ctx context.Context) (uint, error)
-	ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error)
+	CountStudents(ctx context.Context, filters StudentListFilters) (uint, error)
+	ListStudents(ctx context.Context, limit, page uint, filters StudentListFilters) ([]*ProjectedStudent, error)
 	ListStudentsForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error)
 	GetNewID(ctx context.Context) (uint64, error)
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
@@ -41,21 +48,21 @@ type Repository interface {
 	getStudentIDByStudentSchoolID(ctx context.Context, studentSchoolID string) (uint64, error)
 	getEvent(ctx context.Context, id, version uint64) (*gosignal.Event, error)
 	QueryFeedingHistory(ctx context.Context, query FeedingHistoryQuery) (*StudentFeedingProjections, error)
-	ListStudentsBySchoolIDs(ctx context.Context, schoolIDs []uint64) ([]*ProjectedStudent, error)
 }
 
 type ProjectedStudent struct {
-	ID             uint
-	FirstName      string
-	LastName       string
-	SchoolID       string
-	DateOfBirth    time.Time
-	StudentID      string
-	Grade          uint
-	Version        uint
-	Active         bool
-	Age            uint
-	ProfilePhotoID string
+	ID                     uint
+	FirstName              string
+	LastName               string
+	SchoolID               string
+	DateOfBirth            time.Time
+	StudentID              string
+	Grade                  uint
+	Version                uint
+	Active                 bool
+	Age                    uint
+	ProfilePhotoID         string
+	EligibleForSponsorship bool
 }
 
 // source schema:
@@ -348,37 +355,77 @@ func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) e
 	return r.eventSourcing.Store(ctx, evts)
 }
 
-func (r *sqlRepository) CountStudents(ctx context.Context) (uint, error) {
+func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFilters) (uint, error) {
 	query := `SELECT COUNT(*) FROM student_projections`
+	where := []string{}
+	args := []interface{}{}
+
+	if filters.ActiveOnly {
+		where = append(where, "active = true")
+	}
+
+	if filters.EligibleForSponsorshipOnly {
+		where = append(where, "eligible_for_sponsorship = true")
+	}
+
+	if len(filters.SchoolIDs) > 0 {
+		placeholders := make([]string, len(filters.SchoolIDs))
+		for i, id := range filters.SchoolIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		where = append(where, fmt.Sprintf("school_id IN (%s)", strings.Join(placeholders, ",")))
+	}
+
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+
 	var count uint
-	if err := r.db.QueryRow(query).Scan(&count); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
 		return 0, fmt.Errorf("failed to count students: %w", err)
 	}
 
 	return count, nil
 }
 
-func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error) {
-	query := `SELECT
+func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filters StudentListFilters) ([]*ProjectedStudent, error) {
+	baseQuery := `SELECT
 		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
-		spp.file_id as profile_photo_id
+		spp.file_id as profile_photo_id, sp.eligible_for_sponsorship
 		FROM student_projections sp
-		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
-		ORDER BY sp.last_name
-		LIMIT ? OFFSET ?;
-	`
+		LEFT JOIN student_profile_photos spp ON sp.id = spp.id`
 
-	if limit > MaxPageSize {
-		limit = MaxPageSize
+	where := []string{}
+	args := []interface{}{}
+
+	if filters.ActiveOnly {
+		where = append(where, "sp.active = true")
 	}
 
-	if page < 1 {
-		page = 1
+	if filters.EligibleForSponsorshipOnly {
+		where = append(where, "sp.eligible_for_sponsorship = true")
 	}
 
-	page--
+	if len(filters.SchoolIDs) > 0 {
+		placeholders := make([]string, len(filters.SchoolIDs))
+		for i, id := range filters.SchoolIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		where = append(where, fmt.Sprintf("sp.school_id IN (%s)", strings.Join(placeholders, ",")))
+	}
 
-	rows, err := r.db.Query(query, limit, limit*page)
+	if len(where) > 0 {
+		baseQuery += " WHERE " + strings.Join(where, " AND ")
+	}
+
+	if limit > 0 {
+		baseQuery += " ORDER BY sp.last_name LIMIT ? OFFSET ?"
+		args = append(args, limit, limit*(page-1))
+	}
+
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list students: %w", err)
 	}
@@ -402,6 +449,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 			&student.Version,
 			&student.Active,
 			&profilePhotoID,
+			&student.EligibleForSponsorship,
 		); err != nil {
 			return nil, fmt.Errorf("scan student: %w", err)
 		}
@@ -436,8 +484,8 @@ func (r *sqlRepository) parseDate(datestr string) time.Time {
 // upsertStudent - persists the student projection to the database
 func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 	query := `INSERT INTO student_projections
-		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade)
-		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade)
+		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade, eligible_for_sponsorship)
+		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade, :eligible_for_sponsorship)
 		ON CONFLICT (id) DO UPDATE SET 
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
@@ -448,6 +496,7 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 			student_id = excluded.student_id,
 			age = excluded.age,
 			grade = excluded.grade,
+			eligible_for_sponsorship = excluded.eligible_for_sponsorship,
 			updated_at = CURRENT_TIMESTAMP;
 	`
 
@@ -475,6 +524,7 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 		sql.Named("student_id", agg.data.StudentSchoolId),
 		sql.Named("age", age),
 		sql.Named("grade", agg.data.GradeLevel),
+		sql.Named("eligible_for_sponsorship", agg.data.EligibleForSponsorship),
 	)
 
 	if err != nil {
@@ -766,63 +816,4 @@ func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHi
 	}
 
 	return projections, nil
-}
-
-// ListStudentsBySchoolIDs returns all active students for the given school IDs
-func (r *sqlRepository) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs []uint64) ([]*ProjectedStudent, error) {
-	if len(schoolIDs) == 0 {
-		return []*ProjectedStudent{}, nil
-	}
-
-	query := `SELECT
-		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
-		spp.file_id as profile_photo_id
-		FROM student_projections sp
-		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
-		WHERE sp.active = TRUE AND sp.school_id = ?` + strings.Repeat(" OR sp.school_id = ?", len(schoolIDs)-1) + `
-		ORDER BY sp.last_name ASC;`
-
-	args := make([]interface{}, len(schoolIDs))
-	for i, id := range schoolIDs {
-		args[i] = id
-	}
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list students by school IDs: %w", err)
-	}
-	defer rows.Close()
-
-	students := []*ProjectedStudent{}
-	for rows.Next() {
-		student := &ProjectedStudent{}
-		var dateOfBirth, studentID, profilePhotoID sql.NullString
-		var grade, age sql.NullInt64
-
-		if err := rows.Scan(
-			&student.ID,
-			&student.FirstName,
-			&student.LastName,
-			&student.SchoolID,
-			&dateOfBirth,
-			&studentID,
-			&age,
-			&grade,
-			&student.Version,
-			&student.Active,
-			&profilePhotoID,
-		); err != nil {
-			return nil, fmt.Errorf("scan student: %w", err)
-		}
-
-		student.DateOfBirth = r.parseDate(dateOfBirth.String)
-		student.StudentID = studentID.String
-		student.Grade = uint(grade.Int64)
-		student.Age = uint(age.Int64)
-		student.ProfilePhotoID = profilePhotoID.String
-
-		students = append(students, student)
-	}
-
-	return students, nil
 }

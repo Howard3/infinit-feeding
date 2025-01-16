@@ -26,6 +26,7 @@ const EVENT_UNENROLL_STUDENT = "UnenrollStudent"
 const EVENT_SET_LOOKUP_CODE = "SetLookupCode"
 const EVENT_SET_PROFILE_PHOTO = "SetProfilePhoto"
 const EVENT_FEED_STUDENT = "FeedStudent"
+const EVENT_SET_ELIGIBILITY = "SetEligibility"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -84,6 +85,9 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_FEED_STUDENT:
 		eventData = &eda.Student_Feeding{}
 		handler = sd.handleFeedStudent
+	case EVENT_SET_ELIGIBILITY:
+		eventData = &eda.Student_SetEligibility_Event{}
+		handler = sd.handleSetEligibility
 	default:
 		return ErrEventNotFound
 	}
@@ -294,6 +298,12 @@ func (sd *Aggregate) handleSetProfilePhoto(evt wrappedEvent) error {
 	return nil
 }
 
+func (sd *Aggregate) handleSetEligibility(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_SetEligibility_Event)
+	sd.data.EligibleForSponsorship = data.Eligible
+	return nil
+}
+
 // StudentEvent is a struct that holds the event type and the data
 type StudentEvent struct {
 	eventType string
@@ -378,6 +388,16 @@ func (sd *Aggregate) SetProfilePhoto(cmd *eda.Student_SetProfilePhoto) (*gosigna
 		eventType: EVENT_SET_PROFILE_PHOTO,
 		data: &eda.Student_SetProfilePhoto{
 			FileId: cmd.FileId,
+		},
+		version: cmd.GetVersion(),
+	})
+}
+
+func (sd *Aggregate) SetEligibility(cmd *eda.Student_SetEligibility) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_SET_ELIGIBILITY,
+		data: &eda.Student_SetEligibility_Event{
+			Eligible: cmd.Eligible,
 		},
 		version: cmd.GetVersion(),
 	})
