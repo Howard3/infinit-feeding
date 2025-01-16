@@ -45,16 +45,17 @@ type Repository interface {
 }
 
 type ProjectedStudent struct {
-	ID          uint
-	FirstName   string
-	LastName    string
-	SchoolID    string
-	DateOfBirth time.Time
-	StudentID   string
-	Grade       uint
-	Version     uint
-	Active      bool
-	Age         uint
+	ID             uint
+	FirstName      string
+	LastName       string
+	SchoolID       string
+	DateOfBirth    time.Time
+	StudentID      string
+	Grade          uint
+	Version        uint
+	Active         bool
+	Age            uint
+	ProfilePhotoID string
 }
 
 // source schema:
@@ -359,9 +360,11 @@ func (r *sqlRepository) CountStudents(ctx context.Context) (uint, error) {
 
 func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*ProjectedStudent, error) {
 	query := `SELECT
-		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
-		FROM student_projections
-		ORDER BY last_name
+		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
+		spp.file_id as profile_photo_id
+		FROM student_projections sp
+		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
+		ORDER BY sp.last_name
 		LIMIT ? OFFSET ?;
 	`
 
@@ -384,7 +387,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 	students := []*ProjectedStudent{}
 	for rows.Next() {
 		student := &ProjectedStudent{}
-		var dateOfBirth, studentID sql.NullString
+		var dateOfBirth, studentID, profilePhotoID sql.NullString
 		var grade, age sql.NullInt64
 
 		if err := rows.Scan(
@@ -398,6 +401,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 			&grade,
 			&student.Version,
 			&student.Active,
+			&profilePhotoID,
 		); err != nil {
 			return nil, fmt.Errorf("scan student: %w", err)
 		}
@@ -406,6 +410,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint) ([]*
 		student.StudentID = studentID.String
 		student.Grade = uint(grade.Int64)
 		student.Age = uint(age.Int64)
+		student.ProfilePhotoID = profilePhotoID.String
 
 		students = append(students, student)
 	}
@@ -770,10 +775,12 @@ func (r *sqlRepository) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs [
 	}
 
 	query := `SELECT
-		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
-		FROM student_projections
-		WHERE active = TRUE AND school_id = ?` + strings.Repeat(" OR school_id = ?", len(schoolIDs)-1) + `
-		ORDER BY last_name ASC;`
+		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
+		spp.file_id as profile_photo_id
+		FROM student_projections sp
+		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
+		WHERE sp.active = TRUE AND sp.school_id = ?` + strings.Repeat(" OR sp.school_id = ?", len(schoolIDs)-1) + `
+		ORDER BY sp.last_name ASC;`
 
 	args := make([]interface{}, len(schoolIDs))
 	for i, id := range schoolIDs {
@@ -789,7 +796,7 @@ func (r *sqlRepository) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs [
 	students := []*ProjectedStudent{}
 	for rows.Next() {
 		student := &ProjectedStudent{}
-		var dateOfBirth, studentID sql.NullString
+		var dateOfBirth, studentID, profilePhotoID sql.NullString
 		var grade, age sql.NullInt64
 
 		if err := rows.Scan(
@@ -803,6 +810,7 @@ func (r *sqlRepository) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs [
 			&grade,
 			&student.Version,
 			&student.Active,
+			&profilePhotoID,
 		); err != nil {
 			return nil, fmt.Errorf("scan student: %w", err)
 		}
@@ -811,6 +819,7 @@ func (r *sqlRepository) ListStudentsBySchoolIDs(ctx context.Context, schoolIDs [
 		student.StudentID = studentID.String
 		student.Grade = uint(grade.Int64)
 		student.Age = uint(age.Int64)
+		student.ProfilePhotoID = profilePhotoID.String
 
 		students = append(students, student)
 	}

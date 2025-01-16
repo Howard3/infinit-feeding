@@ -2,6 +2,7 @@ package webapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -46,10 +47,11 @@ type ListStudentsResponse struct {
 }
 
 type StudentResponse struct {
-	ID        uint   `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	SchoolID  string `json:"schoolId"`
+	ID              uint   `json:"id"`
+	FirstName       string `json:"firstName"`
+	LastName        string `json:"lastName"`
+	SchoolID        string `json:"schoolId"`
+	ProfilePhotoURL string `json:"profilePhotoUrl,omitempty"`
 }
 
 // Add new response types
@@ -132,11 +134,17 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, student := range students.Students {
+		photoURL := ""
+		if student.ProfilePhotoID != "" {
+			photoURL = fmt.Sprintf("/student/profile/photo/%s", student.ProfilePhotoID)
+		}
+
 		response.Students = append(response.Students, StudentResponse{
-			ID:        student.ID,
-			FirstName: student.FirstName,
-			LastName:  student.LastName,
-			SchoolID:  student.SchoolID,
+			ID:              student.ID,
+			FirstName:       student.FirstName,
+			LastName:        student.LastName,
+			SchoolID:        student.SchoolID,
+			ProfilePhotoURL: photoURL,
 		})
 	}
 
@@ -238,11 +246,17 @@ func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Reques
 	}
 
 	for _, student := range students {
+		photoURL := ""
+		if student.ProfilePhotoID != "" {
+			photoURL = fmt.Sprintf("/student/profile/photo/%s", student.ProfilePhotoID)
+		}
+
 		response.Students = append(response.Students, StudentResponse{
-			ID:        student.ID,
-			FirstName: student.FirstName,
-			LastName:  student.LastName,
-			SchoolID:  student.SchoolID,
+			ID:              student.ID,
+			FirstName:       student.FirstName,
+			LastName:        student.LastName,
+			SchoolID:        student.SchoolID,
+			ProfilePhotoURL: photoURL,
 		})
 	}
 
