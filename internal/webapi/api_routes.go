@@ -53,6 +53,7 @@ type StudentResponse struct {
 	LastName        string `json:"lastName"`
 	SchoolID        string `json:"schoolId"`
 	ProfilePhotoURL string `json:"profilePhotoUrl,omitempty"`
+	DateOfBirth     string `json:"dateOfBirth,omitempty"`
 }
 
 // Add new response types
@@ -117,6 +118,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 // @Param       limit                  query    int     false  "Items per page"                default(10)
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
+// @Param       date_of_birth            query    string  false  "Filter date of birth"         default(false)
 // @Success     200      {object}  ListStudentsResponse
 // @Failure     500      {object}  ErrorResponse
 // @Router      /students [get]
@@ -158,6 +160,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 			LastName:        student.LastName,
 			SchoolID:        student.SchoolID,
 			ProfilePhotoURL: photoURL,
+			DateOfBirth:     student.DateOfBirth.Format("2006-01-02"),
 		})
 	}
 
@@ -210,6 +213,7 @@ func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 // @Param       city                   query    string  false  "City name"
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
+// @Param       date_of_birth            query    string  false  "Filter date of birth"         default(false)
 // @Success     200    {object}  ListStudentsResponse
 // @Failure     400    {object}  ErrorResponse
 // @Failure     500    {object}  ErrorResponse
@@ -280,6 +284,7 @@ func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Reques
 			LastName:        student.LastName,
 			SchoolID:        student.SchoolID,
 			ProfilePhotoURL: photoURL,
+			DateOfBirth:     student.DateOfBirth.Format("2006-01-02"),
 		})
 	}
 
