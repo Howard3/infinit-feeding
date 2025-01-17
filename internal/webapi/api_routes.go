@@ -54,6 +54,7 @@ type StudentResponse struct {
 	SchoolID        string `json:"schoolId"`
 	ProfilePhotoURL string `json:"profilePhotoUrl,omitempty"`
 	DateOfBirth     string `json:"dateOfBirth,omitempty"`
+	Grade           string `json:"grade,omitempty"`
 }
 
 // Add new response types
@@ -119,6 +120,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
 // @Param       date_of_birth            query    string  false  "Filter date of birth"         default(false)
+// @Param       grade                    query    string  false  "Filter grade"                default(false)
 // @Success     200      {object}  ListStudentsResponse
 // @Failure     500      {object}  ErrorResponse
 // @Router      /students [get]
@@ -161,6 +163,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 			SchoolID:        student.SchoolID,
 			ProfilePhotoURL: photoURL,
 			DateOfBirth:     student.DateOfBirth.Format("2006-01-02"),
+			Grade:           fmt.Sprintf("%d", student.Grade),
 		})
 	}
 
@@ -214,6 +217,7 @@ func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
 // @Param       date_of_birth            query    string  false  "Filter date of birth"         default(false)
+// @Param       grade                    query    string  false  "Filter grade"                default(false)
 // @Success     200    {object}  ListStudentsResponse
 // @Failure     400    {object}  ErrorResponse
 // @Failure     500    {object}  ErrorResponse
@@ -285,6 +289,7 @@ func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Reques
 			SchoolID:        student.SchoolID,
 			ProfilePhotoURL: photoURL,
 			DateOfBirth:     student.DateOfBirth.Format("2006-01-02"),
+			Grade:           fmt.Sprintf("%d", student.Grade),
 		})
 	}
 
