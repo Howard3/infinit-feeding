@@ -125,6 +125,21 @@ func InSchools(schoolIDs ...uint64) ListOption {
 	}
 }
 
+// Add new filter options for age
+func MinAge(age int) ListOption {
+	return func(f *StudentListFilters) {
+		maxBirthDate := time.Now().AddDate(-age, 0, 0)
+		f.MinBirthDate = &maxBirthDate
+	}
+}
+
+func MaxAge(age int) ListOption {
+	return func(f *StudentListFilters) {
+		minBirthDate := time.Now().AddDate(-(age + 1), 0, 1)
+		f.MaxBirthDate = &minBirthDate
+	}
+}
+
 // Update the ListStudents method to use variadic options
 func (s *StudentService) ListStudents(ctx context.Context, limit, page uint, opts ...ListOption) (*ListStudentsResponse, error) {
 	// Create default filters

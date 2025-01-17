@@ -120,13 +120,12 @@ func (s *Server) apiRoutes(r chi.Router) {
 
 		r.Get("/students", s.apiListStudents)
 		r.Get("/locations", s.apiListLocations)
-		r.Get("/students/by-location", s.apiListStudentsByLocation)
 		r.Get("/schools", s.apiListSchools)
 	})
 }
 
 // @Summary     List students
-// @Description Get a paginated list of students
+// @Description Get a paginated list of students with optional filters
 // @Tags        students
 // @Accept      json
 // @Produce     json
@@ -134,7 +133,12 @@ func (s *Server) apiRoutes(r chi.Router) {
 // @Param       limit                  query    int     false  "Items per page"                default(10)
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
+// @Param       min_age                query    int     false  "Minimum age filter"
+// @Param       max_age                query    int     false  "Maximum age filter"
+// @Param       country                query    string  false  "Filter by country"
+// @Param       city                   query    string  false  "Filter by city"
 // @Success     200      {object}  ListStudentsResponse
+// @Failure     400      {object}  ErrorResponse
 // @Failure     500      {object}  ErrorResponse
 // @Router      /students [get]
 // @Security    ApiKeyAuth
@@ -144,12 +148,54 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 
 	var opts []student.ListOption
 
+	// Location filtering
+	country := r.URL.Query().Get("country")
+	city := r.URL.Query().Get("city")
+	if country != "" {
+		schoolIDs, err := s.SchoolSvc.GetSchoolIDsByLocation(r.Context(), school.Location{
+			Country: country,
+			City:    city,
+		})
+		if err != nil {
+			s.respondWithError(w, http.StatusInternalServerError, "Error fetching schools for location")
+			return
+		}
+		if len(schoolIDs) == 0 {
+			// Return empty response if no schools found
+			s.respondWithJSON(w, http.StatusOK, ListStudentsResponse{
+				Students: []StudentResponse{},
+				Total:    0,
+			})
+			return
+		}
+		opts = append(opts, student.InSchools(schoolIDs...))
+	}
+
+	// Other filters
 	if active := r.URL.Query().Get("active"); active == "true" {
 		opts = append(opts, student.ActiveOnly())
 	}
 
 	if eligible := r.URL.Query().Get("eligible_for_sponsorship"); eligible == "true" {
 		opts = append(opts, student.EligibleForSponsorshipOnly())
+	}
+
+	if minAgeStr := r.URL.Query().Get("min_age"); minAgeStr != "" {
+		minAge, err := strconv.Atoi(minAgeStr)
+		if err != nil {
+			s.respondWithError(w, http.StatusBadRequest, "Invalid min_age parameter")
+			return
+		}
+		opts = append(opts, student.MinAge(minAge))
+	}
+
+	if maxAgeStr := r.URL.Query().Get("max_age"); maxAgeStr != "" {
+		maxAge, err := strconv.Atoi(maxAgeStr)
+		if err != nil {
+			s.respondWithError(w, http.StatusBadRequest, "Invalid max_age parameter")
+			return
+		}
+		opts = append(opts, student.MaxAge(maxAge))
 	}
 
 	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
@@ -214,93 +260,6 @@ func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 		response.Locations = append(response.Locations, LocationResponse{
 			Country: country,
 			Cities:  cities,
-		})
-	}
-
-	s.respondWithJSON(w, http.StatusOK, response)
-}
-
-// @Summary     List students by location
-// @Description Get a list of students filtered by country and optionally city
-// @Tags        students
-// @Accept      json
-// @Produce     json
-// @Param       country                query    string  true   "Country name"
-// @Param       city                   query    string  false  "City name"
-// @Param       active                 query    bool    false  "Filter active only"            default(false)
-// @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
-// @Success     200    {object}  ListStudentsResponse
-// @Failure     400    {object}  ErrorResponse
-// @Failure     500    {object}  ErrorResponse
-// @Router      /students/by-location [get]
-// @Security    ApiKeyAuth
-func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Request) {
-	country := r.URL.Query().Get("country")
-	if country == "" {
-		s.respondWithError(w, http.StatusBadRequest, "country parameter is required")
-		return
-	}
-
-	city := r.URL.Query().Get("city")
-
-	// Get school IDs for the location
-	schoolIDs, err := s.SchoolSvc.GetSchoolIDsByLocation(r.Context(), school.Location{
-		Country: country,
-		City:    city,
-	})
-	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Error fetching schools for location")
-		return
-	}
-
-	if len(schoolIDs) == 0 {
-		// Return empty response if no schools found
-		s.respondWithJSON(w, http.StatusOK, ListStudentsResponse{
-			Students: []StudentResponse{},
-			Total:    0,
-		})
-		return
-	}
-
-	// Build filter options
-	var opts []student.ListOption
-	opts = append(opts, student.InSchools(schoolIDs...))
-
-	if active := r.URL.Query().Get("active"); active == "true" {
-		opts = append(opts, student.ActiveOnly())
-	}
-
-	if eligible := r.URL.Query().Get("eligible_for_sponsorship"); eligible == "true" {
-		opts = append(opts, student.EligibleForSponsorshipOnly())
-	}
-
-	// Use the filter system
-	result, err := s.StudentSvc.ListStudents(r.Context(), 0, 0, opts...)
-	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Error fetching students")
-		return
-	}
-
-	// Convert to response format
-	response := ListStudentsResponse{
-		Students: make([]StudentResponse, 0, len(result.Students)),
-		Total:    int64(result.Count),
-	}
-
-	for _, student := range result.Students {
-		photoURL := ""
-		if student.ProfilePhotoID != "" {
-			photoURL = fmt.Sprintf("/student/profile/photo/%s", student.ProfilePhotoID)
-		}
-
-		response.Students = append(response.Students, StudentResponse{
-			ID:              student.ID,
-			FirstName:       student.FirstName,
-			LastName:        student.LastName,
-			SchoolID:        student.SchoolID,
-			ProfilePhotoURL: photoURL,
-			DateOfBirth:     student.DateOfBirth.Format("2006-01-02"),
-			Grade:           fmt.Sprintf("%d", student.Grade),
 		})
 	}
 

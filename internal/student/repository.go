@@ -29,6 +29,8 @@ type StudentListFilters struct {
 	ActiveOnly                 bool
 	EligibleForSponsorshipOnly bool
 	SchoolIDs                  []uint64
+	MinBirthDate               *time.Time
+	MaxBirthDate               *time.Time
 }
 
 // Repository incorporates the methods for persisting and loading student aggregates and projections
@@ -377,6 +379,16 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 		where = append(where, fmt.Sprintf("school_id IN (%s)", strings.Join(placeholders, ",")))
 	}
 
+	if filters.MinBirthDate != nil {
+		where = append(where, "date_of_birth <= ?")
+		args = append(args, filters.MinBirthDate)
+	}
+
+	if filters.MaxBirthDate != nil {
+		where = append(where, "date_of_birth >= ?")
+		args = append(args, filters.MaxBirthDate)
+	}
+
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -414,6 +426,16 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 			args = append(args, id)
 		}
 		where = append(where, fmt.Sprintf("sp.school_id IN (%s)", strings.Join(placeholders, ",")))
+	}
+
+	if filters.MinBirthDate != nil {
+		where = append(where, "sp.date_of_birth <= ?")
+		args = append(args, filters.MinBirthDate)
+	}
+
+	if filters.MaxBirthDate != nil {
+		where = append(where, "sp.date_of_birth >= ?")
+		args = append(args, filters.MaxBirthDate)
 	}
 
 	if len(where) > 0 {
