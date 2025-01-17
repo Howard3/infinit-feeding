@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	_ "geevly/docs" // This is where the generated swagger docs are
 	"geevly/internal/school"
@@ -67,6 +69,18 @@ type ListLocationsResponse struct {
 	Locations []LocationResponse `json:"locations"`
 }
 
+// Add new response types after the existing response types
+type SchoolResponse struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Country string `json:"country"`
+	City    string `json:"city"`
+}
+
+type ListSchoolsResponse struct {
+	Schools []SchoolResponse `json:"schools"`
+}
+
 // Add middleware for API key authentication
 func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,6 +121,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Get("/students", s.apiListStudents)
 		r.Get("/locations", s.apiListLocations)
 		r.Get("/students/by-location", s.apiListStudentsByLocation)
+		r.Get("/schools", s.apiListSchools)
 	})
 }
 
@@ -119,8 +134,6 @@ func (s *Server) apiRoutes(r chi.Router) {
 // @Param       limit                  query    int     false  "Items per page"                default(10)
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
-// @Param       date_of_birth            query    string  false  "Filter date of birth"         default(false)
-// @Param       grade                    query    string  false  "Filter grade"                default(false)
 // @Success     200      {object}  ListStudentsResponse
 // @Failure     500      {object}  ErrorResponse
 // @Router      /students [get]
@@ -216,8 +229,6 @@ func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
 // @Param       city                   query    string  false  "City name"
 // @Param       active                 query    bool    false  "Filter active only"            default(false)
 // @Param       eligible_for_sponsorship query    bool    false  "Filter eligible only"         default(false)
-// @Param       date_of_birth            query    string  false  "Filter date of birth"         default(false)
-// @Param       grade                    query    string  false  "Filter grade"                default(false)
 // @Success     200    {object}  ListStudentsResponse
 // @Failure     400    {object}  ErrorResponse
 // @Failure     500    {object}  ErrorResponse
@@ -290,6 +301,66 @@ func (s *Server) apiListStudentsByLocation(w http.ResponseWriter, r *http.Reques
 			ProfilePhotoURL: photoURL,
 			DateOfBirth:     student.DateOfBirth.Format("2006-01-02"),
 			Grade:           fmt.Sprintf("%d", student.Grade),
+		})
+	}
+
+	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// @Summary     List schools
+// @Description Get a list of schools by their IDs
+// @Tags        schools
+// @Accept      json
+// @Produce     json
+// @Param       ids query string true "Comma-separated list of school IDs"
+// @Success     200 {object} ListSchoolsResponse
+// @Failure     400 {object} ErrorResponse
+// @Failure     500 {object} ErrorResponse
+// @Router      /schools [get]
+// @Security    ApiKeyAuth
+func (s *Server) apiListSchools(w http.ResponseWriter, r *http.Request) {
+	// Get the ids from query parameter
+	idsParam := r.URL.Query().Get("ids")
+	if idsParam == "" {
+		s.respondWithError(w, http.StatusBadRequest, "ids parameter is required")
+		return
+	}
+
+	// Split the comma-separated IDs
+	schoolIDs := strings.Split(idsParam, ",")
+	if len(schoolIDs) == 0 {
+		s.respondWithError(w, http.StatusBadRequest, "at least one school ID is required")
+		return
+	}
+
+	schoolIDsUint64 := make([]uint64, 0, len(schoolIDs))
+	for _, id := range schoolIDs {
+		schoolIDUint64, err := strconv.ParseUint(id, 10, 64)
+		if err != nil {
+			s.respondWithError(w, http.StatusBadRequest, "invalid school ID")
+			return
+		}
+		schoolIDsUint64 = append(schoolIDsUint64, schoolIDUint64)
+	}
+
+	// Get the schools from the service
+	schools, err := s.SchoolSvc.GetSchoolsByIDs(r.Context(), schoolIDsUint64)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching schools")
+		return
+	}
+
+	// Convert to response format
+	response := ListSchoolsResponse{
+		Schools: make([]SchoolResponse, 0, len(schools)),
+	}
+
+	for _, school := range schools {
+		response.Schools = append(response.Schools, SchoolResponse{
+			ID:      fmt.Sprintf("%d", school.ID),
+			Name:    school.GetData().Name,
+			Country: school.GetData().Country,
+			City:    school.GetData().City,
 		})
 	}
 
