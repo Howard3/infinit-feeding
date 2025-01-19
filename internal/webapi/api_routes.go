@@ -81,6 +81,18 @@ type ListSchoolsResponse struct {
 	Schools []SchoolResponse `json:"schools"`
 }
 
+// Add this new response type after the other response types
+type GetStudentResponse struct {
+	ID              uint   `json:"id"`
+	FirstName       string `json:"firstName"`
+	LastName        string `json:"lastName"`
+	SchoolID        string `json:"schoolId"`
+	ProfilePhotoURL string `json:"profilePhotoUrl,omitempty"`
+	DateOfBirth     string `json:"dateOfBirth,omitempty"`
+	Grade           string `json:"grade,omitempty"`
+	Active          bool   `json:"active"`
+}
+
 // Add middleware for API key authentication
 func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +133,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Get("/students", s.apiListStudents)
 		r.Get("/locations", s.apiListLocations)
 		r.Get("/schools", s.apiListSchools)
+		r.Get("/students/{id}", s.apiGetStudent)
 	})
 }
 
@@ -321,6 +334,57 @@ func (s *Server) apiListSchools(w http.ResponseWriter, r *http.Request) {
 			Country: school.GetData().Country,
 			City:    school.GetData().City,
 		})
+	}
+
+	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// @Summary     Get student by ID
+// @Description Get detailed information about a specific student
+// @Tags        students
+// @Accept      json
+// @Produce     json
+// @Param       id   path      int  true  "Student ID"
+// @Success     200  {object}  GetStudentResponse
+// @Failure     400  {object}  ErrorResponse
+// @Failure     404  {object}  ErrorResponse
+// @Failure     500  {object}  ErrorResponse
+// @Router      /students/{id} [get]
+// @Security    ApiKeyAuth
+func (s *Server) apiGetStudent(w http.ResponseWriter, r *http.Request) {
+	// Get student ID from URL parameter
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		s.respondWithError(w, http.StatusBadRequest, "Invalid student ID")
+		return
+	}
+
+	// Get student from service
+	student, err := s.StudentSvc.GetStudent(r.Context(), id)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching student")
+		return
+	}
+
+	if student == nil {
+		s.respondWithError(w, http.StatusNotFound, "Student not found")
+		return
+	}
+
+	// Build photo URL if photo exists
+	photoURL := ""
+	if student.GetStudent().GetProfilePhotoId() != "" {
+		photoURL = fmt.Sprintf("/student/profile/photo/%s", student.GetStudent().GetProfilePhotoId())
+	}
+
+	// Convert to response format
+	response := GetStudentResponse{
+		ID:              uint(student.ID),
+		FirstName:       student.GetStudent().FirstName,
+		LastName:        student.GetStudent().LastName,
+		SchoolID:        student.GetStudent().SchoolId,
+		ProfilePhotoURL: photoURL,
 	}
 
 	s.respondWithJSON(w, http.StatusOK, response)
