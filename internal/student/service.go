@@ -64,6 +64,8 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 			return agg.SetProfilePhoto(cmd)
 		case *eda.Student_SetEligibility:
 			return agg.SetEligibility(cmd)
+		case *eda.Student_UpdateSponsorship:
+			return agg.UpdateSponsorship(cmd)
 		default:
 			return nil, fmt.Errorf("unknown command type: %T", cmd)
 		}
@@ -236,4 +238,8 @@ func (s *StudentService) GetSchoolFeedingEvents(ctx context.Context, schoolID st
 
 func (s *StudentService) ListForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error) {
 	return s.repo.ListStudentsForSchool(ctx, schoolID)
+}
+
+func (s *StudentService) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
+	return s.repo.GetCurrentSponsorships(ctx, sponsorID)
 }

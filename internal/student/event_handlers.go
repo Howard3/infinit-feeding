@@ -89,6 +89,20 @@ func (eh *eventHandlers) handleFeedStudentEvent(ctx context.Context, aggID uint6
 	}
 }
 
+// handleUpdateSponsorshipEvent is a method that handles the UpdateSponsorshipEvent
+func (eh *eventHandlers) handleUpdateSponsorshipEvent(ctx context.Context, aggID uint64) {
+	student, err := eh.repo.loadStudent(ctx, aggID)
+	if err != nil {
+		slog.Error("failed to load student", "error", err)
+		return
+	}
+
+	if err := eh.repo.upsertSponsorshipProjections(student); err != nil {
+		slog.Error("failed to upsert sponsorship projections", "error", err)
+		return
+	}
+}
+
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	id, err := strconv.ParseUint(evt.AggregateID, 10, 64)
@@ -108,5 +122,7 @@ func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 		eh.handleSetProfilePhotoEvent(ctx, id)
 	case EVENT_FEED_STUDENT:
 		eh.handleFeedStudentEvent(ctx, id)
+	case EVENT_UPDATE_SPONSORSHIP:
+		eh.handleUpdateSponsorshipEvent(ctx, id)
 	}
 }

@@ -27,6 +27,7 @@ const EVENT_SET_LOOKUP_CODE = "SetLookupCode"
 const EVENT_SET_PROFILE_PHOTO = "SetProfilePhoto"
 const EVENT_FEED_STUDENT = "FeedStudent"
 const EVENT_SET_ELIGIBILITY = "SetEligibility"
+const EVENT_UPDATE_SPONSORSHIP = "UpdateSponsorship"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -88,6 +89,9 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_SET_ELIGIBILITY:
 		eventData = &eda.Student_SetEligibility_Event{}
 		handler = sd.handleSetEligibility
+	case EVENT_UPDATE_SPONSORSHIP:
+		eventData = &eda.Student_UpdateSponsorship_Event{}
+		handler = sd.handleUpdateSponsorship
 	default:
 		return ErrEventNotFound
 	}
@@ -304,6 +308,25 @@ func (sd *Aggregate) handleSetEligibility(evt wrappedEvent) error {
 	return nil
 }
 
+func (sd *Aggregate) handleUpdateSponsorship(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_UpdateSponsorship_Event)
+
+	// Create new sponsorship record
+	newRecord := &eda.Student_SponsorshipRecord{
+		SponsorId: data.SponsorId,
+		StartDate: data.StartDate,
+		EndDate:   data.EndDate,
+	}
+
+	// Add to sponsorship history
+	if sd.data.SponsorshipHistory == nil {
+		sd.data.SponsorshipHistory = make([]*eda.Student_SponsorshipRecord, 0)
+	}
+	sd.data.SponsorshipHistory = append(sd.data.SponsorshipHistory, newRecord)
+
+	return nil
+}
+
 // StudentEvent is a struct that holds the event type and the data
 type StudentEvent struct {
 	eventType string
@@ -398,6 +421,18 @@ func (sd *Aggregate) SetEligibility(cmd *eda.Student_SetEligibility) (*gosignal.
 		eventType: EVENT_SET_ELIGIBILITY,
 		data: &eda.Student_SetEligibility_Event{
 			Eligible: cmd.Eligible,
+		},
+		version: cmd.GetVersion(),
+	})
+}
+
+func (sd *Aggregate) UpdateSponsorship(cmd *eda.Student_UpdateSponsorship) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_UPDATE_SPONSORSHIP,
+		data: &eda.Student_UpdateSponsorship_Event{
+			SponsorId: cmd.SponsorId,
+			StartDate: cmd.StartDate,
+			EndDate:   cmd.EndDate,
 		},
 		version: cmd.GetVersion(),
 	})

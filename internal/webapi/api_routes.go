@@ -8,8 +8,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "geevly/docs" // This is where the generated swagger docs are
+	"geevly/gen/go/eda"
 	"geevly/internal/school"
 	"geevly/internal/student"
 
@@ -93,6 +95,25 @@ type GetStudentResponse struct {
 	Active          bool   `json:"active"`
 }
 
+// Add this new request type after the other request types
+type SponsorStudentRequest struct {
+	SponsorID string `json:"sponsorId"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
+// Add this new response type after the other response types
+type SponsorStudentResponse struct {
+	Success bool `json:"success"`
+}
+
+// Add this new response type
+type SponsorshipResponse struct {
+	StudentID string `json:"studentId"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
 // Add middleware for API key authentication
 func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +155,8 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Get("/locations", s.apiListLocations)
 		r.Get("/schools", s.apiListSchools)
 		r.Get("/students/{id}", s.apiGetStudent)
+		r.Post("/students/{id}/sponsor", s.apiSponsorStudent)
+		r.Get("/sponsors/{id}/students", s.apiListSponsoredStudents)
 	})
 }
 
@@ -385,6 +408,149 @@ func (s *Server) apiGetStudent(w http.ResponseWriter, r *http.Request) {
 		LastName:        student.GetStudent().LastName,
 		SchoolID:        student.GetStudent().SchoolId,
 		ProfilePhotoURL: photoURL,
+	}
+
+	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// @Summary     Sponsor a student
+// @Description Add or update sponsorship for a student
+// @Tags        students
+// @Accept      json
+// @Produce     json
+// @Param       id      path      int                 true  "Student ID"
+// @Param       request body      SponsorStudentRequest true "Sponsorship details"
+// @Success     200     {object}  SponsorStudentResponse
+// @Failure     400     {object}  ErrorResponse
+// @Failure     404     {object}  ErrorResponse
+// @Failure     500     {object}  ErrorResponse
+// @Router      /students/{id}/sponsor [post]
+// @Security    ApiKeyAuth
+// TODO: prevent duplicate sponsorships
+func (s *Server) apiSponsorStudent(w http.ResponseWriter, r *http.Request) {
+	// Get student ID from URL parameter
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		s.respondWithError(w, http.StatusBadRequest, "Invalid student ID")
+		return
+	}
+
+	// Get student from service
+	student, err := s.StudentSvc.GetStudent(r.Context(), id)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Error fetching student")
+		return
+	}
+
+	if student == nil {
+		s.respondWithError(w, http.StatusNotFound, "Student not found")
+		return
+	}
+
+	// Verify student is eligible for sponsorship
+	if !student.GetStudent().GetEligibleForSponsorship() {
+		s.respondWithError(w, http.StatusBadRequest, "Student is not eligible for sponsorship")
+		return
+	}
+
+	// Verify student is active
+	if !student.IsActive() {
+		s.respondWithError(w, http.StatusBadRequest, "Cannot sponsor inactive student")
+		return
+	}
+
+	// Parse request body
+	var req SponsorStudentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Validate request
+	if req.SponsorID == "" {
+		s.respondWithError(w, http.StatusBadRequest, "Sponsor ID is required")
+		return
+	}
+
+	// Parse dates
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		s.respondWithError(w, http.StatusBadRequest, "Invalid start date format (use YYYY-MM-DD)")
+		return
+	}
+
+	endDate, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		s.respondWithError(w, http.StatusBadRequest, "Invalid end date format (use YYYY-MM-DD)")
+		return
+	}
+
+	// Validate dates
+	if startDate.After(endDate) {
+		s.respondWithError(w, http.StatusBadRequest, "Start date must be before end date")
+		return
+	}
+
+	// Create the command
+	cmd := &eda.Student_UpdateSponsorship{
+		SponsorId: req.SponsorID,
+		StartDate: &eda.Date{
+			Year:  int32(startDate.Year()),
+			Month: int32(startDate.Month()),
+			Day:   int32(startDate.Day()),
+		},
+		EndDate: &eda.Date{
+			Year:  int32(endDate.Year()),
+			Month: int32(endDate.Month()),
+			Day:   int32(endDate.Day()),
+		},
+		Version: student.GetVersion(), // Use current version from aggregate
+	}
+
+	// Run the command
+	_, err = s.StudentSvc.RunCommand(r.Context(), id, cmd)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to sponsor student: %v", err))
+		return
+	}
+
+	// Return success response
+	s.respondWithJSON(w, http.StatusOK, SponsorStudentResponse{Success: true})
+}
+
+// @Summary     List sponsored students
+// @Description Get a list of students currently sponsored by the given sponsor
+// @Tags        sponsors
+// @Accept      json
+// @Produce     json
+// @Param       id   path      string  true  "Sponsor ID"
+// @Success     200  {array}   SponsorshipResponse
+// @Failure     400  {object}  ErrorResponse
+// @Failure     500  {object}  ErrorResponse
+// @Router      /sponsors/{id}/students [get]
+// @Security    ApiKeyAuth
+func (s *Server) apiListSponsoredStudents(w http.ResponseWriter, r *http.Request) {
+	sponsorID := chi.URLParam(r, "id")
+	if sponsorID == "" {
+		s.respondWithError(w, http.StatusBadRequest, "Sponsor ID is required")
+		return
+	}
+
+	sponsorships, err := s.StudentSvc.GetCurrentSponsorships(r.Context(), sponsorID)
+	if err != nil {
+		log.Printf("Error fetching sponsorships: %v", err)
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to fetch sponsorships")
+		return
+	}
+
+	response := make([]SponsorshipResponse, len(sponsorships))
+	for i, sp := range sponsorships {
+		response[i] = SponsorshipResponse{
+			StudentID: sp.StudentID,
+			StartDate: sp.StartDate.Format("2006-01-02"),
+			EndDate:   sp.EndDate.Format("2006-01-02"),
+		}
 	}
 
 	s.respondWithJSON(w, http.StatusOK, response)
