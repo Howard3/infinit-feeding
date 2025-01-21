@@ -75,7 +75,6 @@ type ProjectedStudent struct {
 	Age                    uint
 	ProfilePhotoID         string
 	EligibleForSponsorship bool
-	MaxSponsorshipDate     *time.Time
 }
 
 // source schema:
@@ -413,22 +412,21 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 }
 
 func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filters StudentListFilters) ([]*ProjectedStudent, error) {
-	query := `SELECT 
-		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, 
-		sp.age, sp.grade, sp.version, sp.active, sp.eligible_for_sponsorship, sp.max_sponsorship_date,
-		spp.file_id as profile_photo_id
+	baseQuery := `SELECT
+		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
+		spp.file_id as profile_photo_id, sp.eligible_for_sponsorship
 		FROM student_projections sp
-		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
-		WHERE 1=1`
+		LEFT JOIN student_profile_photos spp ON sp.id = spp.id`
+
+	where := []string{}
 	args := []interface{}{}
 
 	if filters.ActiveOnly {
-		query += " AND sp.active = TRUE"
+		where = append(where, "sp.active = true")
 	}
 
 	if filters.EligibleForSponsorshipOnly {
-		query += ` AND sp.eligible_for_sponsorship = TRUE 
-			AND (sp.max_sponsorship_date IS NULL OR sp.max_sponsorship_date < CURRENT_DATE)`
+		where = append(where, "sp.eligible_for_sponsorship = true")
 	}
 
 	if len(filters.SchoolIDs) > 0 {
@@ -437,34 +435,38 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 			placeholders[i] = "?"
 			args = append(args, id)
 		}
-		query += " AND sp.school_id IN (" + strings.Join(placeholders, ",") + ")"
+		where = append(where, fmt.Sprintf("sp.school_id IN (%s)", strings.Join(placeholders, ",")))
 	}
 
 	if filters.MinBirthDate != nil {
-		query += " AND sp.date_of_birth >= ?"
+		where = append(where, "sp.date_of_birth <= ?")
 		args = append(args, filters.MinBirthDate)
 	}
 
 	if filters.MaxBirthDate != nil {
-		query += " AND sp.date_of_birth <= ?"
+		where = append(where, "sp.date_of_birth >= ?")
 		args = append(args, filters.MaxBirthDate)
 	}
 
+	if len(where) > 0 {
+		baseQuery += " WHERE " + strings.Join(where, " AND ")
+	}
+
 	if limit > 0 {
-		query += " ORDER BY sp.last_name LIMIT ? OFFSET ?"
+		baseQuery += " ORDER BY sp.last_name LIMIT ? OFFSET ?"
 		args = append(args, limit, limit*(page-1))
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query students: %w", err)
+		return nil, fmt.Errorf("failed to list students: %w", err)
 	}
 	defer rows.Close()
 
 	students := []*ProjectedStudent{}
 	for rows.Next() {
 		student := &ProjectedStudent{}
-		var dateOfBirth, studentID, maxSponsorshipDate, profilePhotoID sql.NullString
+		var dateOfBirth, studentID, profilePhotoID sql.NullString
 		var grade, age sql.NullInt64
 
 		if err := rows.Scan(
@@ -478,9 +480,8 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 			&grade,
 			&student.Version,
 			&student.Active,
-			&student.EligibleForSponsorship,
-			&maxSponsorshipDate,
 			&profilePhotoID,
+			&student.EligibleForSponsorship,
 		); err != nil {
 			return nil, fmt.Errorf("scan student: %w", err)
 		}
@@ -490,10 +491,6 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 		student.Grade = uint(grade.Int64)
 		student.Age = uint(age.Int64)
 		student.ProfilePhotoID = profilePhotoID.String
-		if maxSponsorshipDate.Valid {
-			date := r.parseDate(maxSponsorshipDate.String)
-			student.MaxSponsorshipDate = &date
-		}
 
 		students = append(students, student)
 	}
@@ -859,8 +856,8 @@ func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID st
 		SELECT student_id, sponsor_id, start_date, end_date 
 		FROM student_sponsorship_projections 
 		WHERE sponsor_id = ? 
-		AND start_date <= CURRENT_DATE 
-		AND end_date >= CURRENT_DATE
+		AND start_date <= CURRENT_TIMESTAMP 
+		AND end_date >= CURRENT_TIMESTAMP
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, sponsorID)
@@ -888,6 +885,7 @@ func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID st
 
 // upsertSponsorshipProjections - persists the sponsorship projections to the database
 func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
+	// Start a transaction
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -904,7 +902,6 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 		return fmt.Errorf("failed to delete existing sponsorships: %w", err)
 	}
 
-	var maxEndDate time.Time
 	// Insert all sponsorships from history
 	for _, sponsorship := range student.GetStudent().GetSponsorshipHistory() {
 		startDate := time.Date(
@@ -922,10 +919,6 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 			time.UTC,
 		)
 
-		if endDate.After(maxEndDate) {
-			maxEndDate = endDate
-		}
-
 		_, err = tx.Exec(`
 			INSERT INTO student_sponsorship_projections 
 			(student_id, sponsor_id, start_date, end_date)
@@ -935,17 +928,6 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 		if err != nil {
 			return fmt.Errorf("failed to insert sponsorship: %w", err)
 		}
-	}
-
-	// Update max sponsorship date in student projections
-	_, err = tx.Exec(`
-		UPDATE student_projections 
-		SET max_sponsorship_date = ?
-		WHERE id = ?
-	`, maxEndDate, student.GetID())
-
-	if err != nil {
-		return fmt.Errorf("failed to update max sponsorship date: %w", err)
 	}
 
 	return tx.Commit()
