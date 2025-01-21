@@ -379,7 +379,7 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 	}
 
 	if filters.EligibleForSponsorshipOnly {
-		where = append(where, "eligible_for_sponsorship = true")
+		where = append(where, "eligible_for_sponsorship = true AND (max_sponsorship_date <= CURRENT_TIMESTAMP OR max_sponsorship_date IS NULL)")
 	}
 
 	if len(filters.SchoolIDs) > 0 {
@@ -428,7 +428,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 	}
 
 	if filters.EligibleForSponsorshipOnly {
-		where = append(where, "sp.eligible_for_sponsorship = true")
+		where = append(where, "sp.eligible_for_sponsorship = true AND (sp.max_sponsorship_date <= CURRENT_TIMESTAMP OR sp.max_sponsorship_date IS NULL)")
 	}
 
 	if len(filters.SchoolIDs) > 0 {
@@ -518,8 +518,8 @@ func (r *sqlRepository) parseDate(datestr string) time.Time {
 // upsertStudent - persists the student projection to the database
 func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 	query := `INSERT INTO student_projections
-		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade, eligible_for_sponsorship)
-		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade, :eligible_for_sponsorship)
+		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade, eligible_for_sponsorship, max_sponsorship_date)
+		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade, :eligible_for_sponsorship, :max_sponsorship_date)
 		ON CONFLICT (id) DO UPDATE SET 
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
@@ -531,6 +531,7 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 			age = excluded.age,
 			grade = excluded.grade,
 			eligible_for_sponsorship = excluded.eligible_for_sponsorship,
+			max_sponsorship_date = excluded.max_sponsorship_date,
 			updated_at = CURRENT_TIMESTAMP;
 	`
 
@@ -559,6 +560,7 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 		sql.Named("age", age),
 		sql.Named("grade", agg.data.GradeLevel),
 		sql.Named("eligible_for_sponsorship", agg.data.EligibleForSponsorship),
+		sql.Named("max_sponsorship_date", agg.MaxSponsorshipDate()),
 	)
 
 	if err != nil {
@@ -855,7 +857,7 @@ func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHi
 // GetCurrentSponsorships - returns the current sponsorships for a student
 func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
 	query := `
-		SELECT student_id, sponsor_id, start_date, end_date, payment_id, payment_amount 
+		SELECT student_id, sponsor_id, start_date, end_date 
 		FROM student_sponsorship_projections 
 		WHERE sponsor_id = ? 
 		AND start_date <= CURRENT_TIMESTAMP 
@@ -871,16 +873,13 @@ func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID st
 	sponsorships := []*SponsorshipProjection{}
 	for rows.Next() {
 		sp := &SponsorshipProjection{}
-		var startDate, endDate, paymentID sql.NullString
-		var paymentAmount sql.NullFloat64
-		if err := rows.Scan(&sp.StudentID, &sp.SponsorID, &startDate, &endDate, &paymentID, &paymentAmount); err != nil {
+		var startDate, endDate sql.NullString
+		if err := rows.Scan(&sp.StudentID, &sp.SponsorID, &startDate, &endDate); err != nil {
 			return nil, fmt.Errorf("failed to scan sponsorship: %w", err)
 		}
 
 		sp.StartDate = r.parseDate(startDate.String)
 		sp.EndDate = r.parseDate(endDate.String)
-		sp.PaymentID = paymentID.String
-		sp.PaymentAmount = paymentAmount.Float64
 
 		sponsorships = append(sponsorships, sp)
 	}
@@ -926,13 +925,19 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 
 		_, err = tx.Exec(`
 			INSERT INTO student_sponsorship_projections 
-			(student_id, sponsor_id, start_date, end_date, payment_id, payment_amount)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, student.GetID(), sponsorship.SponsorId, startDate, endDate,
-			sponsorship.PaymentId, sponsorship.PaymentAmount)
+			(student_id, sponsor_id, start_date, end_date)
+			VALUES (?, ?, ?, ?)
+		`, student.GetID(), sponsorship.SponsorId, startDate, endDate)
 
 		if err != nil {
 			return fmt.Errorf("failed to insert sponsorship: %w", err)
+		}
+	}
+
+	if maxSponsorshipDate := student.MaxSponsorshipDate(); maxSponsorshipDate != nil {
+		_, err = tx.Exec("UPDATE student_projections SET max_sponsorship_date = ? WHERE id = ?", maxSponsorshipDate, student.GetID())
+		if err != nil {
+			return fmt.Errorf("failed to update max sponsorship date: %w", err)
 		}
 	}
 

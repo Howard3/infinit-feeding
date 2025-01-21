@@ -396,6 +396,28 @@ func (sd Aggregate) IsActive() bool {
 	return sd.data.Status == eda.Student_ACTIVE
 }
 
+// MaxSponsorshipDate returns the maximum sponsorship date,
+// if there is no sponsorship history, it returns nil
+func (sd Aggregate) MaxSponsorshipDate() *time.Time {
+	var max *time.Time
+	if sd.data.SponsorshipHistory != nil {
+		for _, sponsorship := range sd.data.SponsorshipHistory {
+			endDate := time.Date(
+				int(sponsorship.EndDate.Year),
+				time.Month(sponsorship.EndDate.Month),
+				int(sponsorship.EndDate.Day),
+				0, 0, 0, 0,
+				time.UTC,
+			)
+
+			if max == nil || endDate.After(*max) {
+				max = &endDate
+			}
+		}
+	}
+	return max
+}
+
 // GetLastFeeding returns the last feeding event
 func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding {
 	if sd.data.FeedingReport == nil || len(sd.data.FeedingReport) == 0 {
