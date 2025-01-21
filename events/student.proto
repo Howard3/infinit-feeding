@@ -171,11 +171,15 @@ message Student {
     Date end_date = 3;
     uint64 version = 4;
     events.metadata.Metadata metadata = 5;
+    string payment_id = 6;     // unique payment identifier
+    double payment_amount = 7; // payment amount in USD
 
     message Event {
       string sponsor_id = 1;
       Date start_date = 2;
       Date end_date = 3;
+      string payment_id = 4;
+      double payment_amount = 5;
     }
   }
 
@@ -183,6 +187,8 @@ message Student {
     string sponsor_id = 1;
     Date start_date = 2;
     Date end_date = 3;
+    string payment_id = 4;
+    double payment_amount = 5;
   }
 
   // Add a new command for toggling eligibility

@@ -35,10 +35,12 @@ type StudentListFilters struct {
 
 // Add these new types
 type SponsorshipProjection struct {
-	StudentID string    `db:"student_id"`
-	SponsorID string    `db:"sponsor_id"`
-	StartDate time.Time `db:"start_date"`
-	EndDate   time.Time `db:"end_date"`
+	StudentID     string    `db:"student_id"`
+	SponsorID     string    `db:"sponsor_id"`
+	StartDate     time.Time `db:"start_date"`
+	EndDate       time.Time `db:"end_date"`
+	PaymentID     string    `db:"payment_id"`
+	PaymentAmount float64   `db:"payment_amount"`
 }
 
 // Repository incorporates the methods for persisting and loading student aggregates and projections
@@ -853,7 +855,7 @@ func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHi
 // GetCurrentSponsorships - returns the current sponsorships for a student
 func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
 	query := `
-		SELECT student_id, sponsor_id, start_date, end_date 
+		SELECT student_id, sponsor_id, start_date, end_date, payment_id, payment_amount 
 		FROM student_sponsorship_projections 
 		WHERE sponsor_id = ? 
 		AND start_date <= CURRENT_TIMESTAMP 
@@ -869,13 +871,16 @@ func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID st
 	sponsorships := []*SponsorshipProjection{}
 	for rows.Next() {
 		sp := &SponsorshipProjection{}
-		var startDate, endDate sql.NullString
-		if err := rows.Scan(&sp.StudentID, &sp.SponsorID, &startDate, &endDate); err != nil {
+		var startDate, endDate, paymentID sql.NullString
+		var paymentAmount sql.NullFloat64
+		if err := rows.Scan(&sp.StudentID, &sp.SponsorID, &startDate, &endDate, &paymentID, &paymentAmount); err != nil {
 			return nil, fmt.Errorf("failed to scan sponsorship: %w", err)
 		}
 
 		sp.StartDate = r.parseDate(startDate.String)
 		sp.EndDate = r.parseDate(endDate.String)
+		sp.PaymentID = paymentID.String
+		sp.PaymentAmount = paymentAmount.Float64
 
 		sponsorships = append(sponsorships, sp)
 	}
@@ -921,9 +926,10 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 
 		_, err = tx.Exec(`
 			INSERT INTO student_sponsorship_projections 
-			(student_id, sponsor_id, start_date, end_date)
-			VALUES (?, ?, ?, ?)
-		`, student.GetID(), sponsorship.SponsorId, startDate, endDate)
+			(student_id, sponsor_id, start_date, end_date, payment_id, payment_amount)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, student.GetID(), sponsorship.SponsorId, startDate, endDate,
+			sponsorship.PaymentId, sponsorship.PaymentAmount)
 
 		if err != nil {
 			return fmt.Errorf("failed to insert sponsorship: %w", err)

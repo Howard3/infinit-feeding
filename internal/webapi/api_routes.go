@@ -97,9 +97,11 @@ type GetStudentResponse struct {
 
 // Add this new request type after the other request types
 type SponsorStudentRequest struct {
-	SponsorID string `json:"sponsorId"`
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
+	SponsorID     string  `json:"sponsorId"`
+	StartDate     string  `json:"startDate"`
+	EndDate       string  `json:"endDate"`
+	PaymentID     string  `json:"paymentId"`
+	PaymentAmount float64 `json:"paymentAmount"`
 }
 
 // Add this new response type after the other response types
@@ -109,9 +111,11 @@ type SponsorStudentResponse struct {
 
 // Add this new response type
 type SponsorshipResponse struct {
-	StudentID string `json:"studentId"`
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
+	StudentID     string  `json:"studentId"`
+	StartDate     string  `json:"startDate"`
+	EndDate       string  `json:"endDate"`
+	PaymentID     string  `json:"paymentId"`
+	PaymentAmount float64 `json:"paymentAmount"`
 }
 
 // Add middleware for API key authentication
@@ -505,7 +509,9 @@ func (s *Server) apiSponsorStudent(w http.ResponseWriter, r *http.Request) {
 			Month: int32(endDate.Month()),
 			Day:   int32(endDate.Day()),
 		},
-		Version: student.GetVersion(), // Use current version from aggregate
+		Version:       student.GetVersion(),
+		PaymentId:     req.PaymentID,
+		PaymentAmount: req.PaymentAmount,
 	}
 
 	// Run the command
@@ -547,9 +553,11 @@ func (s *Server) apiListSponsoredStudents(w http.ResponseWriter, r *http.Request
 	response := make([]SponsorshipResponse, len(sponsorships))
 	for i, sp := range sponsorships {
 		response[i] = SponsorshipResponse{
-			StudentID: sp.StudentID,
-			StartDate: sp.StartDate.Format("2006-01-02"),
-			EndDate:   sp.EndDate.Format("2006-01-02"),
+			StudentID:     sp.StudentID,
+			StartDate:     sp.StartDate.Format("2006-01-02"),
+			EndDate:       sp.EndDate.Format("2006-01-02"),
+			PaymentID:     sp.PaymentID,
+			PaymentAmount: sp.PaymentAmount,
 		}
 	}
 
