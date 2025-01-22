@@ -142,6 +142,13 @@ func MaxAge(age int) ListOption {
 	}
 }
 
+// Add new filter option for name search
+func WithNameSearch(search string) ListOption {
+	return func(f *StudentListFilters) {
+		f.NameSearch = search
+	}
+}
+
 // Update the ListStudents method to use variadic options
 func (s *StudentService) ListStudents(ctx context.Context, limit, page uint, opts ...ListOption) (*ListStudentsResponse, error) {
 	// Create default filters

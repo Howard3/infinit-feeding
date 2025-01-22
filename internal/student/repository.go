@@ -31,6 +31,7 @@ type StudentListFilters struct {
 	SchoolIDs                  []uint64
 	MinBirthDate               *time.Time
 	MaxBirthDate               *time.Time
+	NameSearch                 string
 }
 
 // Add these new types
@@ -401,6 +402,12 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 		args = append(args, filters.MaxBirthDate)
 	}
 
+	if filters.NameSearch != "" {
+		where = append(where, "(LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?)")
+		searchTerm := "%" + strings.ToLower(filters.NameSearch) + "%"
+		args = append(args, searchTerm, searchTerm)
+	}
+
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -448,6 +455,12 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 	if filters.MaxBirthDate != nil {
 		where = append(where, "sp.date_of_birth >= ?")
 		args = append(args, filters.MaxBirthDate)
+	}
+
+	if filters.NameSearch != "" {
+		where = append(where, "(LOWER(sp.first_name) LIKE ? OR LOWER(sp.last_name) LIKE ?)")
+		searchTerm := "%" + strings.ToLower(filters.NameSearch) + "%"
+		args = append(args, searchTerm, searchTerm)
 	}
 
 	if len(where) > 0 {
