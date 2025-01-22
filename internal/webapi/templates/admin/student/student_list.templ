@@ -18,7 +18,7 @@ templ StudentList(students *student.ListStudentsResponse, pagination components.
 	<div class="flex flex-col gap-2">
 		<div class="relative w-full overflow-auto">
 			<table class="w-full caption-bottom text-sm">
-				<thead class="[&_tr]:border-b">
+				<thead class="[&_tr]:border-b bg-gray-50">
 					<tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
 						<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
 							Name
@@ -42,7 +42,7 @@ templ StudentList(students *student.ListStudentsResponse, pagination components.
 				</thead>
 				<tbody class="[&_tr:last-child]:border-0">
 					for _, student := range students.Students {
-						<tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted rounded-lg font-medium">
+						<tr class="border-b transition-colors even:bg-gray-50/50 hover:bg-gray-100 data-[state=selected]:bg-muted rounded-lg font-medium">
 							<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
                                 { student.LastName }, { student.FirstName }
 							</td>

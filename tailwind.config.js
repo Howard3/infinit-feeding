@@ -36,7 +36,11 @@ module.exports = {
     'text-gray-500',
     'text-gray-700',
     'border-gray-200',
-    'shadow-sm'
+    'shadow-sm',
+    // Table styling classes
+    'even:bg-gray-50/50',
+    'bg-gray-50',
+    'data-[state=selected]:bg-muted'
   ],
   theme: {
     extend: {
