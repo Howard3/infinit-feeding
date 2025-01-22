@@ -1,6 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./internal/webapi/templates/**/*.templ"],
+  safelist: [
+    // Badge classes for Admin
+    'bg-green-50',
+    'text-green-700',
+    'ring-green-600/20',
+    // Badge classes for Feeder
+    'bg-blue-50',
+    'text-blue-700',
+    'ring-blue-600/20',
+    // Common badge classes
+    'inline-flex',
+    'items-center',
+    'rounded-full',
+    'px-2',
+    'py-1',
+    'text-xs',
+    'font-medium',
+    'ring-1',
+    'ring-inset'
+  ],
   theme: {
     extend: {
        // Adding custom text shadow utilities

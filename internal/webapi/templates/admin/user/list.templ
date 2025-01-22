@@ -10,6 +10,8 @@ type User struct {
 	Username  string `json:"username"`
 	Name      string `json:"name"`
 	Active    bool   `json:"active"`
+	IsAdmin   bool   `json:"is_admin"`
+	IsFeeder  bool   `json:"is_feeder"`
 }
 
 type ListResponse struct {
@@ -48,6 +50,9 @@ templ List(users *ListResponse, pagination components.Pagination) {
 								Active 
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
+							Roles	
+							</th>
+							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
 								Actions 
 							</th>
 						</tr>
@@ -66,6 +71,14 @@ templ List(users *ListResponse, pagination components.Pagination) {
 										<span class="text-green-500">Active</span>
 									} else {
 										<span class="text-red-500">Inactive</span>
+									}
+								</td>
+								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm flex gap-2">
+									if user.IsAdmin {
+										<span class="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Admin</span>
+									}
+									if user.IsFeeder {
+										<span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">Feeder</span>
 									}
 								</td>
 								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
