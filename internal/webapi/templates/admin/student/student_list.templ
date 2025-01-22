@@ -71,9 +71,7 @@ templ StudentList(students *student.ListStudentsResponse, pagination components.
 			</table>
 		</div>
 	</div>
-	<div class="flex w-full min-w-0 items-center justify-between text-sm">
-		<div class="flex items-center gap-2 p-3">
-			@components.ItemCounter(pagination)
-		</div>
+	<div class="flex w-full items-center justify-between p-4 border-t">
+		@components.ItemCounter(pagination)
 	</div>
 }

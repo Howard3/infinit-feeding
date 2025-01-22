@@ -19,7 +19,24 @@ module.exports = {
     'text-xs',
     'font-medium',
     'ring-1',
-    'ring-inset'
+    'ring-inset',
+    // Pagination classes
+    'disabled:opacity-40',
+    'disabled:cursor-not-allowed',
+    'disabled:hover:bg-transparent',
+    'hover:bg-gray-100',
+    'hover:text-gray-900',
+    'focus:outline-none',
+    'focus:ring-2',
+    'focus:ring-blue-500',
+    'focus:ring-offset-1',
+    'focus:border-blue-500',
+    'transition-all',
+    'duration-200',
+    'text-gray-500',
+    'text-gray-700',
+    'border-gray-200',
+    'shadow-sm'
   ],
   theme: {
     extend: {
