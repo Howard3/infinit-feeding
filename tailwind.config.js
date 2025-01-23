@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./internal/webapi/templates/**/*.templ"],
+  content: [
+    "./internal/webapi/templates/**/*.{templ,go}",
+    "./static/**/*.{js,html}",
+  ],
   safelist: [
     // Badge classes for Admin
     'bg-green-50',
