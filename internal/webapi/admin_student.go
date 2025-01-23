@@ -39,6 +39,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 		r.Post(`/{ID:(^\d+)}/profilePhoto`, s.adminUploadProfilePhoto)
 		r.Delete(`/{ID:(^\d+)}/enrollment`, s.adminUnenrollStudent)
 		r.Post(`/{ID:(^\d+)}/regenerateCode`, s.adminRegenerateCode)
+		r.Put(`/{ID:(^\d+)}/eligibility`, s.toggleStudentEligibility)
 	})
 }
 
@@ -129,7 +130,15 @@ func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
 
-	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page)
+	// Get search query from URL parameters
+	searchQuery := r.URL.Query().Get("search")
+
+	var opts []student.ListOption
+	if searchQuery != "" {
+		opts = append(opts, student.WithNameSearch(searchQuery))
+	}
+
+	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
 	if err != nil {
 		s.errorPage(w, r, "Error listing students", err)
 		return
@@ -137,7 +146,7 @@ func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
 
 	pagination := components.NewPagination(page, limit, students.Count)
 
-	s.renderTempl(w, r, templates.StudentList(students, pagination))
+	s.renderTempl(w, r, templates.StudentList(students, pagination, searchQuery))
 }
 
 func (s *Server) adminCreateStudentForm(w http.ResponseWriter, r *http.Request) {
@@ -311,6 +320,28 @@ func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Code regenerated"))
+}
+
+func (s *Server) toggleStudentEligibility(w http.ResponseWriter, r *http.Request) {
+	studentID := s.getStudentIDFromContext(r.Context())
+	ex := vex.Using(&vex.QueryExtractor{Query: r.URL.Query()})
+
+	eligible, err := strconv.ParseBool(*vex.ReturnString(ex, "eligible"))
+	if err != nil {
+		s.errorPage(w, r, "Error parsing eligibility", err)
+		return
+	}
+
+	_, err = s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetEligibility{
+		Version:  *vex.ReturnUint64(ex, "ver"),
+		Eligible: eligible,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error setting eligibility", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Eligibility updated"))
 }
 
 // adminQRCode - render a qr code from an input value

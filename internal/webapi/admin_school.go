@@ -7,6 +7,7 @@ import (
 	components "geevly/internal/webapi/templates/components"
 	layouts "geevly/internal/webapi/templates/layouts"
 	"net/http"
+	"sort"
 	"strconv"
 
 	vex "github.com/Howard3/valueextractor"
@@ -20,6 +21,7 @@ func (s *Server) schoolAdminRoutes(r chi.Router) {
 	r.Get("/{ID}", s.adminViewSchool)
 	r.Post("/{ID}", s.adminUpdateSchool)
 	r.Get("/{ID}/history", s.adminSchoolHistory)
+	r.Get("/locations", s.getSchoolLocations)
 }
 
 func (s *Server) adminListSchools(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +52,8 @@ func (s *Server) adminCreateSchool(w http.ResponseWriter, r *http.Request) {
 		Name:      r.FormValue("name"),
 		Principal: r.FormValue("principal"),
 		Contact:   r.FormValue("contact"),
+		Country:   r.FormValue("country"),
+		City:      r.FormValue("city"),
 	}
 
 	res, err := s.SchoolSvc.Create(r.Context(), &cmd)
@@ -99,6 +103,8 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 	name := vex.Result(ex, "name", vex.AsString)
 	principal := vex.Result(ex, "principal", vex.AsString)
 	contact := vex.Result(ex, "contact", vex.AsString)
+	country := vex.Result(ex, "country", vex.AsString)
+	city := vex.Result(ex, "city", vex.AsString)
 
 	if err := ex.Errors(); err != nil {
 		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
@@ -111,6 +117,8 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 		Principal: principal,
 		Contact:   contact,
 		Version:   version,
+		Country:   country,
+		City:      city,
 	}
 
 	if _, err = s.SchoolSvc.Update(r.Context(), &cmd); err != nil {
@@ -138,4 +146,34 @@ func (s *Server) adminSchoolHistory(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) toggleSchoolStatus(w http.ResponseWriter, r *http.Request) {
 	// ...
+}
+
+func (s *Server) getSchoolLocations(w http.ResponseWriter, r *http.Request) {
+	locations, err := s.SchoolSvc.ListLocations(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error getting locations", err)
+		return
+	}
+
+	// Group locations by country
+	locationMap := make(map[string][]string)
+	for _, loc := range locations {
+		locationMap[loc.Country] = append(locationMap[loc.Country], loc.City)
+	}
+
+	// Convert to format needed by template
+	countries := make([]string, 0, len(locationMap))
+	for country := range locationMap {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+
+	// If no locations exist yet, provide empty selection option
+	if len(countries) == 0 {
+		countries = append(countries, "")
+		locationMap[""] = []string{""}
+	}
+
+	// TODO: Return the data in appropriate format (JSON/Template)
+	// You can now use countries and locationMap[country] in your templates
 }

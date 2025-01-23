@@ -7,6 +7,8 @@ templ Create() {
 		@components.TextField("Name", "name", "Enter name", "")
 		@components.TextField("Principal", "principal", "Enter Principal name", "")
 		@components.TextField("Contact", "contact", "Enter contact name", "")
+		@components.Dropdown("Country", "country", []string{"Philippines"}, "Philippines")
+		@components.Dropdown("City", "city", []string{"Manila"}, "Manila")
 		@components.SubmitButton("Create School")
 	}
 }

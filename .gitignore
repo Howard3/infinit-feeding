@@ -7,3 +7,7 @@ gen
 node_modules
 .env
 bin
+dump.sql
+# Swagger
+docs/swagger*
+docs/docs.go

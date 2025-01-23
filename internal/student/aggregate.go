@@ -26,6 +26,8 @@ const EVENT_UNENROLL_STUDENT = "UnenrollStudent"
 const EVENT_SET_LOOKUP_CODE = "SetLookupCode"
 const EVENT_SET_PROFILE_PHOTO = "SetProfilePhoto"
 const EVENT_FEED_STUDENT = "FeedStudent"
+const EVENT_SET_ELIGIBILITY = "SetEligibility"
+const EVENT_UPDATE_SPONSORSHIP = "UpdateSponsorship"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -84,6 +86,12 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_FEED_STUDENT:
 		eventData = &eda.Student_Feeding{}
 		handler = sd.handleFeedStudent
+	case EVENT_SET_ELIGIBILITY:
+		eventData = &eda.Student_SetEligibility_Event{}
+		handler = sd.handleSetEligibility
+	case EVENT_UPDATE_SPONSORSHIP:
+		eventData = &eda.Student_UpdateSponsorship_Event{}
+		handler = sd.handleUpdateSponsorship
 	default:
 		return ErrEventNotFound
 	}
@@ -294,6 +302,31 @@ func (sd *Aggregate) handleSetProfilePhoto(evt wrappedEvent) error {
 	return nil
 }
 
+func (sd *Aggregate) handleSetEligibility(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_SetEligibility_Event)
+	sd.data.EligibleForSponsorship = data.Eligible
+	return nil
+}
+
+func (sd *Aggregate) handleUpdateSponsorship(evt wrappedEvent) error {
+	data := evt.data.(*eda.Student_UpdateSponsorship_Event)
+
+	// Create new sponsorship record
+	newRecord := &eda.Student_SponsorshipRecord{
+		SponsorId: data.SponsorId,
+		StartDate: data.StartDate,
+		EndDate:   data.EndDate,
+	}
+
+	// Add to sponsorship history
+	if sd.data.SponsorshipHistory == nil {
+		sd.data.SponsorshipHistory = make([]*eda.Student_SponsorshipRecord, 0)
+	}
+	sd.data.SponsorshipHistory = append(sd.data.SponsorshipHistory, newRecord)
+
+	return nil
+}
+
 // StudentEvent is a struct that holds the event type and the data
 type StudentEvent struct {
 	eventType string
@@ -363,6 +396,28 @@ func (sd Aggregate) IsActive() bool {
 	return sd.data.Status == eda.Student_ACTIVE
 }
 
+// MaxSponsorshipDate returns the maximum sponsorship date,
+// if there is no sponsorship history, it returns nil
+func (sd Aggregate) MaxSponsorshipDate() *time.Time {
+	var max *time.Time
+	if sd.data.SponsorshipHistory != nil {
+		for _, sponsorship := range sd.data.SponsorshipHistory {
+			endDate := time.Date(
+				int(sponsorship.EndDate.Year),
+				time.Month(sponsorship.EndDate.Month),
+				int(sponsorship.EndDate.Day),
+				0, 0, 0, 0,
+				time.UTC,
+			)
+
+			if max == nil || endDate.After(*max) {
+				max = &endDate
+			}
+		}
+	}
+	return max
+}
+
 // GetLastFeeding returns the last feeding event
 func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding {
 	if sd.data.FeedingReport == nil || len(sd.data.FeedingReport) == 0 {
@@ -378,6 +433,28 @@ func (sd *Aggregate) SetProfilePhoto(cmd *eda.Student_SetProfilePhoto) (*gosigna
 		eventType: EVENT_SET_PROFILE_PHOTO,
 		data: &eda.Student_SetProfilePhoto{
 			FileId: cmd.FileId,
+		},
+		version: cmd.GetVersion(),
+	})
+}
+
+func (sd *Aggregate) SetEligibility(cmd *eda.Student_SetEligibility) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_SET_ELIGIBILITY,
+		data: &eda.Student_SetEligibility_Event{
+			Eligible: cmd.Eligible,
+		},
+		version: cmd.GetVersion(),
+	})
+}
+
+func (sd *Aggregate) UpdateSponsorship(cmd *eda.Student_UpdateSponsorship) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_UPDATE_SPONSORSHIP,
+		data: &eda.Student_UpdateSponsorship_Event{
+			SponsorId: cmd.SponsorId,
+			StartDate: cmd.StartDate,
+			EndDate:   cmd.EndDate,
 		},
 		version: cmd.GetVersion(),
 	})

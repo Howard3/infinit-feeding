@@ -93,12 +93,12 @@ func (s *Server) pageQuery(r *http.Request) uint {
 func (s *Server) limitQuery(r *http.Request) uint {
 	sLimit := r.URL.Query().Get("limit")
 	if sLimit == "" {
-		return 10
+		return 15
 	}
 
 	limit, err := strconv.ParseUint(sLimit, 10, 32)
 	if err != nil {
-		return 10
+		return 15
 	}
 
 	return uint(limit)
@@ -157,7 +157,7 @@ func (s *Server) Start(ctx context.Context) {
 
 	c.Route("/feeding", s.feedingRoutes)
 
-	c.Get("/sign-in", s.signIn)
+	s.apiRoutes(c)
 
 	slog.Info("Starting server", "listen_address", s.getListenAddress())
 	if err := http.ListenAndServe(s.getListenAddress(), c); err != nil {

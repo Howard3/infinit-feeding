@@ -176,11 +176,23 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 	// Convert Clerk users to our internal user model
 	users := make([]usertempl.User, len(clerkUsers))
 	for i, cu := range clerkUsers {
+		isAdmin, err := getMetadataValue[bool](cu.PrivateMetadata, "admin")
+		if err != nil {
+			isAdmin = false
+		}
+		feederEnrollments, err := getMetadataValue[string](cu.PrivateMetadata, "feeder_enrollments")
+		if err != nil {
+			feederEnrollments = ""
+		}
+		isFeeder := feederEnrollments != ""
+
 		users[i] = usertempl.User{
 			ID:       cu.ID,
 			Username: *cu.Username,
 			Active:   !cu.Banned,
 			Name:     *cu.FirstName + " " + *cu.LastName,
+			IsAdmin:  isAdmin,
+			IsFeeder: isFeeder,
 		}
 	}
 

@@ -34,6 +34,7 @@ func NewStudentService(repo Repository, acl AntiCorruptionLayer) *StudentService
 type ListStudentsResponse struct {
 	Students []*ProjectedStudent
 	Count    uint
+	Filters  StudentListFilters
 }
 
 // RunCommand runs a command on a user aggregate
@@ -61,6 +62,10 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 				return nil, fmt.Errorf("failed to validate photo ID: %w", err)
 			}
 			return agg.SetProfilePhoto(cmd)
+		case *eda.Student_SetEligibility:
+			return agg.SetEligibility(cmd)
+		case *eda.Student_UpdateSponsorship:
+			return agg.UpdateSponsorship(cmd)
 		default:
 			return nil, fmt.Errorf("unknown command type: %T", cmd)
 		}
@@ -100,13 +105,66 @@ func (s *StudentService) GetStudentEvent(ctx context.Context, studentID, eventID
 	return s.repo.getEvent(ctx, studentID, eventID)
 }
 
-func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*ListStudentsResponse, error) {
-	students, err := s.repo.ListStudents(ctx, limit, page)
+// First, let's create a functional options pattern for our filters
+type ListOption func(*StudentListFilters)
+
+func ActiveOnly() ListOption {
+	return func(f *StudentListFilters) {
+		f.ActiveOnly = true
+	}
+}
+
+func EligibleForSponsorshipOnly() ListOption {
+	return func(f *StudentListFilters) {
+		f.EligibleForSponsorshipOnly = true
+	}
+}
+
+// Add a new filter option for school IDs
+func InSchools(schoolIDs ...uint64) ListOption {
+	return func(f *StudentListFilters) {
+		f.SchoolIDs = schoolIDs
+	}
+}
+
+// Add new filter options for age
+func MinAge(age int) ListOption {
+	return func(f *StudentListFilters) {
+		maxBirthDate := time.Now().AddDate(-age, 0, 0)
+		f.MinBirthDate = &maxBirthDate
+	}
+}
+
+func MaxAge(age int) ListOption {
+	return func(f *StudentListFilters) {
+		minBirthDate := time.Now().AddDate(-(age + 1), 0, 1)
+		f.MaxBirthDate = &minBirthDate
+	}
+}
+
+// Add new filter option for name search
+func WithNameSearch(search string) ListOption {
+	return func(f *StudentListFilters) {
+		f.NameSearch = search
+	}
+}
+
+// Update the ListStudents method to use variadic options
+func (s *StudentService) ListStudents(ctx context.Context, limit, page uint, opts ...ListOption) (*ListStudentsResponse, error) {
+	// Create default filters
+	filters := StudentListFilters{}
+
+	// Apply any provided options
+	for _, opt := range opts {
+		opt(&filters)
+	}
+
+	students, err := s.repo.ListStudents(ctx, limit, page, filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list students: %w", err)
 	}
 
-	count, err := s.repo.CountStudents(ctx)
+	count, err := s.repo.CountStudents(ctx, filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count students: %w", err)
 	}
@@ -114,8 +172,10 @@ func (s *StudentService) ListStudents(ctx context.Context, limit, page uint) (*L
 	return &ListStudentsResponse{
 		Students: students,
 		Count:    count,
+		Filters:  filters,
 	}, nil
 }
+
 func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Create) (*Aggregate, error) {
 	studentAgg := &Aggregate{}
 	newID, err := s.repo.GetNewID(ctx)
@@ -185,4 +245,8 @@ func (s *StudentService) GetSchoolFeedingEvents(ctx context.Context, schoolID st
 
 func (s *StudentService) ListForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error) {
 	return s.repo.ListStudentsForSchool(ctx, schoolID)
+}
+
+func (s *StudentService) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
+	return s.repo.GetCurrentSponsorships(ctx, sponsorID)
 }

@@ -20,6 +20,11 @@ var ErrSchoolIDInvalid = fmt.Errorf("school ID is invalid")
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+type Location struct {
+	Country string
+	City    string
+}
+
 type Repository interface {
 	loadSchool(ctx context.Context, id uint64) (*Aggregate, error)
 	upsertProjection(school *Aggregate) error
@@ -30,6 +35,8 @@ type Repository interface {
 	getEventHistory(ctx context.Context, id uint64) ([]gosignal.Event, error)
 	validateSchoolID(ctx context.Context, id uint64) error
 	mapSchoolsByID(ctx context.Context) (map[uint64]string, error)
+	listLocations(ctx context.Context) ([]Location, error)
+	getSchoolIDsByLocation(ctx context.Context, location Location) ([]uint64, error)
 }
 
 // ProjectedSchool is a struct that represents a school projection
@@ -39,6 +46,8 @@ type ProjectedSchool struct {
 	Active    bool   // is this scool currently active
 	Version   int    // version of the school
 	UpdatedAt time.Time
+	Country   string // Add these fields to match the projection
+	City      string
 }
 
 type sqlRepository struct {
@@ -65,13 +74,15 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 	}
 
 	query := `INSERT INTO schools 
-		(id, name, active, version, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		(id, name, active, version, updated_at, country, city)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET 
 			name = EXCLUDED.name,
 			active = EXCLUDED.active,
 			version = EXCLUDED.version,
-			updated_at = CURRENT_TIMESTAMP
+			updated_at = CURRENT_TIMESTAMP,
+			country = EXCLUDED.country,
+			city = EXCLUDED.city
 		RETURNING id;
 	`
 
@@ -83,6 +94,8 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		agg.data.Name,
 		active,
 		agg.Version,
+		agg.data.Country,
+		agg.data.City,
 	)
 
 	if err != nil {
@@ -90,13 +103,16 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 	}
 
 	return nil
-
 }
 func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) (_ error) {
 	return r.eventSourcing.Store(ctx, evts)
 }
 func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) ([]*ProjectedSchool, error) {
-	query := `SELECT id, name, active, version, updated_at FROM schools LIMIT ? OFFSET ?;`
+	query := `
+		SELECT id, name, active, version, updated_at, country, city 
+		FROM schools 
+		LIMIT ? OFFSET ?;
+	`
 
 	if limit > MaxPageSize {
 		limit = MaxPageSize
@@ -117,16 +133,21 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 	schools := []*ProjectedSchool{}
 	for rows.Next() {
 		school := &ProjectedSchool{}
+		var country, city sql.NullString
 		if err := rows.Scan(
 			&school.ID,
 			&school.Name,
 			&school.Active,
 			&school.Version,
 			&school.UpdatedAt,
+			&country,
+			&city,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan school: %w", err)
 		}
 
+		school.Country = country.String
+		school.City = city.String
 		schools = append(schools, school)
 	}
 
@@ -233,4 +254,64 @@ func (r *sqlRepository) validateSchoolID(ctx context.Context, id uint64) error {
 	}
 
 	return nil
+}
+
+func (r *sqlRepository) listLocations(ctx context.Context) ([]Location, error) {
+	query := `
+		SELECT DISTINCT country, city 
+		FROM schools 
+		WHERE country IS NOT NULL 
+		  AND country != '' 
+		  AND city IS NOT NULL 
+		  AND city != ''
+		ORDER BY country, city;
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list locations: %w", err)
+	}
+	defer rows.Close()
+
+	var locations []Location
+	for rows.Next() {
+		var loc Location
+		if err := rows.Scan(&loc.Country, &loc.City); err != nil {
+			return nil, fmt.Errorf("failed to scan location: %w", err)
+		}
+		locations = append(locations, loc)
+	}
+
+	return locations, nil
+}
+
+// getSchoolIDsByLocation returns all school IDs for a given location
+func (r *sqlRepository) getSchoolIDsByLocation(ctx context.Context, location Location) ([]uint64, error) {
+	var query string
+	var args []interface{}
+
+	if location.City != "" {
+		query = `SELECT id FROM schools WHERE country = ? AND city = ?`
+		args = []interface{}{location.Country, location.City}
+	} else {
+		query = `SELECT id FROM schools WHERE country = ?`
+		args = []interface{}{location.Country}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get school IDs by location: %w", err)
+	}
+	defer rows.Close()
+
+	var schoolIDs []uint64
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan school ID: %w", err)
+		}
+		schoolIDs = append(schoolIDs, id)
+	}
+
+	return schoolIDs, nil
 }

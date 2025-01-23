@@ -33,7 +33,7 @@ templ AdminViewStudent(params ViewParams) {
 				// Embed Personal Info Section
 				@StudentPersonalInfoSection(params.Student, params.Version)
 				// Embed Action Buttons Section
-				@actionButtonsSection(params.ID, params.Student.Status, params.Version)
+				@actionButtonsSection(params.ID, params.Student.Status, params.Student.EligibleForSponsorship, params.Version)
 			</form>
 			// Embed School Enrollment Section
 			@schoolEnrollmentSection(params)
@@ -88,22 +88,35 @@ templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
             Placeholder: "Select a grade level",
             Value:       fmt.Sprintf("%d", student.GradeLevel),
         })
-		@components.HiddenField("version", fmt.Sprintf("%d", ver))
+			@components.HiddenField("version", fmt.Sprintf("%d", ver))
 	</div>
 }
 
-templ actionButtonsSection(id uint64, status eda.Student_Status, ver uint64) {
-	<div class="flex items-center justify-between mt-4">
-		<div class="flex items-center space-x-2" hx-params="none">
-			if status == eda.Student_ACTIVE {
-				<span class="text-sm font-medium text-green-500">Active</span>
-			} else {
-				<span class="text-sm font-medium text-red-500">Inactive</span>
-			}
-			<a
-				hx-put={ toggleStatusURL(id, ver, status) }
-				class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-			>Toggle status</a>
+templ actionButtonsSection(id uint64, status eda.Student_Status, eligibleForSponsorship bool, ver uint64) {
+	<div class="flex items-center justify-between mt-4 gap-4">
+		<div class="flex items-center space-x-4 bg-gray-100 p-4 rounded-lg border" hx-params="none">
+			<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
+				if status == eda.Student_ACTIVE {
+					<span class="text-sm font-medium text-green-500">Active</span>
+				} else {
+					<span class="text-sm font-medium text-red-500">Inactive</span>
+				}
+				<a
+					hx-put={ toggleStatusURL(id, ver, status) }
+					class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+				>Toggle status</a>
+			</div>
+			<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
+				if eligibleForSponsorship {
+					<span class="text-sm font-medium text-green-500">Eligible for Sponsorship</span>
+				} else {
+					<span class="text-sm font-medium text-red-500">Not Eligible for Sponsorship</span>
+				}
+				<a
+					hx-put={ fmt.Sprintf("/admin/student/%d/eligibility?ver=%d&eligible=%t", id, ver, !eligibleForSponsorship) }
+					class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+				>Toggle</a>
+			</div>
 			@components.HiddenField("version", fmt.Sprintf("%d", ver))
 		</div>
 		@components.PrimaryButton("Update", templ.Attributes{
@@ -179,6 +192,10 @@ templ StudentHistorySection(evts []gosignal.Event) {
                                         @components.Button("View", templ.Attributes{
                                             "hx-get": fmt.Sprintf("/admin/student/%s/feedingReport/%d", evt.AggregateID, evt.Version),
                                         })
+									case student.EVENT_UPDATE_SPONSORSHIP:
+										Sponsorship updated
+									case student.EVENT_SET_ELIGIBILITY:
+										Eligibility updated
 									default:
 										Unknown event: { evt.Type }
 								}
