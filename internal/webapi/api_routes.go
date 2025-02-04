@@ -145,10 +145,12 @@ func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
 }
 
 func (s *Server) apiRoutes(r chi.Router) {
-	// Swagger documentation endpoint - no auth required
-	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"),
-	))
+	// Swagger documentation endpoint - no auth required, only available in dev
+	if os.Getenv("GO_ENV") == "development" {
+		r.Get("/swagger/*", httpSwagger.Handler(
+			httpSwagger.URL("/swagger/doc.json"),
+		))
+	}
 
 	// API routes with authentication
 	r.Route("/api", func(r chi.Router) {
