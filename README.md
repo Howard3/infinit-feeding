@@ -46,7 +46,6 @@ To run the project, use the Taskfile commands defined for various tasks. Here's 
   ```
 
 ### API Documentation
-
 The project uses Swagger/OpenAPI for API documentation. To generate or update the API documentation:
 
 1. **Install Swagger Tools**
@@ -60,12 +59,17 @@ The project uses Swagger/OpenAPI for API documentation. To generate or update th
    ```
 
 3. **View Documentation**  
+   First ensure GO_ENV is set to "development":
+   ```bash
+   export GO_ENV=development
+   ```
+   
    Once the server is running, visit:
    ```
    http://localhost:3000/swagger/index.html
    ```
 
-The Swagger UI provides an interactive interface to explore and test the API endpoints.
+Note: The Swagger UI is only available when GO_ENV is set to "development". The Swagger UI provides an interactive interface to explore and test the API endpoints.
 
 ### Build Dependencies
 
