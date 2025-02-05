@@ -250,3 +250,28 @@ func (s *StudentService) ListForSchool(ctx context.Context, schoolID string) ([]
 func (s *StudentService) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
 	return s.repo.GetCurrentSponsorships(ctx, sponsorID)
 }
+
+func (s *StudentService) GetSponsorImpactMetrics(ctx context.Context, sponsorID string) (int64, error) {
+	// Get all sponsorships for this sponsor
+	sponsorships, err := s.repo.GetAllSponsorshipsByID(ctx, sponsorID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get sponsorships: %w", err)
+	}
+
+	var totalMeals int64
+	for _, sponsorship := range sponsorships {
+		// Get feeding events that occurred during this sponsorship period
+		meals, err := s.repo.CountFeedingEventsInPeriod(
+			ctx,
+			sponsorship.StudentID,
+			sponsorship.StartDate,
+			sponsorship.EndDate,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to count feeding events: %w", err)
+		}
+		totalMeals += meals
+	}
+
+	return totalMeals, nil
+}

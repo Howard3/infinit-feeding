@@ -118,6 +118,12 @@ type SponsorshipResponse struct {
 	PaymentAmount float64 `json:"paymentAmount"`
 }
 
+// Add this new response type after the other response types
+type SponsorImpactResponse struct {
+	TotalMealCount int64 `json:"totalMealCount"`
+	// We can add more impact metrics here later
+}
+
 // Add middleware for API key authentication
 func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +169,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Get("/students/{id}", s.apiGetStudent)
 		r.Post("/students/{id}/sponsor", s.apiSponsorStudent)
 		r.Get("/sponsors/{id}/students", s.apiListSponsoredStudents)
+		r.Get("/sponsors/{id}/impact", s.apiGetSponsorImpact)
 	})
 }
 
@@ -555,12 +562,41 @@ func (s *Server) apiListSponsoredStudents(w http.ResponseWriter, r *http.Request
 	response := make([]SponsorshipResponse, len(sponsorships))
 	for i, sp := range sponsorships {
 		response[i] = SponsorshipResponse{
-			StudentID:     sp.StudentID,
-			StartDate:     sp.StartDate.Format("2006-01-02"),
-			EndDate:       sp.EndDate.Format("2006-01-02"),
-			PaymentID:     sp.PaymentID,
-			PaymentAmount: sp.PaymentAmount,
+			StudentID: sp.StudentID,
+			StartDate: sp.StartDate.Format("2006-01-02"),
+			EndDate:   sp.EndDate.Format("2006-01-02"),
 		}
+	}
+
+	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// @Summary     Get sponsor impact metrics
+// @Description Get impact metrics for a sponsor's contributions
+// @Tags        sponsors
+// @Accept      json
+// @Produce     json
+// @Param       id   path      string  true  "Sponsor ID"
+// @Success     200  {object}  SponsorImpactResponse
+// @Failure     400  {object}  ErrorResponse
+// @Failure     500  {object}  ErrorResponse
+// @Router      /sponsors/{id}/impact [get]
+// @Security    ApiKeyAuth
+func (s *Server) apiGetSponsorImpact(w http.ResponseWriter, r *http.Request) {
+	sponsorID := chi.URLParam(r, "id")
+	if sponsorID == "" {
+		s.respondWithError(w, http.StatusBadRequest, "Sponsor ID is required")
+		return
+	}
+
+	mealCount, err := s.StudentSvc.GetSponsorImpactMetrics(r.Context(), sponsorID)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get impact metrics: %v", err))
+		return
+	}
+
+	response := SponsorImpactResponse{
+		TotalMealCount: mealCount,
 	}
 
 	s.respondWithJSON(w, http.StatusOK, response)

@@ -36,12 +36,10 @@ type StudentListFilters struct {
 
 // Add these new types
 type SponsorshipProjection struct {
-	StudentID     string    `db:"student_id"`
-	SponsorID     string    `db:"sponsor_id"`
-	StartDate     time.Time `db:"start_date"`
-	EndDate       time.Time `db:"end_date"`
-	PaymentID     string    `db:"payment_id"`
-	PaymentAmount float64   `db:"payment_amount"`
+	StudentID string    `db:"student_id"`
+	SponsorID string    `db:"sponsor_id"`
+	StartDate time.Time `db:"start_date"`
+	EndDate   time.Time `db:"end_date"`
 }
 
 // Repository incorporates the methods for persisting and loading student aggregates and projections
@@ -63,6 +61,8 @@ type Repository interface {
 	QueryFeedingHistory(ctx context.Context, query FeedingHistoryQuery) (*StudentFeedingProjections, error)
 	GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error)
 	upsertSponsorshipProjections(student *Aggregate) error
+	GetAllSponsorshipsByID(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error)
+	CountFeedingEventsInPeriod(ctx context.Context, studentID string, startDate, endDate time.Time) (int64, error)
 }
 
 type ProjectedStudent struct {
@@ -955,4 +955,56 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 	}
 
 	return tx.Commit()
+}
+
+func (r *sqlRepository) GetAllSponsorshipsByID(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
+	query := `
+		SELECT student_id, sponsor_id, start_date, end_date
+		FROM student_sponsorship_projections 
+		WHERE sponsor_id = ?
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, sponsorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sponsorships: %w", err)
+	}
+	defer rows.Close()
+
+	var sponsorships []*SponsorshipProjection
+	for rows.Next() {
+		sp := &SponsorshipProjection{}
+		var startDate, endDate sql.NullString
+		if err := rows.Scan(
+			&sp.StudentID,
+			&sp.SponsorID,
+			&startDate,
+			&endDate,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan sponsorship: %w", err)
+		}
+
+		sp.StartDate = r.parseDate(startDate.String)
+		sp.EndDate = r.parseDate(endDate.String)
+		sponsorships = append(sponsorships, sp)
+	}
+
+	return sponsorships, nil
+}
+
+func (r *sqlRepository) CountFeedingEventsInPeriod(ctx context.Context, studentID string, startDate, endDate time.Time) (int64, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM student_feeding_projections
+		WHERE student_id = ?
+		AND feeding_timestamp >= ?
+		AND feeding_timestamp <= ?
+	`
+
+	var count int64
+	err := r.db.QueryRowContext(ctx, query, studentID, startDate, endDate).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count feeding events: %w", err)
+	}
+
+	return count, nil
 }
