@@ -275,3 +275,28 @@ func (s *StudentService) GetSponsorImpactMetrics(ctx context.Context, sponsorID 
 
 	return totalMeals, nil
 }
+
+// Add this new type
+type SponsorFeedingEvent struct {
+	StudentID   string
+	StudentName string
+	FeedingTime time.Time
+	SchoolID    string
+}
+
+// Add this new method
+func (s *StudentService) ListSponsorFeedingEvents(ctx context.Context, sponsorID string, limit, page uint) ([]*SponsorFeedingEvent, int64, error) {
+	// Get all sponsorships for this sponsor
+	sponsorships, err := s.repo.GetAllSponsorshipsByID(ctx, sponsorID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get sponsorships: %w", err)
+	}
+
+	// Get feeding events for all sponsorship periods
+	events, total, err := s.repo.GetFeedingEventsForSponsorships(ctx, sponsorships, limit, page)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get feeding events: %w", err)
+	}
+
+	return events, total, nil
+}
