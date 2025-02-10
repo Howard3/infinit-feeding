@@ -186,11 +186,20 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		isFeeder := feederEnrollments != ""
 
+		firstName := ""
+		if cu.FirstName != nil {
+			firstName = *cu.FirstName
+		}
+		lastName := ""
+		if cu.LastName != nil {
+			lastName = *cu.LastName
+		}
+
 		users[i] = usertempl.User{
 			ID:       cu.ID,
 			Username: *cu.Username,
 			Active:   !cu.Banned,
-			Name:     *cu.FirstName + " " + *cu.LastName,
+			Name:     firstName + " " + lastName,
 			IsAdmin:  isAdmin,
 			IsFeeder: isFeeder,
 		}
