@@ -90,12 +90,23 @@ func (s *Server) adminViewUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var firstName, lastName, username string
+	if clerkUser.FirstName != nil {
+		firstName = *clerkUser.FirstName
+	}
+	if clerkUser.LastName != nil {
+		lastName = *clerkUser.LastName
+	}
+	if clerkUser.Username != nil {
+		username = *clerkUser.Username
+	}
+
 	// Convert Clerk user to our internal user model
 	user := &usertempl.ViewParams{
 		ID:                userID,
-		FirstName:         *clerkUser.FirstName,
-		LastName:          *clerkUser.LastName,
-		Username:          *clerkUser.Username,
+		FirstName:         firstName,
+		LastName:          lastName,
+		Username:          username,
 		Active:            !clerkUser.Banned,
 		IsAdmin:           isAdmin,
 		Schools:           schoolList,
