@@ -124,20 +124,6 @@ type SponsorImpactResponse struct {
 	// We can add more impact metrics here later
 }
 
-// Add this new response type
-type SponsorFeedingEventResponse struct {
-	StudentID   string `json:"studentId"`
-	StudentName string `json:"studentName"`
-	FeedingTime string `json:"feedingTime"`
-	SchoolID    string `json:"schoolId"`
-	EventType   string `json:"eventType"`
-}
-
-type ListSponsorFeedingEventsResponse struct {
-	Events []SponsorFeedingEventResponse `json:"events"`
-	Total  int64                         `json:"total"`
-}
-
 // Add middleware for API key authentication
 func (s *Server) apiKeyAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -184,7 +170,6 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Post("/students/{id}/sponsor", s.apiSponsorStudent)
 		r.Get("/sponsors/{id}/students", s.apiListSponsoredStudents)
 		r.Get("/sponsors/{id}/impact", s.apiGetSponsorImpact)
-		r.Get("/sponsors/{id}/events", s.apiListSponsorFeedingEvents)
 	})
 }
 
@@ -612,53 +597,6 @@ func (s *Server) apiGetSponsorImpact(w http.ResponseWriter, r *http.Request) {
 
 	response := SponsorImpactResponse{
 		TotalMealCount: mealCount,
-	}
-
-	s.respondWithJSON(w, http.StatusOK, response)
-}
-
-// @Summary     List sponsor-related feeding events
-// @Description Get a paginated list of feeding events that occurred during sponsorship periods
-// @Tags        sponsors
-// @Accept      json
-// @Produce     json
-// @Param       id    path      string  true   "Sponsor ID"
-// @Param       page  query     int     false  "Page number"      default(1)
-// @Param       limit query     int     false  "Items per page"   default(10)
-// @Success     200   {object}  ListSponsorFeedingEventsResponse
-// @Failure     400   {object}  ErrorResponse
-// @Failure     500   {object}  ErrorResponse
-// @Router      /sponsors/{id}/events [get]
-// @Security    ApiKeyAuth
-func (s *Server) apiListSponsorFeedingEvents(w http.ResponseWriter, r *http.Request) {
-	sponsorID := chi.URLParam(r, "id")
-	if sponsorID == "" {
-		s.respondWithError(w, http.StatusBadRequest, "Sponsor ID is required")
-		return
-	}
-
-	page := s.pageQuery(r)
-	limit := s.limitQuery(r)
-
-	events, total, err := s.StudentSvc.ListSponsorFeedingEvents(r.Context(), sponsorID, limit, page)
-	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list feeding events: %v", err))
-		return
-	}
-
-	response := ListSponsorFeedingEventsResponse{
-		Events: make([]SponsorFeedingEventResponse, len(events)),
-		Total:  total,
-	}
-
-	for i, event := range events {
-		response.Events[i] = SponsorFeedingEventResponse{
-			StudentID:   event.StudentID,
-			StudentName: event.StudentName,
-			FeedingTime: event.FeedingTime.Format(time.RFC3339),
-			SchoolID:    event.SchoolID,
-			EventType:   "feeding",
-		}
 	}
 
 	s.respondWithJSON(w, http.StatusOK, response)
