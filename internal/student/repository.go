@@ -143,7 +143,7 @@ func (r *sqlRepository) updateProjections(ctx context.Context) {
 		case "student_projections":
 			r.updateStudentProjections()
 		case "student_feeding_projections":
-			r.rebuildStudentFeedingProjections(ctx)
+			go r.rebuildStudentFeedingProjections(ctx)
 		default:
 			panic(fmt.Errorf("unsupported projection: %s", v))
 		}
@@ -185,7 +185,6 @@ func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (e
 		}
 	}
 
-	// start a transaction
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		panic(fmt.Errorf("failed to begin transaction: %w", err))
@@ -214,6 +213,15 @@ func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (e
 		slog.Info("inserting feeding projection", "student_id", projection.StudentID, "feeding_id", projection.FeedingID, "feeding_image_id", projection.FeedingImageID)
 		if err := r.insertFeedingProjection(tx, projection); err != nil {
 			return fmt.Errorf("failed to insert feeding projection: %w", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
+
+		tx, err = r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to begin transaction: %w", err)
 		}
 	}
 
@@ -1068,16 +1076,23 @@ func (r *sqlRepository) GetFeedingEventsForSponsorships(ctx context.Context, spo
 	for rows.Next() {
 		event := &SponsorFeedingEvent{}
 		var timestamp sql.NullString
+		var feedingImageID sql.NullString
 
 		if err := rows.Scan(
 			&event.StudentID,
 			&event.StudentName,
 			&timestamp,
 			&event.SchoolID,
-			&event.FeedingImageID,
+			&feedingImageID,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan feeding event: %w", err)
 		}
+
+		if !timestamp.Valid {
+			continue
+		}
+
+		event.FeedingImageID = feedingImageID.String
 
 		event.FeedingTime = r.parseDate(timestamp.String)
 		events = append(events, event)

@@ -675,6 +675,7 @@ func (s *Server) respondWithJSON(w http.ResponseWriter, code int, payload interf
 
 // Helper method for error responses
 func (s *Server) respondWithError(w http.ResponseWriter, code int, message string) {
+	log.Printf("Error: %v", message)
 	s.respondWithJSON(w, code, ErrorResponse{Error: message})
 }
 
