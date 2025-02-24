@@ -300,3 +300,12 @@ func (s *StudentService) ListSponsorFeedingEvents(ctx context.Context, sponsorID
 
 	return events, total, nil
 }
+
+func (s *StudentService) GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error) {
+	// Get all current sponsorships from the repository
+	sponsorships, err := s.repo.GetAllCurrentSponsorships(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current sponsorships: %w", err)
+	}
+	return sponsorships, nil
+}

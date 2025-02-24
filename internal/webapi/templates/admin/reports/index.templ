@@ -1,0 +1,59 @@
+package reportstempl
+
+import "geevly/internal/webapi/templates/components"
+
+templ ReportsHome(schools map[string]string) {
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-2xl font-bold mb-6">Reports</h1>
+        
+        // Feeding Report Section
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Feeding Report</h2>
+            <div class="bg-white rounded-lg shadow p-6">
+                <form action="/admin/reports/export" method="post" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">School</label>
+                            @components.TomSelect(components.SelectConfig{
+                                Options:     schools,
+                                MaxItems:    1,
+                                Name:        "school_id",
+                                Placeholder: "Select a school",
+                            })
+                        </div>
+                        <div>
+                            @components.DateField("Start Date", "start_date", "")
+                        </div>
+                        <div>
+                            @components.DateField("End Date", "end_date", "")
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Output Format</label>
+                            @components.TomSelect(components.SelectConfig{
+                                Options:     map[string]string{"html": "HTML", "csv": "CSV"},
+                                MaxItems:    1,
+                                Name:        "output",
+                                Placeholder: "Select format",
+                                Value:       "html",
+                            })
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        @components.SubmitButton("Generate Report")
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        // Other Reports Section
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <a class="block" hx-get="/admin/reports/sponsored-students">
+                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2">Sponsored Students</h3>
+                    <p class="text-gray-600 text-sm">View all currently sponsored students and their sponsorship details.</p>
+                </div>
+            </a>
+            // Add more report cards here as needed
+        </div>
+    </div>
+} 

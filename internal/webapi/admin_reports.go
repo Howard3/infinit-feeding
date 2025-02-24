@@ -6,6 +6,8 @@ import (
 	"geevly/internal/student"
 	reportstempl "geevly/internal/webapi/templates/admin/reports"
 	"net/http"
+	"sort"
+	"strconv"
 	"time"
 
 	vex "github.com/Howard3/valueextractor"
@@ -14,7 +16,8 @@ import (
 
 func (s *Server) adminReports(r chi.Router) {
 	r.Get("/", s.reportsHome)
-	r.Post("/export", s.exportReport)
+	r.Get("/sponsored-students", s.adminSponsoredStudentsReport)
+	r.Post("/export", s.exportFeedingReport)
 }
 
 func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +32,7 @@ func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
 		schoolStrMap[fmt.Sprintf("%d", k)] = v
 	}
 
-	s.renderTempl(w, r, reportstempl.Home(schoolStrMap))
+	s.renderTempl(w, r, reportstempl.ReportsHome(schoolStrMap))
 }
 
 func AsDate(ref *time.Time) vex.Converter {
@@ -44,7 +47,7 @@ func AsDate(ref *time.Time) vex.Converter {
 	}
 }
 
-func (s *Server) exportReport(w http.ResponseWriter, r *http.Request) {
+func (s *Server) exportFeedingReport(w http.ResponseWriter, r *http.Request) {
 	ex := vex.Using(&vex.FormExtractor{Request: r})
 	schoolID := vex.Result(ex, "school_id", vex.AsString)
 	startDate := vex.Result(ex, "start_date", AsDate)
@@ -160,4 +163,56 @@ func (s *Server) feedingReportCSV(w http.ResponseWriter, students []*student.Gro
 	rows = append(rows, totalRow)
 
 	csvWriter.WriteAll(rows)
+}
+
+func (s *Server) adminSponsoredStudentsReport(w http.ResponseWriter, r *http.Request) {
+	// Get all current sponsorships
+	sponsorships, err := s.StudentSvc.GetAllCurrentSponsorships(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching sponsorships", err)
+		return
+	}
+
+	// Group sponsorships by sponsor ID
+	sponsorMap := make(map[string][]reportstempl.SponsoredStudent)
+	for _, sp := range sponsorships {
+		// Convert string ID to uint64
+		studentID, err := strconv.ParseUint(sp.StudentID, 10, 64)
+		if err != nil {
+			s.errorPage(w, r, "Error parsing student ID", err)
+			return
+		}
+
+		// Get student details
+		student, err := s.StudentSvc.GetStudent(r.Context(), studentID)
+		if err != nil {
+			s.errorPage(w, r, "Error fetching student details", err)
+			return
+		}
+
+		sponsoredStudent := reportstempl.SponsoredStudent{
+			StudentID:   sp.StudentID,
+			StudentName: fmt.Sprintf("%s %s", student.GetStudent().FirstName, student.GetStudent().LastName),
+			SponsorID:   sp.SponsorID,
+			StartDate:   sp.StartDate,
+			EndDate:     sp.EndDate,
+		}
+		sponsorMap[sp.SponsorID] = append(sponsorMap[sp.SponsorID], sponsoredStudent)
+	}
+
+	// Convert map to slice of groups
+	groups := make([]reportstempl.SponsorGroup, 0, len(sponsorMap))
+	for sponsorID, students := range sponsorMap {
+		groups = append(groups, reportstempl.SponsorGroup{
+			SponsorID: sponsorID,
+			Students:  students,
+		})
+	}
+
+	// Sort groups by sponsor ID for consistent display
+	sort.Slice(groups, func(i, j int) bool {
+		return groups[i].SponsorID < groups[j].SponsorID
+	})
+
+	s.renderTempl(w, r, reportstempl.SponsoredStudentsReport(groups))
 }

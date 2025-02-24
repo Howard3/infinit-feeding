@@ -36,10 +36,12 @@ type StudentListFilters struct {
 
 // Add these new types
 type SponsorshipProjection struct {
-	StudentID string    `db:"student_id"`
-	SponsorID string    `db:"sponsor_id"`
-	StartDate time.Time `db:"start_date"`
-	EndDate   time.Time `db:"end_date"`
+	StudentID     string    `db:"student_id"`
+	SponsorID     string    `db:"sponsor_id"`
+	StartDate     time.Time `db:"start_date"`
+	EndDate       time.Time `db:"end_date"`
+	PaymentID     string    `db:"payment_id"`
+	PaymentAmount float64   `db:"payment_amount"`
 }
 
 // Repository incorporates the methods for persisting and loading student aggregates and projections
@@ -64,6 +66,7 @@ type Repository interface {
 	GetAllSponsorshipsByID(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error)
 	CountFeedingEventsInPeriod(ctx context.Context, studentID string, startDate, endDate time.Time) (int64, error)
 	GetFeedingEventsForSponsorships(ctx context.Context, sponsorships []*SponsorshipProjection, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
+	GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error)
 }
 
 type ProjectedStudent struct {
@@ -1076,4 +1079,54 @@ func (r *sqlRepository) GetFeedingEventsForSponsorships(ctx context.Context, spo
 	}
 
 	return events, total, nil
+}
+
+func (r *sqlRepository) GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error) {
+	query := `
+		SELECT sp.student_id, sp.sponsor_id, sp.start_date, sp.end_date, 
+			   sp.payment_id, sp.payment_amount
+		FROM student_sponsorship_projections sp
+		WHERE sp.start_date <= CURRENT_DATE 
+		AND sp.end_date >= CURRENT_DATE
+		ORDER BY sp.start_date DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sponsorships: %w", err)
+	}
+	defer rows.Close()
+
+	var sponsorships []*SponsorshipProjection
+	for rows.Next() {
+		sp := &SponsorshipProjection{}
+		var startDate, endDate, paymentID sql.NullString
+		var paymentAmount sql.NullFloat64
+
+		if err := rows.Scan(
+			&sp.StudentID,
+			&sp.SponsorID,
+			&startDate,
+			&endDate,
+			&paymentID,
+			&paymentAmount,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan sponsorship: %w", err)
+		}
+
+		sp.StartDate = r.parseDate(startDate.String)
+		sp.EndDate = r.parseDate(endDate.String)
+
+		// Only set payment fields if they are not null
+		if paymentID.Valid {
+			sp.PaymentID = paymentID.String
+		}
+		if paymentAmount.Valid {
+			sp.PaymentAmount = paymentAmount.Float64
+		}
+
+		sponsorships = append(sponsorships, sp)
+	}
+
+	return sponsorships, nil
 }

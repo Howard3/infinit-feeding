@@ -1,0 +1,70 @@
+package reportstempl
+
+import (
+    "time"
+    "fmt"
+)
+
+type SponsoredStudent struct {
+    StudentID   string
+    StudentName string
+    SponsorID   string
+    StartDate   time.Time
+    EndDate     time.Time
+}
+
+type SponsorGroup struct {
+    SponsorID  string
+    Students   []SponsoredStudent
+}
+
+templ SponsoredStudentsReport(groups []SponsorGroup) {
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Sponsored Students Report</h1>
+            <button 
+                hx-get="/admin/reports"
+                class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                Back to Reports
+            </button>
+        </div>
+
+        <div class="space-y-6">
+            for _, group := range groups {
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="bg-gray-50 px-6 py-3 border-b">
+                        <h2 class="text-lg font-semibold text-gray-900">Sponsor ID: { group.SponsorID }</h2>
+                        <p class="text-sm text-gray-600">{ fmt.Sprintf("%d sponsored students", len(group.Students)) }</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Student Name</th>
+                                    <th scope="col" class="px-6 py-3">Student ID</th>
+                                    <th scope="col" class="px-6 py-3">Start Date</th>
+                                    <th scope="col" class="px-6 py-3">End Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                for _, student := range group.Students {
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="px-6 py-4 font-medium text-gray-900">{ student.StudentName }</td>
+                                        <td class="px-6 py-4">{ student.StudentID }</td>
+                                        <td class="px-6 py-4">{ student.StartDate.Format("2006-01-02") }</td>
+                                        <td class="px-6 py-4">{ student.EndDate.Format("2006-01-02") }</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+            if len(groups) == 0 {
+                <div class="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+                    No sponsored students found
+                </div>
+            }
+        </div>
+    </div>
+} 
