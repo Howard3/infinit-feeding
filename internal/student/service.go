@@ -278,10 +278,11 @@ func (s *StudentService) GetSponsorImpactMetrics(ctx context.Context, sponsorID 
 
 // Add this new type
 type SponsorFeedingEvent struct {
-	StudentID   string
-	StudentName string
-	FeedingTime time.Time
-	SchoolID    string
+	StudentID      string
+	StudentName    string
+	FeedingTime    time.Time
+	SchoolID       string
+	FeedingImageID string
 }
 
 // Add this new method

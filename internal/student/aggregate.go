@@ -84,7 +84,7 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 		eventData = &eda.Student_SetProfilePhoto_Event{}
 		handler = sd.handleSetProfilePhoto
 	case EVENT_FEED_STUDENT:
-		eventData = &eda.Student_Feeding{}
+		eventData = &eda.Student_Feeding_Event{}
 		handler = sd.handleFeedStudent
 	case EVENT_SET_ELIGIBILITY:
 		eventData = &eda.Student_SetEligibility_Event{}
@@ -148,9 +148,8 @@ func (sd *Aggregate) Feed(cmd *eda.Student_Feeding) (*gosignal.Event, error) {
 }
 
 func (sd *Aggregate) handleFeedStudent(evt wrappedEvent) error {
-	data := evt.data.(*eda.Student_Feeding)
+	data := evt.data.(*eda.Student_Feeding_Event)
 
-	data.Id = sd.data.FeedingNextId
 	sd.data.FeedingNextId++ // handle incrementing the next id
 
 	sd.data.FeedingReport = append(sd.data.FeedingReport, data)
@@ -252,7 +251,7 @@ func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 		Status:          eda.Student_INACTIVE,
 		StudentSchoolId: data.StudentSchoolId,
 		GradeLevel:      data.GradeLevel,
-		FeedingReport:   make([]*eda.Student_Feeding, 0),
+		FeedingReport:   make([]*eda.Student_Feeding_Event, 0),
 	}
 
 	return nil
@@ -419,7 +418,7 @@ func (sd Aggregate) MaxSponsorshipDate() *time.Time {
 }
 
 // GetLastFeeding returns the last feeding event
-func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding {
+func (sd Aggregate) GetLastFeeding() *eda.Student_Feeding_Event {
 	if sd.data.FeedingReport == nil || len(sd.data.FeedingReport) == 0 {
 		return nil
 	}

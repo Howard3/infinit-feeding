@@ -100,6 +100,7 @@ type ProjectedFeedingEvent struct {
 	FeedingID       uint64
 	SchoolID        string
 	FeedingDateTime time.Time
+	FeedingImageID  string
 }
 
 // sqlRepository is the implementation of the Repository interface using SQL
@@ -174,9 +175,10 @@ func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (e
 			timestamp := time.Unix(int64(report.UnixTimestamp), 0)
 			projection := ProjectedFeedingEvent{
 				StudentID:       student.GetID(),
-				FeedingID:       report.Id,
+				FeedingID:       report.GetUnixTimestamp(),
 				SchoolID:        student.data.SchoolId,
 				FeedingDateTime: timestamp,
+				FeedingImageID:  report.FileId,
 			}
 
 			projections = append(projections, projection)
@@ -209,7 +211,7 @@ func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (e
 	slog.Info("Updating student feeding projections", "count", len(ids))
 
 	for _, projection := range projections {
-		slog.Info("inserting feeding projection", "student_id", projection.StudentID, "feeding_id", projection.FeedingID)
+		slog.Info("inserting feeding projection", "student_id", projection.StudentID, "feeding_id", projection.FeedingID, "feeding_image_id", projection.FeedingImageID)
 		if err := r.insertFeedingProjection(tx, projection); err != nil {
 			return fmt.Errorf("failed to insert feeding projection: %w", err)
 		}
@@ -221,12 +223,12 @@ func (r *sqlRepository) rebuildStudentFeedingProjections(ctx context.Context) (e
 // insertFeedingProjection - inserts a feeding projection into the database
 func (r *sqlRepository) insertFeedingProjection(tx *sql.Tx, pfe ProjectedFeedingEvent) error {
 	query := `INSERT INTO student_feeding_projections
-		(student_id, feeding_id, school_id, feeding_timestamp)
-		VALUES (?, ?, ?, ?)
+		(student_id, feeding_id, school_id, feeding_timestamp, feeding_image_id)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (student_id, feeding_id) DO NOTHING;
 	`
 
-	_, err := tx.Exec(query, pfe.StudentID, pfe.FeedingID, pfe.SchoolID, pfe.FeedingDateTime)
+	_, err := tx.Exec(query, pfe.StudentID, pfe.FeedingID, pfe.SchoolID, pfe.FeedingDateTime, pfe.FeedingImageID)
 	if err != nil {
 		return fmt.Errorf("failed to insert student feeding projection: %w", err)
 	}
@@ -252,9 +254,10 @@ func (r *sqlRepository) upsertFeedingEventProjection(student *Aggregate) error {
 	// BUG: doesn't consider the school at the time of feeding, just the current student state.
 	pfe := ProjectedFeedingEvent{
 		StudentID:       student.GetID(),
-		FeedingID:       student.data.FeedingReport[len(student.data.FeedingReport)-1].Id,
+		FeedingID:       student.data.FeedingReport[len(student.data.FeedingReport)-1].GetUnixTimestamp(),
 		SchoolID:        student.data.SchoolId,
 		FeedingDateTime: time.Unix(int64(student.data.FeedingReport[len(student.data.FeedingReport)-1].UnixTimestamp), 0),
+		FeedingImageID:  student.data.FeedingReport[len(student.data.FeedingReport)-1].FileId,
 	}
 
 	if err := r.insertFeedingProjection(tx, pfe); err != nil {
@@ -1042,11 +1045,12 @@ func (r *sqlRepository) GetFeedingEventsForSponsorships(ctx context.Context, spo
 
 	// Get paginated results
 	query := `
-		SELECT 
-			sfp.student_id,
+		SELECT DISTINCT
+			sp.id,
 			sp.first_name || ' ' || sp.last_name as student_name,
 			sfp.feeding_timestamp,
-			sfp.school_id
+			sfp.school_id,
+			sfp.feeding_image_id
 		` + baseQuery + `
 		ORDER BY sfp.feeding_timestamp DESC
 		LIMIT ? OFFSET ?
@@ -1070,6 +1074,7 @@ func (r *sqlRepository) GetFeedingEventsForSponsorships(ctx context.Context, spo
 			&event.StudentName,
 			&timestamp,
 			&event.SchoolID,
+			&event.FeedingImageID,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan feeding event: %w", err)
 		}

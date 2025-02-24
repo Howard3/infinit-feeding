@@ -14,10 +14,10 @@ type HeatmapEntry struct {
 // FIXME: https://github.com/a-h/templ/issues/834
 var _ = templruntime.GeneratedTemplate
 
-func convertStudentFeedingToHeatmap(fr []*eda.Student_Feeding) HeatmapData {
+func convertStudentFeedingToHeatmap(fr []*eda.Student_Feeding_Event) HeatmapData {
 	data := make([]HeatmapEntry, 0)
 	for _, f := range fr {
-		unixTs := f.UnixTimestamp
+		unixTs := f.GetUnixTimestamp()
 		formattedDate := time.Unix(int64(unixTs), 0).Format("2006-01-02")
 
 		data = append(data, HeatmapEntry{Date: formattedDate, Count: 1})

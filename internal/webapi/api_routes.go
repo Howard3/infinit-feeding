@@ -126,11 +126,12 @@ type SponsorImpactResponse struct {
 
 // Add this new response type
 type SponsorFeedingEventResponse struct {
-	StudentID   string `json:"studentId"`
-	StudentName string `json:"studentName"`
-	FeedingTime string `json:"feedingTime"`
-	SchoolID    string `json:"schoolId"`
-	EventType   string `json:"eventType"`
+	StudentID      string `json:"studentId"`
+	StudentName    string `json:"studentName"`
+	FeedingTime    string `json:"feedingTime"`
+	SchoolID       string `json:"schoolId"`
+	EventType      string `json:"eventType"`
+	FeedingImageID string `json:"feedingImageId,omitempty"`
 }
 type ListSponsorFeedingEventsResponse struct {
 	Events []SponsorFeedingEventResponse `json:"events"`
@@ -648,11 +649,12 @@ func (s *Server) apiListSponsorFeedingEvents(w http.ResponseWriter, r *http.Requ
 	}
 	for i, event := range events {
 		response.Events[i] = SponsorFeedingEventResponse{
-			StudentID:   event.StudentID,
-			StudentName: event.StudentName,
-			FeedingTime: event.FeedingTime.Format(time.RFC3339),
-			SchoolID:    event.SchoolID,
-			EventType:   "feeding",
+			StudentID:      event.StudentID,
+			StudentName:    event.StudentName,
+			FeedingTime:    event.FeedingTime.Format(time.RFC3339),
+			SchoolID:       event.SchoolID,
+			EventType:      "feeding",
+			FeedingImageID: event.FeedingImageID,
 		}
 	}
 	s.respondWithJSON(w, http.StatusOK, response)
