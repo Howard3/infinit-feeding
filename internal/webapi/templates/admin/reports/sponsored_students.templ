@@ -49,7 +49,12 @@ templ SponsoredStudentsReport(groups []SponsorGroup) {
                             <tbody>
                                 for _, student := range group.Students {
                                     <tr class="border-b hover:bg-gray-50">
-                                        <td class="px-6 py-4 font-medium text-gray-900">{ student.StudentName }</td>
+                                        <td class="px-6 py-4 font-medium text-gray-900">
+                                            <a href={ templ.SafeURL(fmt.Sprintf("/admin/student/%s", student.StudentID)) } 
+                                               class="text-blue-600 hover:text-blue-800 hover:underline">
+                                                { student.StudentName }
+                                            </a>
+                                        </td>
                                         <td class="px-6 py-4">{ student.StudentID }</td>
                                         <td class="px-6 py-4">{ student.StartDate.Format("2006-01-02") }</td>
                                         <td class="px-6 py-4">{ student.EndDate.Format("2006-01-02") }</td>
