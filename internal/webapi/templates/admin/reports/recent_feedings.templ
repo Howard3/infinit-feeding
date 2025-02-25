@@ -1,0 +1,79 @@
+package reportstempl
+
+import (
+    "time"
+    "fmt"
+    "geevly/internal/webapi/templates/components"
+)
+
+type RecentFeeding struct {
+    StudentID      string
+    StudentName    string
+    SchoolID       string
+    SchoolName     string
+    FeedingTime    time.Time
+    FeedingImageID string
+}
+
+templ RecentFeedingsReport(feedings []RecentFeeding, pagination components.Pagination) {
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Recent Feedings Report</h1>
+            <button 
+                hx-get="/admin/reports"
+                class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                Back to Reports
+            </button>
+        </div>
+
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Student Name</th>
+                            <th scope="col" class="px-6 py-3">Student ID</th>
+                            <th scope="col" class="px-6 py-3">School</th>
+                            <th scope="col" class="px-6 py-3">Feeding Time</th>
+                            <th scope="col" class="px-6 py-3">Photo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        for _, feeding := range feedings {
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    <a href={ templ.SafeURL(fmt.Sprintf("/admin/student/%s", feeding.StudentID)) } 
+                                       class="text-blue-600 hover:text-blue-800 hover:underline">
+                                        { feeding.StudentName }
+                                    </a>
+                                </td>
+                                <td class="px-6 py-4">{ feeding.StudentID }</td>
+                                <td class="px-6 py-4">{ feeding.SchoolName }</td>
+                                <td class="px-6 py-4">{ feeding.FeedingTime.Format("2006-01-02") }</td>
+                                <td class="px-6 py-4">
+                                    if feeding.FeedingImageID != "" {
+                                        <a href={ templ.SafeURL(fmt.Sprintf("/student/feeding/photo/%s", feeding.FeedingImageID)) }
+                                           target="_blank"
+                                           class="text-blue-600 hover:text-blue-800 hover:underline">
+                                            View Photo
+                                        </a>
+                                    } else {
+                                        <span class="text-gray-400">No photo</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            if len(feedings) == 0 {
+                <div class="p-6 text-center text-gray-500">
+                    No recent feedings found
+                </div>
+            }
+            <div class="flex w-full items-center justify-between p-4 border-t">
+                @components.ItemCounter(pagination)
+            </div>
+        </div>
+    </div>
+} 

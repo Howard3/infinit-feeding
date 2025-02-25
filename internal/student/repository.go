@@ -67,6 +67,7 @@ type Repository interface {
 	CountFeedingEventsInPeriod(ctx context.Context, studentID string, startDate, endDate time.Time) (int64, error)
 	GetFeedingEventsForSponsorships(ctx context.Context, sponsorships []*SponsorshipProjection, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
 	GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error)
+	GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
 }
 
 type ProjectedStudent struct {
@@ -1022,6 +1023,67 @@ func (r *sqlRepository) CountFeedingEventsInPeriod(ctx context.Context, studentI
 	}
 
 	return count, nil
+}
+
+func (r *sqlRepository) GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error) {
+	// Get total count first
+	countQuery := `
+		SELECT COUNT(*) 
+		FROM student_feeding_projections sfp
+		JOIN student_projections sp ON sp.id = sfp.student_id
+	`
+	var total int64
+	if err := r.db.QueryRowContext(ctx, countQuery).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to get total count: %w", err)
+	}
+
+	query := `
+		SELECT DISTINCT
+			sp.id,
+			sp.first_name || ' ' || sp.last_name as student_name,
+			sfp.feeding_timestamp,
+			sfp.school_id,
+			sfp.feeding_image_id
+		FROM student_feeding_projections sfp
+		JOIN student_projections sp ON sp.id = sfp.student_id
+		ORDER BY sfp.feeding_timestamp DESC
+		LIMIT ? OFFSET ?
+	`
+
+	args := []interface{}{limit, (page - 1) * limit}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query feeding events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*SponsorFeedingEvent
+	for rows.Next() {
+		event := &SponsorFeedingEvent{}
+		var timestamp sql.NullString
+		var feedingImageID sql.NullString
+
+		if err := rows.Scan(
+			&event.StudentID,
+			&event.StudentName,
+			&timestamp,
+			&event.SchoolID,
+			&feedingImageID,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan feeding event: %w", err)
+		}
+
+		if !timestamp.Valid {
+			continue
+		}
+
+		event.FeedingImageID = feedingImageID.String
+		event.FeedingTime = r.parseDate(timestamp.String)
+		events = append(events, event)
+	}
+
+	return events, total, nil
 }
 
 func (r *sqlRepository) GetFeedingEventsForSponsorships(ctx context.Context, sponsorships []*SponsorshipProjection, limit, page uint) ([]*SponsorFeedingEvent, int64, error) {

@@ -53,6 +53,12 @@ templ ReportsHome(schools map[string]string) {
                     <p class="text-gray-600 text-sm">View all currently sponsored students and their sponsorship details.</p>
                 </div>
             </a>
+            <a class="block" hx-get="/admin/reports/recent-feedings">
+                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2">Recent Feedings</h3>
+                    <p class="text-gray-600 text-sm">View the most recent student feeding events across all schools.</p>
+                </div>
+            </a>
             // Add more report cards here as needed
         </div>
     </div>

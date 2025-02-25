@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"geevly/internal/student"
 	reportstempl "geevly/internal/webapi/templates/admin/reports"
+	components "geevly/internal/webapi/templates/components"
 	"net/http"
 	"sort"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 func (s *Server) adminReports(r chi.Router) {
 	r.Get("/", s.reportsHome)
 	r.Get("/sponsored-students", s.adminSponsoredStudentsReport)
+	r.Get("/recent-feedings", s.adminRecentFeedingsReport)
 	r.Post("/export", s.exportFeedingReport)
 }
 
@@ -215,4 +217,40 @@ func (s *Server) adminSponsoredStudentsReport(w http.ResponseWriter, r *http.Req
 	})
 
 	s.renderTempl(w, r, reportstempl.SponsoredStudentsReport(groups))
+}
+
+func (s *Server) adminRecentFeedingsReport(w http.ResponseWriter, r *http.Request) {
+	page := s.pageQuery(r)
+	limit := 20
+	feedingEvents, total, err := s.StudentSvc.GetRecentFeedingEvents(r.Context(), int(page), limit)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching recent feedings", err)
+		return
+	}
+
+	// Get school names
+	schoolMap, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	// Convert to template format
+	recentFeedings := make([]reportstempl.RecentFeeding, 0, len(feedingEvents))
+	for _, event := range feedingEvents {
+		schoolID, _ := strconv.ParseUint(event.SchoolID, 10, 64)
+		schoolName := schoolMap[schoolID]
+		recentFeedings = append(recentFeedings, reportstempl.RecentFeeding{
+			StudentID:      event.StudentID,
+			StudentName:    event.StudentName,
+			SchoolID:       event.SchoolID,
+			SchoolName:     schoolName,
+			FeedingTime:    event.FeedingTime,
+			FeedingImageID: event.FeedingImageID,
+		})
+	}
+
+	pagination := components.NewPagination(page, uint(limit), uint(total))
+	pagination.URL = "/admin/reports/recent-feedings"
+	s.renderTempl(w, r, reportstempl.RecentFeedingsReport(recentFeedings, pagination))
 }

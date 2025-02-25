@@ -310,3 +310,13 @@ func (s *StudentService) GetAllCurrentSponsorships(ctx context.Context) ([]*Spon
 	}
 	return sponsorships, nil
 }
+
+func (s *StudentService) GetRecentFeedingEvents(ctx context.Context, page, limit int) ([]*SponsorFeedingEvent, int64, error) {
+	// Get recent feeding events from all students
+	events, total, err := s.repo.GetAllFeedingEvents(ctx, uint(limit), uint(page))
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get feeding events: %w", err)
+	}
+
+	return events, total, nil
+}
