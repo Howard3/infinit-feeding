@@ -62,6 +62,22 @@ templ FullLayout(main templ.Component, params Params) {
                     }
                     setInterval(this.refresh, 45_000)
                 })()
+            // Handle 403 responses from HTMX requests by refreshing token and retrying once
+            document.body.addEventListener('htmx:beforeRequest', async function(evt) {
+                evt.detail.xhr.addEventListener('load', async function() {
+                    if (this.status === 403 && !evt.detail.retriedAfterRefresh) {
+                        evt.detail.retriedAfterRefresh = true;
+                        if (Clerk && Clerk.session) {
+                            // Refresh token
+                            await Clerk.session.getToken();
+                            // Retry the original request
+                            htmx.ajax(evt.detail.requestConfig.method, 
+                                    evt.detail.requestConfig.path,
+                                    evt.detail);
+                        }
+                    }
+                });
+            });
             </script>
             // TODO: Make posthog configurable
             <script>

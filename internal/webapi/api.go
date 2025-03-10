@@ -186,6 +186,7 @@ func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		roles, ok := r.Context().Value("roles").(Roles)
 		if !ok || !roles.Admin {
+			w.WriteHeader(http.StatusForbidden)
 			s.renderTempl(w, r, templates.PermissionDenied())
 			return
 		}
