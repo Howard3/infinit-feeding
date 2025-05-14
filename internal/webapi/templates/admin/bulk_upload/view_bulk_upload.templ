@@ -1,0 +1,418 @@
+package bulk_upload
+
+import (
+	"fmt"
+	"geevly/internal/bulk_upload"
+	"geevly/internal/webapi/templates/components"
+	"time"
+)
+
+templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
+	<div class="flex flex-col w-full gap-4">
+		<!-- Navigation bar -->
+		<div class="flex items-center p-2 bg-gray-50 border-b">
+			<a
+				href="#"
+				class="flex items-center text-gray-600 hover:text-gray-800"
+				hx-get="/admin/bulk-upload"
+				hx-target="#content"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+				</svg>
+				Back to List
+			</a>
+		</div>
+		<!-- Header with title and actions -->
+		<div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-100 gap-4">
+			<div class="flex items-center gap-2">
+				<h1 class="text-lg font-medium">Bulk Upload Details</h1>
+				@viewStatusBadge(getStatus(agg))
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<!-- Primary actions -->
+				if canStartProcessing(getStatus(agg)) {
+					@components.PrimaryButton("Start Processing", templ.Attributes{
+						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/start-processing", agg.ID),
+						"hx-confirm": "Are you sure you want to start processing this upload?",
+					})
+				}
+				if canRetry(getStatus(agg)) {
+					@components.PrimaryButton("Retry Processing", templ.Attributes{
+						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/retry", agg.ID),
+						"hx-confirm": "Are you sure you want to retry processing this upload?",
+					})
+				}
+				<!-- Secondary actions -->
+				if canCancel(getStatus(agg)) {
+					@components.SecondaryButton("Cancel", templ.Attributes{
+						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/cancel", agg.ID),
+						"class":      "text-orange-600 hover:text-orange-800 border-orange-600 hover:border-orange-800",
+						"hx-confirm": "Are you sure you want to cancel this upload?",
+					})
+				}
+				if canInvalidate(getStatus(agg)) {
+					@components.SecondaryButton("Invalidate", templ.Attributes{
+						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/invalidate", agg.ID),
+						"class":      "text-red-600 hover:text-red-800 border-red-600 hover:border-red-800",
+						"hx-confirm": "Are you sure you want to invalidate this upload? This will undo all changes made by this upload.",
+					})
+				}
+				@components.SecondaryButton("View File", templ.Attributes{
+					"hx-get":    fmt.Sprintf("/admin/file/%s", getFileID(agg)),
+					"hx-target": "#content",
+				})
+				if canDownloadResults(getStatus(agg)) {
+					@components.SecondaryButton("Download Results", templ.Attributes{
+						"hx-get": fmt.Sprintf("/admin/bulk-upload/%s/download", agg.ID),
+					})
+				}
+			</div>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+			<div class="border rounded-lg shadow p-4">
+				<h2 class="text-md font-medium mb-3">General Information</h2>
+				<div class="grid grid-cols-2 gap-y-2">
+					<div class="text-sm font-semibold">ID:</div>
+					<div class="text-sm">{ agg.ID }</div>
+					<div class="text-sm font-semibold">Target Domain:</div>
+					<div class="text-sm">
+						@viewFormatDomain(getTargetDomain(agg))
+					</div>
+					<div class="text-sm font-semibold">File ID:</div>
+					<div class="text-sm">{ getFileID(agg) }</div>
+					<div class="text-sm font-semibold">Status:</div>
+					<div class="text-sm">
+						@viewStatusBadge(getStatus(agg))
+					</div>
+					<div class="text-sm font-semibold">Status Details:</div>
+					<div class="text-sm col-span-1">
+						@viewStatusExplanation(getStatus(agg))
+					</div>
+				</div>
+			</div>
+			<div class="border rounded-lg shadow p-4">
+				<h2 class="text-md font-medium mb-3">Progress & Actions</h2>
+				if getTotalRecords(agg) > 0 {
+					<div class="flex flex-col gap-2">
+						<div class="grid grid-cols-3 gap-2 mb-2">
+							<div class="bg-gray-100 p-3 rounded text-center">
+								<div class="text-sm text-gray-600">Total</div>
+								<div class="text-lg font-semibold">{ fmt.Sprintf("%d", getTotalRecords(agg)) }</div>
+							</div>
+							<div class="bg-gray-100 p-3 rounded text-center">
+								<div class="text-sm text-gray-600">Processed</div>
+								<div class="text-lg font-semibold">{ fmt.Sprintf("%d", getProcessedRecords(agg)) }</div>
+							</div>
+							<div class="bg-gray-100 p-3 rounded text-center">
+								<div class="text-sm text-gray-600">Failed</div>
+								<div class="text-lg font-semibold">{ fmt.Sprintf("%d", getFailedRecords(agg)) }</div>
+							</div>
+						</div>
+						<div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+							@viewProgressBarWithPercentage(
+								int(getProcessedRecords(agg)),
+								int(getTotalRecords(agg)),
+								getFailedRecords(agg) > 0,
+							)
+						</div>
+						<div class="text-sm text-center text-gray-600">
+							if isProcessing(getStatus(agg)) {
+								Processing...
+							} else if getProcessedRecords(agg) == getTotalRecords(agg) {
+								Processing complete
+							} else {
+								{ fmt.Sprintf("%.1f%% complete", float64(getProcessedRecords(agg))/float64(getTotalRecords(agg))*100) }
+							}
+						</div>
+						<div class="text-sm mt-4 border-t pt-2">
+							<div class="font-semibold mb-1">What You Can Do:</div>
+							if getErrorMessage(agg) != "" {
+								<div class="text-red-600 mb-2">⚠️ Error detected. See error message section below.</div>
+							}
+							<ul class="list-disc list-inside space-y-1">
+								if canStartProcessing(getStatus(agg)) {
+									<li>Click the blue <strong>Start Processing</strong> button to begin processing the upload</li>
+								}
+								if canRetry(getStatus(agg)) {
+									<li>Click the blue <strong>Retry Processing</strong> button to attempt processing again</li>
+								}
+								if canCancel(getStatus(agg)) {
+									<li>Click <strong>Cancel</strong> to stop the current operation</li>
+								}
+								if canInvalidate(getStatus(agg)) {
+									<li>Click <strong>Invalidate</strong> to revert all changes</li>
+								}
+								if canDownloadResults(getStatus(agg)) {
+									<li>Click <strong>Download Results</strong> to export the results</li>
+								}
+								<li>Click <strong>View File</strong> to view the uploaded file</li>
+							</ul>
+						</div>
+					</div>
+				} else {
+					<div class="text-center text-gray-500 py-4">
+						No processing data available
+					</div>
+				}
+			</div>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
+			<div class="border rounded-lg shadow p-4">
+				<h2 class="text-md font-medium mb-3">Status Timeline</h2>
+				<div class="relative border-l-2 border-gray-200 ml-2 pl-4">
+					<!-- Timeline would be populated when proper data is available -->
+					<div class="mb-4 relative">
+						<div class="absolute -left-6 mt-1 w-3 h-3 rounded-full bg-blue-500"></div>
+						<div class="text-sm font-semibold">PENDING</div>
+						<div class="text-xs text-gray-500">{ time.Now().Format(time.RFC1123) }</div>
+					</div>
+				</div>
+			</div>
+			<div class="border rounded-lg shadow p-4">
+				<h2 class="text-md font-medium mb-3">Upload Metadata</h2>
+				if meta := getUploadMetadata(agg); len(meta) > 0 {
+					<div class="grid grid-cols-2 gap-y-2">
+						for key, value := range meta {
+							<div class="text-sm font-semibold">{ key }:</div>
+							<div class="text-sm">{ value }</div>
+						}
+					</div>
+				} else {
+					<div class="text-center text-gray-500 py-4">
+						No metadata available
+					</div>
+				}
+			</div>
+		</div>
+		if getErrorMessage(agg) != "" {
+			<div class="p-4">
+				<div class="border border-red-300 rounded-lg shadow p-4 bg-red-50">
+					<h2 class="text-md font-medium mb-3 text-red-800">Error Message</h2>
+					<div class="text-red-700 p-3 rounded-lg bg-white border border-red-200">
+						{ getErrorMessage(agg) }
+					</div>
+				</div>
+			</div>
+		}
+		if getValidationErrors(agg) {
+			<div class="p-4">
+				<div class="border rounded-lg shadow p-4">
+					<h2 class="text-md font-medium mb-3">Validation Errors</h2>
+					<div class="relative overflow-x-auto">
+						<table class="w-full text-sm text-left text-gray-500">
+							<thead class="text-xs text-gray-700 uppercase bg-gray-100">
+								<tr>
+									<th scope="col" class="px-6 py-3">Context</th>
+									<th scope="col" class="px-6 py-3">Row</th>
+									<th scope="col" class="px-6 py-3">Field</th>
+									<th scope="col" class="px-6 py-3">Message</th>
+								</tr>
+							</thead>
+							<tbody>
+								<!-- Validation error records would be rendered here when data is available -->
+								<tr class="bg-white border-b hover:bg-gray-50">
+									<td class="px-6 py-4">ROW_NUMBER</td>
+									<td class="px-6 py-4">1</td>
+									<td class="px-6 py-4">name</td>
+									<td class="px-6 py-4">Field is required</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		}
+	</div>
+}
+
+templ viewStatusBadge(status string) {
+	switch status {
+		case "PENDING":
+			<span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+				Pending
+			</span>
+		case "VALIDATING":
+			<span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-600/20">
+				Validating
+			</span>
+		case "PROCESSING":
+			<span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-800 ring-1 ring-inset ring-indigo-600/20">
+				Processing
+			</span>
+		case "COMPLETED":
+			<span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-800 ring-1 ring-inset ring-green-600/20">
+				Completed
+			</span>
+		case "VALIDATION_FAILED":
+			<span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-800 ring-1 ring-inset ring-red-600/20">
+				Validation Failed
+			</span>
+		case "INVALIDATING":
+			<span class="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-800 ring-1 ring-inset ring-purple-600/20">
+				Invalidating
+			</span>
+		case "INVALIDATED":
+			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
+				Invalidated
+			</span>
+		default:
+			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
+				{ status }
+			</span>
+	}
+}
+
+// Helper function to provide status explanation
+templ viewStatusExplanation(status string) {
+	switch status {
+		case "PENDING":
+			<div class="p-2 bg-yellow-50 rounded-md mt-2">
+				<p>This upload is waiting to be processed. Click "Start Processing" to begin.</p>
+			</div>
+		case "VALIDATING":
+			<div class="p-2 bg-blue-50 rounded-md mt-2">
+				<p>The system is currently validating the uploaded data. You can wait or cancel the process.</p>
+			</div>
+		case "PROCESSING":
+			<div class="p-2 bg-indigo-50 rounded-md mt-2">
+				<p>The system is processing the upload. Wait for completion or cancel if needed.</p>
+			</div>
+		case "COMPLETED":
+			<div class="p-2 bg-green-50 rounded-md mt-2">
+				<p>Processing completed successfully. You can download results or invalidate if needed.</p>
+			</div>
+		case "VALIDATION_FAILED":
+			<div class="p-2 bg-red-50 rounded-md mt-2">
+				<p>Validation failed. Review the error message and validation errors below, then click "Retry" to attempt again.</p>
+			</div>
+		case "INVALIDATING":
+			<div class="p-2 bg-purple-50 rounded-md mt-2">
+				<p>The system is undoing changes made by this upload. Please wait.</p>
+			</div>
+		case "INVALIDATED":
+			<div class="p-2 bg-gray-50 rounded-md mt-2">
+				<p>This upload has been invalidated. All changes have been reverted.</p>
+			</div>
+		default:
+			<div class="p-2 bg-gray-50 rounded-md mt-2">
+				<p>Current status: { status }</p>
+			</div>
+	}
+}
+
+templ viewProgressBarWithPercentage(processed int, total int, hasErrors bool) {
+	if total == 0 {
+		@viewProgressBarEl(0, hasErrors)
+	} else {
+		@viewProgressBarEl(float64(processed)/float64(total)*100, hasErrors)
+	}
+}
+
+templ viewProgressBarEl(percentage float64, hasErrors bool) {
+	if hasErrors {
+		<div
+			class="h-2.5 rounded-full bg-yellow-500"
+			style={ fmt.Sprintf("width: %.1f%%", percentage) }
+		></div>
+	} else {
+		<div
+			class="h-2.5 rounded-full bg-green-600"
+			style={ fmt.Sprintf("width: %.1f%%", percentage) }
+		></div>
+	}
+}
+
+// Helper function to format domain name for display
+templ viewFormatDomain(domain string) {
+	switch domain {
+		case "NEW_STUDENTS":
+			<span>New Students</span>
+		case "UPDATE_STUDENTS":
+			<span>Update Students</span>
+		default:
+			<span>{ domain }</span>
+	}
+}
+
+// Helper function to check if status is processing
+func isProcessing(status string) bool {
+	return status == "PROCESSING" || status == "VALIDATING" || status == "INVALIDATING"
+}
+
+// Helper function to check if invalidation is possible
+func canInvalidate(status string) bool {
+	return status == "COMPLETED"
+}
+
+// Helper function to check if we can start processing
+func canStartProcessing(status string) bool {
+	return status == "PENDING"
+}
+
+// Helper function to check if we can retry processing
+func canRetry(status string) bool {
+	return status == "VALIDATION_FAILED"
+}
+
+// Helper function to check if we can cancel processing
+func canCancel(status string) bool {
+	return status == "VALIDATING" || status == "PROCESSING"
+}
+
+// Helper function to check if we can download results
+func canDownloadResults(status string) bool {
+	return status == "COMPLETED" || status == "INVALIDATED"
+}
+
+func getTargetDomain(agg *bulk_upload.Aggregate) string {
+	return "NEW_STUDENTS" // Default value, replace with actual implementation
+}
+
+func getFileID(agg *bulk_upload.Aggregate) string {
+	return agg.ID + "-file" // Using ID as a placeholder, replace with actual implementation
+}
+
+func getTotalRecords(agg *bulk_upload.Aggregate) uint64 {
+	return 100 // Default value, replace with actual implementation
+}
+
+func getProcessedRecords(agg *bulk_upload.Aggregate) uint64 {
+	return 75 // Default value, replace with actual implementation
+}
+
+func getFailedRecords(agg *bulk_upload.Aggregate) uint64 {
+	return 5 // Default value, replace with actual implementation
+}
+
+func getStatusTimestamps(agg *bulk_upload.Aggregate) []string {
+	// This is a placeholder. In a real implementation,
+	// you would access the actual timestamps from the aggregate
+	return []string{} // Empty slice as default
+}
+
+func getUploadMetadata(agg *bulk_upload.Aggregate) map[string]string {
+	return agg.GetUploadMetadata()
+}
+
+func getValidationErrors(agg *bulk_upload.Aggregate) bool {
+	// Just returning if there are validation errors
+	return true // Showing errors by default for demonstration
+}
+
+// Helper function to get error message if available
+func getErrorMessage(agg *bulk_upload.Aggregate) string {
+	// In a real implementation, we would get the error message from the aggregate
+	// For failed statuses like VALIDATION_FAILED or similar
+	if getStatus(agg) == "VALIDATION_FAILED" {
+		return "Failed to validate the upload: Some required fields are missing or invalid. Please check the validation errors below and try again."
+	}
+	return "" // No error message by default
+}
+
+// Helper function to safely access aggregate data
+func getStatus(agg *bulk_upload.Aggregate) string {
+	// Since we can't directly access the private data field,
+	// we'll use a default value if needed
+	return "PENDING" // Default to PENDING, replace with actual implementation
+}

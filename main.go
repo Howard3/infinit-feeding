@@ -9,6 +9,7 @@ import (
 	"github.com/Howard3/gosignal/drivers/queue"
 	"github.com/clerkinc/clerk-sdk-go/clerk"
 
+	"geevly/internal/bulk_upload"
 	"geevly/internal/file"
 	"geevly/internal/infrastructure"
 	"geevly/internal/school"
@@ -61,12 +62,17 @@ func main() {
 	studentRepo := student.NewRepository(db, &mq)
 	studentService := student.NewStudentService(studentRepo, studentACL)
 
+	bulkUploadACL := webapi.NewBulkUploadACL(fileService)
+	bulkUploadRepo := bulk_upload.NewRepository(db, &mq)
+	bulkUploadService := bulk_upload.NewService(bulkUploadRepo, bulkUploadACL)
+
 	server := webapi.Server{
-		StaticFS:   getStaticFS(),
-		StudentSvc: studentService,
-		SchoolSvc:  schoolService,
-		FileSvc:    fileService,
-		Clerk:      clerkClient,
+		StaticFS:      getStaticFS(),
+		StudentSvc:    studentService,
+		SchoolSvc:     schoolService,
+		FileSvc:       fileService,
+		Clerk:         clerkClient,
+		BulkUploadSvc: bulkUploadService,
 	}
 	server.Start(ctx)
 }

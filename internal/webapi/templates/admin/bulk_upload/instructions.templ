@@ -1,0 +1,104 @@
+package bulk_upload
+
+templ InstructionsComingSoon() {
+    <div class="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold mb-2">Bulk Upload Instructions</h1>
+            <p class="text-gray-600">
+                Basic guidelines for preparing your data files
+            </p>
+        </div>
+        
+        <div class="space-y-8">
+            <div class="border-b pb-6">
+                <h2 class="text-xl font-semibold mb-4">General Guidelines</h2>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>Use the provided templates as a starting point</li>
+                    <li>Ensure all required fields are filled in</li>
+                    <li>Save your file as CSV format with UTF-8 encoding</li>
+                    <li>Maximum file size is 10MB</li>
+                    <li>The first row must contain column headers exactly as shown in the template</li>
+                    <li>Student IDs must match existing records in the system</li>
+                </ul>
+            </div>
+            
+            <div class="border-b pb-6">
+                <h2 class="text-xl font-semibold mb-4">Health Assessment Data</h2>
+                <p class="mb-4 text-gray-700">Required fields:</p>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li><strong>student_id</strong>: The student's unique identifier</li>
+                    <li><strong>school_id</strong>: The school's unique identifier</li>
+                    <li><strong>height_cm</strong>: Height in centimeters (numeric value)</li>
+                    <li><strong>weight_kg</strong>: Weight in kilograms (numeric value)</li>
+                    <li><strong>bmi</strong>: Body Mass Index (calculated or provided)</li>
+                    <li><strong>nutrition_status</strong>: One of: NORMAL, UNDERWEIGHT, OVERWEIGHT, OBESE</li>
+                    <li><strong>assessment_date</strong>: Date in YYYY-MM-DD format</li>
+                </ul>
+            </div>
+            
+            <div class="border-b pb-6">
+                <h2 class="text-xl font-semibold mb-4">Academic Grades Data</h2>
+                <p class="mb-4 text-gray-700">Required fields:</p>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li><strong>student_id</strong>: The student's unique identifier</li>
+                    <li><strong>school_id</strong>: The school's unique identifier</li>
+                    <li><strong>subject</strong>: Subject name</li>
+                    <li><strong>grade</strong>: Numeric grade (0-100)</li>
+                    <li><strong>term</strong>: Academic term (e.g., "Term 1")</li>
+                    <li><strong>academic_year</strong>: Academic year (e.g., "2023-2024")</li>
+                </ul>
+            </div>
+            
+            <div class="border-b pb-6">
+                <h2 class="text-xl font-semibold mb-4">Attendance Records Data</h2>
+                <p class="mb-4 text-gray-700">Required fields:</p>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li><strong>student_id</strong>: The student's unique identifier</li>
+                    <li><strong>school_id</strong>: The school's unique identifier</li>
+                    <li><strong>date</strong>: Date in YYYY-MM-DD format</li>
+                    <li><strong>status</strong>: One of: PRESENT, ABSENT, LATE, EXCUSED</li>
+                    <li><strong>reason</strong>: Optional reason for absence or late arrival</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h2 class="text-xl font-semibold mb-4">New Students Data</h2>
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                New student uploads require both CSV data and profile photos. This feature is coming soon.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-gray-700">When available, this feature will allow you to upload:</p>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>A CSV file with student information</li>
+                    <li>A ZIP file containing profile photos for each student</li>
+                    <li>Photos must be named according to the student ID</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center">
+            <button 
+                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                hx-get="/admin/bulk-upload/create"
+                hx-target="#content"
+            >
+                Back to Upload Options
+            </button>
+        </div>
+    </div>
+} 

@@ -1,0 +1,170 @@
+package bulk_upload
+
+import (
+	"fmt"
+	"geevly/internal/bulk_upload"
+	"geevly/internal/webapi/templates/components"
+)
+
+templ List(response *bulk_upload.ListResponse, pagination components.Pagination) {
+	<div class="flex flex-col w-full border rounded-lg shadow mx-auto">
+		<div class="flex items-center justify-between p-4 border-b bg-gray-100">
+			<h1 class="text-lg font-medium">
+				Bulk Uploads
+				<span class="pl-3">
+					@components.PrimaryButton("New Upload", templ.Attributes{"hx-get": "/admin/bulk-upload/create", "hx-target": "#content"})
+				</span>
+			</h1>
+		</div>
+		if response != nil && len(response.BulkUploads) > 0 {
+			<div class="flex flex-col gap-2">
+				<div class="relative w-full overflow-auto">
+					<table class="w-full caption-bottom text-sm">
+						<thead class="[&_tr]:border-b">
+							<tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Target Domain</th>
+								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
+								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Progress</th>
+								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Initiated At</th>
+								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Actions</th>
+							</tr>
+						</thead>
+						<tbody class="[&_tr:last-child]:border-0">
+							for _, upload := range response.BulkUploads {
+								<tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+									<td class="p-4 align-middle">
+										@statusBadge(upload.Status)
+									</td>
+									<td class="p-4 align-middle">
+										if upload.TotalRecords > 0 {
+											<div class="flex flex-col gap-1">
+												<div class="w-full bg-gray-200 rounded-full h-2.5">
+													@progressBar(upload)
+												</div>
+												<span class="text-xs text-gray-600">
+													{ fmt.Sprintf("%d/%d records (%d failed)", upload.ProcessedRecords, upload.TotalRecords, upload.FailedRecords) }
+												</span>
+											</div>
+										} else {
+											<span class="text-gray-500">Pending</span>
+										}
+									</td>
+									<td class="p-4 align-middle">{ upload.InitiatedAt.Format("2006-01-02 15:04:05") }</td>
+									<td class="p-4 align-middle">
+										@components.PrimaryButton("View", templ.Attributes{
+											"hx-get": fmt.Sprintf("/admin/bulk-upload/%s", upload.ID),
+										})
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<div class="flex w-full items-center justify-between p-4 border-t">
+				@components.ItemCounter(pagination)
+			</div>
+		} else {
+			<div class="flex items-center justify-center p-8">
+				<div class="text-center">
+					<h3 class="text-lg font-medium text-gray-900">No bulk uploads yet</h3>
+					<p class="mt-1 text-sm text-gray-500">Get started by creating a new bulk upload.</p>
+					<div class="mt-6">
+						@components.PrimaryButton("New Upload", templ.Attributes{"hx-get": "/admin/bulk-upload/create", "hx-target": "#content"})
+					</div>
+				</div>
+			</div>
+		}
+	</div>
+}
+
+templ statusBadge(status string) {
+	switch status {
+		case "PENDING":
+			<span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+				Pending
+			</span>
+		case "VALIDATING":
+			<span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-600/20">
+				Validating
+			</span>
+		case "PROCESSING":
+			<span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-800 ring-1 ring-inset ring-indigo-600/20">
+				Processing
+			</span>
+		case "COMPLETED":
+			<span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-800 ring-1 ring-inset ring-green-600/20">
+				Completed
+			</span>
+		case "FAILED":
+			<span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-800 ring-1 ring-inset ring-red-600/20">
+				Failed
+			</span>
+		case "VALIDATION_FAILED":
+			<span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-800 ring-1 ring-inset ring-red-600/20">
+				Validation Failed
+			</span>
+		case "INVALIDATING":
+			<span class="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-800 ring-1 ring-inset ring-purple-600/20">
+				Invalidating
+			</span>
+		case "INVALIDATED":
+			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
+				Invalidated
+			</span>
+		default:
+			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
+				{ status }
+			</span>
+	}
+}
+
+templ progressBar(upload *bulk_upload.ProjectedBulkUpload) {
+	if upload.TotalRecords > 0 {
+		@progressBarWithPercentage(
+			int(upload.ProcessedRecords),
+			int(upload.TotalRecords),
+			upload.FailedRecords > 0,
+		)
+	} else {
+		<div class="w-full h-2.5 bg-gray-200 rounded-full"></div>
+	}
+}
+
+templ progressBarWithPercentage(processed int, total int, hasErrors bool) {
+	if total == 0 {
+		@progressBarEl(0, hasErrors)
+	} else {
+		@progressBarEl(float64(processed)/float64(total)*100, hasErrors)
+	}
+}
+
+templ progressBarEl(percentage float64, hasErrors bool) {
+	if hasErrors {
+		<div
+			class="h-2.5 rounded-full bg-yellow-500"
+			style={ fmt.Sprintf("width: %.1f%%", percentage) }
+		></div>
+	} else {
+		<div
+			class="h-2.5 rounded-full bg-green-600"
+			style={ fmt.Sprintf("width: %.1f%%", percentage) }
+		></div>
+	}
+}
+
+// Helper function to format domain name for display
+templ formatDomain(domain string) {
+	switch domain {
+		case "STUDENT":
+			<span>New Students</span>
+		case "HEALTH_ASSESSMENT":
+			<span>Health Assessment</span>
+		case "GRADES":
+			<span>Academic Grades</span>
+		case "ATTENDANCE":
+			<span>Attendance</span>
+		default:
+			<span>{ domain }</span>
+	}
+}

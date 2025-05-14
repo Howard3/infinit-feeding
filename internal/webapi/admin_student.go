@@ -383,7 +383,7 @@ func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request)
 		s.errorPage(w, r, "Error parsing file", err)
 		return
 	}
-	defer file.Close()
+	defer file.Close() 
 
 	// read "version" from the form
 	ver, err := strconv.ParseUint(r.FormValue("version"), 10, 64)

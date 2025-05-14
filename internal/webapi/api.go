@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"geevly/internal/bulk_upload"
 	"geevly/internal/file"
 	"geevly/internal/school"
 	"geevly/internal/student"
@@ -28,6 +29,7 @@ type Server struct {
 	StudentSvc    *student.StudentService
 	SchoolSvc     *school.Service
 	FileSvc       *file.Service
+	BulkUploadSvc *bulk_upload.Service
 	Clerk         clerk.Client
 }
 
@@ -43,6 +45,9 @@ func (s *Server) verifyConfig() {
 	}
 	if s.StudentSvc == nil {
 		panic("StudentSvc is required")
+	}
+	if s.BulkUploadSvc == nil {
+		panic("BulkUploadSvc is required")
 	}
 }
 
@@ -145,6 +150,7 @@ func (s *Server) Start(ctx context.Context) {
 		r.Route("/school", s.schoolAdminRoutes)
 		r.Route("/user", s.userAdminRouter)
 		r.Route("/reports", s.adminReports)
+		r.Route("/bulk-upload", s.bulkUploadAdminRoutes)
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			s.renderTempl(w, r, admin.AdminHome())
 		})

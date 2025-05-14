@@ -1,0 +1,64 @@
+package bulk_upload
+
+templ ComingSoon(domain string, uploadType string) {
+	<div class="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg text-center">
+		<div class="flex flex-col items-center justify-center py-12">
+			<div class="mb-6 bg-blue-100 p-4 rounded-full">
+				<svg class="h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+				</svg>
+			</div>
+			<h1 class="text-3xl font-bold mb-4">Coming Soon</h1>
+			<p class="text-xl text-gray-600 mb-8">
+				The { uploadType } upload feature is currently under development.
+			</p>
+			<p class="text-gray-500 mb-10">
+				We're working hard to bring you this feature. Please check back later.
+			</p>
+			<div class="flex space-x-4">
+				<button
+					class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+					hx-get="/admin/bulk-upload/create"
+					hx-target="#content"
+				>
+					Back to Bulk Upload
+				</button>
+				<button
+					class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+					hx-get="/admin/bulk-upload"
+					hx-target="#content"
+				>
+					View All Uploads
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+templ TemplateComingSoon(uploadType string) {
+	<div class="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg text-center">
+		<div class="flex flex-col items-center justify-center py-12">
+			<div class="mb-6 bg-yellow-100 p-4 rounded-full">
+				<svg class="h-12 w-12 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+				</svg>
+			</div>
+			<h1 class="text-3xl font-bold mb-4">Template Coming Soon</h1>
+			<p class="text-xl text-gray-600 mb-8">
+				The { uploadType } template is currently being prepared.
+			</p>
+			<p class="text-gray-500 mb-10">
+				We're working on creating a standardized template for this upload type. Please check back later.
+			</p>
+			<div class="flex space-x-4">
+				<button
+					class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+					hx-get="/admin/bulk-upload/create"
+					hx-target="#content"
+				>
+					Back to Bulk Upload
+				</button>
+			</div>
+		</div>
+	</div>
+}

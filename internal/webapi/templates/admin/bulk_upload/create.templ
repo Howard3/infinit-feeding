@@ -1,0 +1,256 @@
+package bulk_upload
+
+import "geevly/internal/webapi/templates/components"
+
+templ Create() {
+	<div class="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+		<div class="mb-8 text-center">
+			<h1 class="text-2xl font-bold mb-2">New Bulk Upload</h1>
+			<p class="text-gray-600">Select the type of data you want to upload</p>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div
+				class="border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer bg-white"
+				hx-get="/admin/bulk-upload/upload-form/health_assessment"
+				hx-target="#content"
+			>
+				<div class="flex items-center justify-center mb-4 h-12 w-12 rounded-full bg-blue-100 text-blue-600 mx-auto">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+					</svg>
+				</div>
+				<h2 class="text-xl font-semibold text-center mb-2">Health Assessment</h2>
+				<p class="text-gray-600 text-center">Upload student health metrics like height, weight, and nutrition status.</p>
+			</div>
+			<div
+				class="border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer bg-white"
+				hx-get="/admin/bulk-upload/upload-form/grades"
+				hx-target="#content"
+			>
+				<div class="flex items-center justify-center mb-4 h-12 w-12 rounded-full bg-green-100 text-green-600 mx-auto">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+				</div>
+				<h2 class="text-xl font-semibold text-center mb-2">Academic Grades</h2>
+				<p class="text-gray-600 text-center">Upload student grades and academic performance data.</p>
+			</div>
+			<div
+				class="border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer bg-white"
+				hx-get="/admin/bulk-upload/upload-form/attendance"
+				hx-target="#content"
+			>
+				<div class="flex items-center justify-center mb-4 h-12 w-12 rounded-full bg-purple-100 text-purple-600 mx-auto">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+					</svg>
+				</div>
+				<h2 class="text-xl font-semibold text-center mb-2">Attendance Records</h2>
+				<p class="text-gray-600 text-center">Upload student attendance and participation data.</p>
+			</div>
+			<div
+				class="border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer bg-white"
+				hx-get="/admin/bulk-upload/upload-form/new_students"
+				hx-target="#content"
+			>
+				<div class="flex items-center justify-center mb-4 h-12 w-12 rounded-full bg-yellow-100 text-yellow-600 mx-auto">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+					</svg>
+				</div>
+				<h2 class="text-xl font-semibold text-center mb-2">New Students</h2>
+				<p class="text-gray-600 text-center">Upload new student enrollment data.</p>
+			</div>
+		</div>
+		<div class="mt-8 text-center">
+			<button
+				class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+				hx-get="/admin/bulk-upload"
+				hx-target="#content"
+			>
+				Cancel
+			</button>
+		</div>
+	</div>
+}
+
+// standardUploadForm is for regular CSV-only uploads (health assessment, grades, attendance)
+templ standardUploadForm() {
+	<div class="space-y-2">
+		<label class="block text-sm font-medium text-gray-700">School</label>
+		@components.TomSelect(components.SelectConfig{
+			Options: map[string]string{
+				"school1": "School One",
+				"school2": "School Two",
+				"school3": "School Three",
+			},
+			MaxItems:    1,
+			Name:        "school_id",
+			Placeholder: "Select a school",
+		})
+	</div>
+	<div class="space-y-2">
+		<label class="block text-sm font-medium text-gray-700">Reporting Period</label>
+		<input
+			type="text"
+			name="reporting_period"
+			placeholder="e.g., 2023-Q1, 2023-2024, etc."
+			class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+		/>
+	</div>
+	<div class="space-y-2">
+		<label class="block text-sm font-medium text-gray-700">File Upload</label>
+		<div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+			<div class="space-y-1 text-center">
+				<svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+					<path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+				</svg>
+				<div class="flex text-sm text-gray-600">
+					<label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+						<span>Upload a file</span>
+						<input id="file-upload" name="file" type="file" class="sr-only" accept=".csv,.xlsx,.xls"/>
+					</label>
+					<p class="pl-1">or drag and drop</p>
+				</div>
+				<p class="text-xs text-gray-500">CSV, Excel up to 10MB</p>
+			</div>
+		</div>
+	</div>
+}
+
+// uploadWithPhotosForm is specifically for student uploads with photos (ZIP format)
+templ uploadWithPhotosForm() {
+	<div class="space-y-2">
+		<label class="block text-sm font-medium text-gray-700">School</label>
+		@components.TomSelect(components.SelectConfig{
+			Options: map[string]string{
+				"school1": "School One",
+				"school2": "School Two",
+				"school3": "School Three",
+			},
+			MaxItems:    1,
+			Name:        "school_id",
+			Placeholder: "Select a school",
+		})
+	</div>
+	<div class="space-y-2">
+		<label class="block text-sm font-medium text-gray-700">File Upload</label>
+		<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+			<div class="flex">
+				<div class="flex-shrink-0">
+					<svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+					</svg>
+				</div>
+				<div class="ml-3">
+					<p class="text-sm text-yellow-700">
+						Upload must be a ZIP file containing a CSV and student photos.
+					</p>
+				</div>
+			</div>
+		</div>
+		<div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+			<div class="space-y-1 text-center">
+				<svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+					<path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+				</svg>
+				<div class="flex text-sm text-gray-600">
+					<label for="zip-file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+						<span>Upload a ZIP file</span>
+						<input id="zip-file-upload" name="file" type="file" class="sr-only" accept=".zip"/>
+					</label>
+					<p class="pl-1">or drag and drop</p>
+				</div>
+				<p class="text-xs text-gray-500">ZIP file up to 50MB containing CSV and student photos</p>
+			</div>
+		</div>
+		<div class="text-sm text-gray-600 mt-2">
+			<p>Your ZIP file must contain:</p>
+			<ul class="list-disc pl-5 mt-1">
+				<li>A CSV file named "students.csv" with student information</li>
+				<li>A "photos" directory with student photos named by their LRN (e.g., 12345678.jpg)</li>
+			</ul>
+		</div>
+	</div>
+}
+
+// This template will be used for the next step after selecting a bulk upload type
+templ UploadForm(domain string, uploadType string) {
+	<div class="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+		<div class="mb-8">
+			<h1 class="text-2xl font-bold mb-2">Upload { uploadType } Data</h1>
+			<p class="text-gray-600">Please upload a CSV file with the required data</p>
+		</div>
+		<form
+			class="space-y-6"
+			hx-encoding="multipart/form-data"
+			hx-post="/admin/bulk-upload/create"
+			hx-target="#content"
+		>
+			<input type="hidden" name="domain" value={ domain }/>
+			<input type="hidden" name="upload_type" value={ uploadType }/>
+			if domain == "new_students" {
+				@uploadWithPhotosForm()
+			} else {
+				@standardUploadForm()
+			}
+			<div class="flex items-center justify-between pt-4">
+				<button
+					type="button"
+					class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+					hx-get="/admin/bulk-upload/create"
+					hx-target="#content"
+				>
+					Back
+				</button>
+				<button
+					type="submit"
+					class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+				>
+					Upload and Process
+				</button>
+			</div>
+		</form>
+		<div class="mt-8 border-t pt-6">
+			<h3 class="text-lg font-medium mb-4">Template Files</h3>
+			<div class="space-y-2">
+				<p class="text-sm text-gray-600">Download a template file to ensure your data is formatted correctly:</p>
+				<div class="flex space-x-4">
+					if domain == "new_students" {
+						<a
+							href={ templ.SafeURL("/admin/bulk-upload/template?type=" + uploadType) }
+							class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+							download
+						>
+							<svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+							</svg>
+							Download ZIP Template
+						</a>
+					} else {
+						<a
+							href={ templ.SafeURL("/admin/bulk-upload/template?type=" + uploadType) }
+							class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+							download
+						>
+							<svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+							</svg>
+							Download Template
+						</a>
+					}
+					<a
+						href={ templ.SafeURL("/admin/bulk-upload/instructions") }
+						class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+						target="_blank"
+					>
+						<svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+						</svg>
+						View Instructions
+					</a>
+				</div>
+			</div>
+		</div>
+	</div>
+}

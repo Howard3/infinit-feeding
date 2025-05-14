@@ -8,7 +8,7 @@ templ AdminHome() {
 					<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">Welcome to the Admin Panel</h1>
 					<p class="font-medium text-gray-500">Please select an option below</p>
 				</div>
-				<div class="grid grid-cols-2 gap-4 max-w-3xl mx-auto">
+				<div class="grid grid-cols-3 gap-4 max-w-4xl mx-auto">
 					<a class="block h-full" hx-get="/admin/school">
 						<div
 							class="rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer transition-transform transform hover:scale-105"
@@ -26,6 +26,16 @@ templ AdminHome() {
 						>
 							<div class="p-6 bg-white shadow rounded-lg border border-gray-200">
 								Manage Students
+							</div>
+						</div>
+					</a>
+					<a class="block h-full" hx-get="/admin/bulk-upload">
+						<div
+							class="rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer transition-transform transform hover:scale-105"
+							data-v0-t="card"
+						>
+							<div class="p-6 bg-white shadow rounded-lg border border-gray-200">
+								Bulk Upload
 							</div>
 						</div>
 					</a>

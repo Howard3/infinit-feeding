@@ -1,0 +1,109 @@
+package bulk_upload
+
+import (
+	"context"
+	"fmt"
+	"geevly/gen/go/eda"
+	"time"
+
+	"github.com/Howard3/gosignal"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+type Service struct {
+	repo          Repository
+	eventHandlers *eventHandlers
+	acl           AntiCorruptionLayer
+}
+
+// Helper function to get timestamp for a specific status
+func getStatusTimestamp(statuses []*eda.BulkUpload_StatusTimestamp, status eda.BulkUpload_Status) *timestamppb.Timestamp {
+	for _, st := range statuses {
+		if st.Status == status {
+			return st.Timestamp
+		}
+	}
+	return nil
+}
+
+type AntiCorruptionLayer interface {
+	ValidateFileID(ctx context.Context, fileID string) error
+}
+
+func NewService(repo Repository, acl AntiCorruptionLayer) *Service {
+	return &Service{
+		repo:          repo,
+		eventHandlers: NewEventHandlers(repo),
+		acl:           acl,
+	}
+}
+
+type ListResponse struct {
+	BulkUploads []*ProjectedBulkUpload
+	Count       uint
+}
+
+// GetBulkUpload retrieves a single bulk upload by ID
+func (s *Service) GetBulkUpload(ctx context.Context, id string) (*Aggregate, error) {
+	agg, err := s.repo.loadBulkUpload(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load bulk upload: %w", err)
+	}
+
+	return agg, nil
+}
+
+func (s *Service) Create(ctx context.Context, cmd *eda.BulkUpload_Create) (*Aggregate, error) {
+	if err := s.acl.ValidateFileID(ctx, cmd.FileId); err != nil {
+		return nil, fmt.Errorf("invalid file ID: %w", err)
+	}
+
+	agg := &Aggregate{}
+	id := uuid.New().String()
+	agg.SetID(id)
+
+	evt, err := agg.Create(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bulk upload: %w", err)
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
+		return nil, fmt.Errorf("failed to save bulk upload event: %w", err)
+	}
+
+	s.eventHandlers.HandleBulkUploadEvent(ctx, evt)
+
+	return agg, nil
+}
+
+// ListBulkUploads retrieves a paginated list of bulk uploads
+func (s *Service) ListBulkUploads(ctx context.Context, limit, page uint) (*ListResponse, error) {
+	// Get bulk uploads
+	uploads, err := s.repo.listBulkUploads(ctx, limit, page)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list bulk uploads: %w", err)
+	}
+
+	// Get total count
+	count, err := s.repo.countBulkUploads(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count bulk uploads: %w", err)
+	}
+
+	return &ListResponse{
+		BulkUploads: uploads,
+		Count:       count,
+	}, nil
+}
+
+// Add other service methods for handling different commands...
+
+// timeFromTimestampToPtr converts a protobuf timestamp to a time.Time pointer
+func timeFromTimestampToPtr(ts *timestamppb.Timestamp) *time.Time {
+	if ts == nil {
+		return nil
+	}
+	t := ts.AsTime()
+	return &t
+}

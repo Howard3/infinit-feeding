@@ -23,6 +23,7 @@ message File {
         STUDENT_PROFILE_PHOTO = 1;
         FEEDING_TEMPORARY = 2;
         FEEDING_HISTORY = 3;
+        BULK_UPLOAD = 4;
     }
 
     message Create {
@@ -55,4 +56,3 @@ message File {
         }
     }
 }
-

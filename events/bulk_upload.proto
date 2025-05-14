@@ -1,0 +1,141 @@
+syntax = "proto3";
+package events.bulk_upload;
+option go_package = "geevly/eda";
+
+import "metadata.proto";
+import "google/protobuf/timestamp.proto";
+
+message BulkUpload {
+  string id = 1;
+  Status status = 2;
+  Domain target_domain = 3; // remember, we're in a DDD setup and this is the aggregate root
+  events.metadata.Metadata metadata = 4;
+  repeated StatusTimestamp status_timestamps = 5;
+  string file_id = 9; // Reference to the uploaded file
+  repeated ValidationError validation_errors = 10;
+  uint64 total_records = 11;
+  uint64 processed_records = 12;
+  uint64 failed_records = 13;
+  map<string, string> upload_metadata = 14; // Additional data like reporting period, school year etc.
+  map<string, bool> record_processing_status = 15; // Track which records are processed or not
+
+  enum Status {
+    UNKNOWN = 0;
+    PENDING = 1;
+    VALIDATING = 2;
+    PROCESSING = 3;
+    COMPLETED = 4; // end status, unless another action is taken
+    VALIDATION_FAILED = 5; // end status
+    INVALIDATING = 6;
+    INVALIDATED = 7; // end status
+  }
+
+  enum Domain {
+    UNSPECIFIED = 0;
+    NEW_STUDENTS = 1;
+    UPDATE_STUDENTS = 2;
+  }
+
+  message StatusTimestamp {
+    Status status = 1;
+    google.protobuf.Timestamp timestamp = 2;
+  }
+
+  message ValidationError {
+    Context context = 1; // This could be a row number, metadata field, or any other context
+    uint64 row_number = 2; // if context is ROW_NUMBER
+    string field = 3; // This could be a specific field within the context
+    string message = 4;
+
+    enum Context {
+      UNKNOWN = 0;
+      ROW_NUMBER = 1;
+      METADATA_FIELD = 2;
+      OTHER = 3;
+    }
+  }
+
+  // Commands
+  message Create {
+    Domain target_domain = 1;
+    string file_id = 2;
+    events.metadata.Metadata metadata = 3;
+    map<string, string> upload_metadata = 4; // Additional data passed at creation
+
+    message Event {
+      Domain target_domain = 1;
+      string file_id = 2;
+      google.protobuf.Timestamp initiated_at = 3;
+      events.metadata.Metadata metadata = 4;
+      map<string, string> upload_metadata = 5;
+    }
+  }
+
+  message StartProcessing {
+    uint64 version = 1;
+    events.metadata.Metadata metadata = 2;
+    uint64 total_records = 3;
+
+    message Event {
+      Status status = 1;
+      uint64 total_records = 2;
+      google.protobuf.Timestamp started_at = 3;
+    }
+  }
+
+  message UpdateProgress {
+    uint64 version = 1;
+    uint64 processed_records = 2;
+    uint64 failed_records = 3;
+    repeated ValidationError validation_errors = 4;
+    events.metadata.Metadata metadata = 5;
+
+    message Event {
+      uint64 processed_records = 1;
+      uint64 failed_records = 2;
+      repeated ValidationError validation_errors = 3;
+    }
+  }
+
+  message Complete {
+    uint64 version = 1;
+    events.metadata.Metadata metadata = 2;
+
+    message Event {
+      Status status = 1;
+      google.protobuf.Timestamp completed_at = 2;
+    }
+  }
+
+  message StartInvalidation {
+    uint64 version = 1;
+    events.metadata.Metadata metadata = 2;
+
+    message Event {
+      Status status = 1;
+      google.protobuf.Timestamp invalidation_started_at = 2;
+    }
+  }
+
+  message CompleteInvalidation {
+    uint64 version = 1;
+    events.metadata.Metadata metadata = 2;
+
+    message Event {
+      Status status = 1;
+      google.protobuf.Timestamp invalidation_completed_at = 2;
+    }
+  }
+
+  message Fail {
+    uint64 version = 1;
+    string error_message = 2;
+    events.metadata.Metadata metadata = 3;
+
+    message Event {
+      Status status = 1;
+      string error_message = 2;
+      google.protobuf.Timestamp failed_at = 3;
+    }
+  }
+}
