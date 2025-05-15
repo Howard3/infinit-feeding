@@ -11,3 +11,5 @@ dump.sql
 # Swagger
 docs/swagger*
 docs/docs.go
+dump*.sql
+.envrc

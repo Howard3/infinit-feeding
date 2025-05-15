@@ -7,8 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"geevly/gen/go/eda"
-	"geevly/internal/bulk_upload/db"
+	"geevly/internal/bulk_upload/db/sqlc"
 	"geevly/internal/infrastructure"
+	"io/fs"
 	"time"
 
 	"github.com/Howard3/gosignal"
@@ -16,40 +17,22 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-//go:embed db/schema/schema.sql
-var schemaFiles embed.FS
+//go:embed db/migrations/*.sql
+var migrations embed.FS
 
 type Repository interface {
 	loadBulkUpload(ctx context.Context, id string) (*Aggregate, error)
 	upsertProjection(upload *Aggregate) error
 	saveEvents(ctx context.Context, evts []gosignal.Event) error
-	listBulkUploads(ctx context.Context, limit, page uint) ([]*ProjectedBulkUpload, error)
+	listBulkUploads(ctx context.Context, limit, page uint) ([]sqlc.BulkUploadProjection, error)
 	countBulkUploads(ctx context.Context) (uint, error)
-	validateFileID(ctx context.Context, fileID string) error
-}
-
-type ProjectedBulkUpload struct {
-	ID                      string
-	Status                  string
-	TargetDomain            string
-	FileID                  string
-	InitiatedAt             time.Time
-	CompletedAt             *time.Time
-	InvalidationStartedAt   *time.Time
-	InvalidationCompletedAt *time.Time
-	TotalRecords            int64
-	ProcessedRecords        int64
-	FailedRecords           int64
-	UploadMetadata          map[string]string
-	Version                 int
-	UpdatedAt               time.Time
 }
 
 type sqlRepository struct {
 	db            *sql.DB
-	querier       db.Querier
 	eventSourcing *sourcing.Repository
 	queue         gosignal.Queue
+	queries       *sqlc.Queries
 }
 
 func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repository {
@@ -60,12 +43,17 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 
 	repo := &sqlRepository{
 		db:      sqlDB,
-		querier: db.New(sqlDB),
+		queries: sqlc.New(sqlDB),
 	}
 
-	// Initialize the schema directly using our db package
-	if err := db.InitSchema(sqlDB); err != nil {
-		panic(fmt.Errorf("failed to initialize schema: %w", err))
+	// sub the fs because we need to make it compatible with infrastructure.MigrateSQLDatabase
+	subMigrationsFS, err := fs.Sub(migrations, "db")
+	if err != nil {
+		panic(fmt.Errorf("failed to load migrations: %w", err))
+	}
+
+	if err := infrastructure.MigrateSQLDatabase(`bulk_upload`, string(conn.Type), sqlDB, subMigrationsFS); err != nil {
+		panic(fmt.Errorf("failed to migrate database for bulk_upload: %w", err))
 	}
 
 	repo.queue = queue
@@ -77,17 +65,6 @@ func NewRepository(conn infrastructure.SQLConnection, queue gosignal.Queue) Repo
 func (r *sqlRepository) setupEventSourcing(conn infrastructure.SQLConnection) {
 	es := conn.GetSourcingConnection(r.db, "bulk_upload_events")
 	r.eventSourcing = sourcing.NewRepository(sourcing.WithEventStore(es), sourcing.WithQueue(r.queue))
-
-	// Ensure the SQLite database has the correct schema
-	// This will be a no-op if the schema already exists
-	r.ensureSchema()
-}
-
-// ensureSchema ensures that the SQLite database has the correct schema
-func (r *sqlRepository) ensureSchema() {
-	if err := db.InitSchema(r.db); err != nil {
-		panic(fmt.Errorf("failed to initialize bulk upload schema: %w", err))
-	}
 }
 
 func (r *sqlRepository) loadBulkUpload(ctx context.Context, id string) (*Aggregate, error) {
@@ -130,7 +107,7 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		initiatedAt = time.Now()
 	}
 
-	params := db.UpsertBulkUploadProjectionParams{
+	params := sqlc.UpsertBulkUploadProjectionParams{
 		ID:                      agg.ID,
 		Status:                  agg.data.Status.String(),
 		TargetDomain:            agg.data.TargetDomain.String(),
@@ -146,7 +123,7 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		Version:                 int64(agg.Version),
 	}
 
-	err = r.querier.UpsertBulkUploadProjection(context.Background(), params)
+	err = r.queries.UpsertBulkUploadProjection(context.Background(), params)
 	if err != nil {
 		return fmt.Errorf("failed to upsert bulk upload: %w", err)
 	}
@@ -159,53 +136,17 @@ func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) e
 }
 
 // listBulkUploads returns a paginated list of bulk uploads
-func (r *sqlRepository) listBulkUploads(ctx context.Context, limit, page uint) ([]*ProjectedBulkUpload, error) {
+func (r *sqlRepository) listBulkUploads(ctx context.Context, limit, page uint) ([]sqlc.BulkUploadProjection, error) {
 	offset := page * limit
 
-	params := db.ListBulkUploadsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+	params := sqlc.ListBulkUploadsParams{
+		Limit:  int64(limit),
+		Offset: int64(offset),
 	}
 
-	dbUploads, err := r.querier.ListBulkUploads(ctx, params)
+	uploads, err := r.queries.ListBulkUploads(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query bulk uploads: %w", err)
-	}
-
-	uploads := make([]*ProjectedBulkUpload, 0, len(dbUploads))
-	for _, dbUpload := range dbUploads {
-		upload := &ProjectedBulkUpload{
-			ID:               dbUpload.ID,
-			Status:           dbUpload.Status,
-			TargetDomain:     dbUpload.TargetDomain,
-			FileID:           dbUpload.FileID,
-			InitiatedAt:      dbUpload.InitiatedAt,
-			TotalRecords:     dbUpload.TotalRecords,
-			ProcessedRecords: dbUpload.ProcessedRecords,
-			FailedRecords:    dbUpload.FailedRecords,
-			UpdatedAt:        dbUpload.UpdatedAt,
-			Version:          int(dbUpload.Version),
-		}
-
-		if dbUpload.CompletedAt.Valid {
-			upload.CompletedAt = &dbUpload.CompletedAt.Time
-		}
-		if dbUpload.InvalidationStartedAt.Valid {
-			upload.InvalidationStartedAt = &dbUpload.InvalidationStartedAt.Time
-		}
-		if dbUpload.InvalidationCompletedAt.Valid {
-			upload.InvalidationCompletedAt = &dbUpload.InvalidationCompletedAt.Time
-		}
-
-		// Parse metadata JSON
-		upload.UploadMetadata = make(map[string]string)
-		if dbUpload.UploadMetadata != "" {
-			if err := json.Unmarshal([]byte(dbUpload.UploadMetadata), &upload.UploadMetadata); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-			}
-		}
-
-		uploads = append(uploads, upload)
 	}
 
 	return uploads, nil
@@ -213,26 +154,12 @@ func (r *sqlRepository) listBulkUploads(ctx context.Context, limit, page uint) (
 
 // countBulkUploads returns the total number of bulk uploads
 func (r *sqlRepository) countBulkUploads(ctx context.Context) (uint, error) {
-	count, err := r.querier.CountBulkUploads(ctx)
+	count, err := r.queries.CountBulkUploads(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count bulk uploads: %w", err)
 	}
 
 	return uint(count), nil
-}
-
-// validateFileID checks if a file ID exists in the system
-func (r *sqlRepository) validateFileID(ctx context.Context, fileID string) error {
-	exists, err := r.querier.ValidateFileID(ctx, fileID)
-	if err != nil {
-		return fmt.Errorf("failed to validate file ID: %w", err)
-	}
-
-	if !exists {
-		return fmt.Errorf("file ID %s does not exist", fileID)
-	}
-
-	return nil
 }
 
 // Helper function to convert protobuf timestamp to sql.NullTime

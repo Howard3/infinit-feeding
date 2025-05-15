@@ -2,15 +2,16 @@ package infrastructure
 
 import (
 	"database/sql"
-	"embed"
 	"fmt"
+	"io/fs"
+	"log/slog"
 
 	"github.com/pressly/goose/v3"
 )
 
 // MigrateSQLDatabase migrates the database, using the dbmate library
 // NOTE: assumes that the migrations are in a folder called "migrations"
-func MigrateSQLDatabase(domain, dialect string, db *sql.DB, fs embed.FS) error {
+func MigrateSQLDatabase(domain, dialect string, db *sql.DB, fs fs.FS) error {
 	if dialect == "libsql" {
 		dialect = "sqlite3"
 	}
@@ -19,6 +20,8 @@ func MigrateSQLDatabase(domain, dialect string, db *sql.DB, fs embed.FS) error {
 	if err := goose.SetDialect(dialect); err != nil {
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
+
+	slog.Info("running migrations", "domain", domain)
 
 	goose.SetTableName(domain + "_goose_db_version")
 

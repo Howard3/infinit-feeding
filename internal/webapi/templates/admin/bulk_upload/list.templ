@@ -3,6 +3,7 @@ package bulk_upload
 import (
 	"fmt"
 	"geevly/internal/bulk_upload"
+	"geevly/internal/bulk_upload/db/sqlc"
 	"geevly/internal/webapi/templates/components"
 )
 
@@ -52,7 +53,7 @@ templ List(response *bulk_upload.ListResponse, pagination components.Pagination)
 									<td class="p-4 align-middle">{ upload.InitiatedAt.Format("2006-01-02 15:04:05") }</td>
 									<td class="p-4 align-middle">
 										@components.PrimaryButton("View", templ.Attributes{
-											"hx-get": fmt.Sprintf("/admin/bulk-upload/%s", upload.ID),
+											"hx-get": fmt.Sprintf("/admin/bulk-upload/view/%s", upload.ID),
 										})
 									</td>
 								</tr>
@@ -119,7 +120,7 @@ templ statusBadge(status string) {
 	}
 }
 
-templ progressBar(upload *bulk_upload.ProjectedBulkUpload) {
+templ progressBar(upload sqlc.BulkUploadProjection) {
 	if upload.TotalRecords > 0 {
 		@progressBarWithPercentage(
 			int(upload.ProcessedRecords),

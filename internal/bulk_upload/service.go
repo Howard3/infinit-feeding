@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"geevly/gen/go/eda"
+	"geevly/internal/bulk_upload/db/sqlc"
 	"time"
 
 	"github.com/Howard3/gosignal"
@@ -40,7 +41,7 @@ func NewService(repo Repository, acl AntiCorruptionLayer) *Service {
 }
 
 type ListResponse struct {
-	BulkUploads []*ProjectedBulkUpload
+	BulkUploads []sqlc.BulkUploadProjection
 	Count       uint
 }
 
