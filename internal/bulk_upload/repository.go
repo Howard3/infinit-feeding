@@ -118,7 +118,6 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		InvalidationCompletedAt: invalidationCompletedAt,
 		TotalRecords:            int64(agg.data.TotalRecords),
 		ProcessedRecords:        int64(agg.data.ProcessedRecords),
-		FailedRecords:           int64(agg.data.FailedRecords),
 		UploadMetadata:          string(metadata),
 		Version:                 int64(agg.Version),
 	}

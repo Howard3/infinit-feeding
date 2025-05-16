@@ -143,10 +143,10 @@ func getHealthAssessmentTemplate(templateType BulkTemplateType) (BulkTemplateInf
 func getGradesTemplate(templateType BulkTemplateType) (BulkTemplateInfo, error) {
 	switch templateType {
 	case CSV:
-		data := []byte(`student_id,subject,grade,term,academic_year
-"ST001","Mathematics",92,"Term 1","2023-2024"
-"ST001","Science",88,"Term 1","2023-2024"
-"ST001","English",90,"Term 1","2023-2024"`)
+		data := []byte(`LRN,Grade
+"12345678",92
+"23456789",88
+"34567890",90`)
 
 		return BulkTemplateInfo{
 			Filename:    "grades_template.csv",

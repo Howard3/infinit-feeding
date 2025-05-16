@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"geevly/gen/go/eda"
+	"strconv"
 	"time"
 
 	"github.com/Howard3/gosignal"
@@ -25,6 +26,22 @@ const (
 type Aggregate struct {
 	sourcing.DefaultAggregate
 	data *eda.BulkUpload
+}
+
+func (a *Aggregate) GetDomain() eda.BulkUpload_Domain {
+	return a.data.GetTargetDomain()
+}
+
+func (a *Aggregate) GetFileID() string {
+	return a.data.FileId
+}
+
+func (a *Aggregate) CountTotalRecords() uint64 {
+	return a.data.TotalRecords
+}
+
+func (a *Aggregate) CountProcessedRecords() uint64 {
+	return a.data.ProcessedRecords
 }
 
 func (a *Aggregate) GetUploadMetadata() map[string]string {
@@ -145,6 +162,10 @@ func (a *Aggregate) Create(cmd *eda.BulkUpload_Create) (*gosignal.Event, error) 
 		if err := a.validateNewStudents(cmd); err != nil {
 			return nil, err
 		}
+	case eda.BulkUpload_GRADES:
+		if err := a.validateGrades(cmd); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, errors.New("invalid target domain")
 	}
@@ -170,6 +191,69 @@ func (a *Aggregate) validateNewStudents(cmd *eda.BulkUpload_Create) error {
 	default:
 		return nil
 	}
+}
+
+func (a *Aggregate) validateGrades(cmd *eda.BulkUpload_Create) error {
+	// First check if metadata exists
+	if cmd.UploadMetadata == nil {
+		return errors.New("upload metadata is required")
+	}
+
+	// Extract values from metadata
+	schoolID := cmd.UploadMetadata["school_id"]
+	schoolYear := cmd.UploadMetadata["school_year"]
+	gradingPeriod := cmd.UploadMetadata["grading_period"]
+	effectiveDate := cmd.UploadMetadata["effective_date"]
+
+	// Check required fields
+	if schoolID == "" {
+		return errors.New("school id is required")
+	}
+	if schoolYear == "" {
+		return errors.New("school year is required")
+	}
+	if gradingPeriod == "" {
+		return errors.New("grading period is required")
+	}
+	if effectiveDate == "" {
+		return errors.New("effective date is required")
+	}
+
+	// Validate numeric fields
+	if _, err := strconv.Atoi(schoolID); err != nil {
+		return errors.New("invalid school ID format")
+	}
+	if _, err := strconv.Atoi(gradingPeriod); err != nil {
+		return errors.New("invalid grading period format")
+	}
+
+	// Validate date format
+	if _, err := time.Parse("2006-01-02", effectiveDate); err != nil {
+		return errors.New("invalid date format")
+	}
+
+	// Validate school year format (YYYY-YYYY)
+	if len(schoolYear) != 9 || schoolYear[4] != '-' {
+		return errors.New("invalid school year format")
+	}
+
+	startYear := schoolYear[:4]
+	endYear := schoolYear[5:]
+
+	// Check if the years are valid
+	if _, err := strconv.Atoi(startYear); err != nil {
+		return errors.New("invalid school year start")
+	}
+	if _, err := strconv.Atoi(endYear); err != nil {
+		return errors.New("invalid school year end")
+	}
+
+	// Validate date is not in the future
+	if effectiveDate > time.Now().Format("2006-01-02") {
+		return errors.New("effective date cannot be in the future")
+	}
+
+	return nil
 }
 
 // Event handlers

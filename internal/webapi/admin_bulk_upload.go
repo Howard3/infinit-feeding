@@ -1,12 +1,14 @@
 package webapi
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"geevly/gen/go/eda"
+	"geevly/internal/webapi/bulk_domains"
 	"geevly/internal/webapi/static"
 	"geevly/internal/webapi/templates/admin/bulk_upload"
 	components "geevly/internal/webapi/templates/components"
@@ -22,7 +24,22 @@ func (s *Server) bulkUploadAdminRoutes(r chi.Router) {
 	r.Post("/create", s.bulkUploadAdminStoreUpload)
 	r.Get("/template", s.bulkUploadAdminTemplate)
 	r.Get("/instructions", s.bulkUploadAdminInstructions)
-	r.Get("/view/{id}", s.bulkUploadAdminView)
+	r.Get("/{id}/view", s.bulkUploadAdminView)
+	r.Post("/{id}/start-processing", s.bulkUploadAdminProcessUpload)
+	r.Get("/{id}/download", s.bulkUploadAdminDownload)
+}
+
+// fileServiceWrapper adapts the Server's FileSvc to the bulk_domains.FileService interface
+type fileServiceWrapper struct {
+	svc *Server
+}
+
+func (f *fileServiceWrapper) CreateFile(r http.Request, fileBytes []byte, fileCreate *eda.File_Create) (string, error) {
+	return f.svc.FileSvc.CreateFile(r.Context(), fileBytes, fileCreate)
+}
+
+func (f *fileServiceWrapper) GetFileBytes(r http.Request, domainRef string, fileID string) ([]byte, error) {
+	return f.svc.FileSvc.GetFileBytes(r.Context(), domainRef, fileID)
 }
 
 func (s *Server) bulkUploadAdminList(w http.ResponseWriter, r *http.Request) {
@@ -53,9 +70,22 @@ func (s *Server) bulkUploadAdminUploadForm(w http.ResponseWriter, r *http.Reques
 	case "new_students":
 		s.newStudents(w, r)
 		return
+	case "grades":
+		s.grades(w, r)
+		return
 	}
 
 	// TODO: handle fallthrough
+}
+
+func (s *Server) grades(w http.ResponseWriter, r *http.Request) {
+	schools, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.renderTempl(w, r, bulk_upload.GradesForm(schools))
 }
 
 func (s *Server) newStudents(w http.ResponseWriter, r *http.Request) {
@@ -68,68 +98,61 @@ func (s *Server) newStudents(w http.ResponseWriter, r *http.Request) {
 	s.renderTempl(w, r, bulk_upload.NewStudents(schools))
 }
 
-func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Request) {
-	domain := r.FormValue("domain")
-	switch domain {
-	case "new_students":
-		// upload to storage
-		fileID, err := s.bulkUploadNewStudents(r)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		// build the aggregate
-		agg, err := s.BulkUploadSvc.Create(r.Context(), &eda.BulkUpload_Create{
-			TargetDomain: eda.BulkUpload_NEW_STUDENTS,
-			FileId:       fileID,
-			UploadMetadata: map[string]string{
-				"school_id": r.FormValue("school_id"),
-			},
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		// redirect to agg id
-		s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/view/%s", agg.ID), "File uploaded"))
-	}
-
-	http.Error(w, "Invalid domain", http.StatusBadRequest)
-	return
+// handleBulkUploadError sends an appropriate error response
+func (s *Server) handleBulkUploadError(w http.ResponseWriter, message string, status int) {
+	slog.Warn("bulk upload error", "error", message)
+	w.WriteHeader(status)
+	w.Write([]byte(message))
 }
-func (s *Server) bulkUploadNewStudents(r *http.Request) (string, error) {
-	// TODO: allow larger file selection later. currently limited to 50MB
-	if err := r.ParseMultipartForm(50 << 20); err != nil {
-		err = fmt.Errorf("parsing form %w", err)
-		return "", err
+
+// handleBulkUploadSuccess redirects to the bulk upload view page
+func (s *Server) handleBulkUploadSuccess(w http.ResponseWriter, r *http.Request, aggID string) {
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", aggID), "File uploaded"))
+}
+
+func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Request) {
+	// Create a domain registry
+	registry := bulk_domains.NewDomainRegistry()
+
+	// Get domain handler for the requested domain
+	domainName := r.FormValue("domain")
+	domain, exists := registry.GetDomain(domainName)
+
+	if !exists {
+		http.Error(w, "Invalid domain", http.StatusBadRequest)
+		return
 	}
 
-	file, _, err := r.FormFile("students_file")
+	// Create a file service wrapper to adapt our service to the domain interface
+	fileService := &fileServiceWrapper{svc: s}
+
+	// Process the file upload using the domain handler
+	fileID, err := domain.UploadFile(r, fileService)
 	if err != nil {
-		err = fmt.Errorf("getting file %w", err)
-		return "", err
+		s.handleBulkUploadError(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	defer file.Close()
 
-	fileBytes, err := io.ReadAll(file)
+	// Validate and get metadata
+	metadata, err := domain.ValidateFormData(r)
 	if err != nil {
-		err = fmt.Errorf("reading file %w", err)
-		return "", err
+		s.handleBulkUploadError(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	fileID, err := s.FileSvc.CreateFile(r.Context(), fileBytes, &eda.File_Create{
-		Name:            "bulk_upload_new_students",
-		DomainReference: eda.File_BULK_UPLOAD,
+	// Build the aggregate
+	agg, err := s.BulkUploadSvc.Create(r.Context(), &eda.BulkUpload_Create{
+		TargetDomain:   domain.GetDomain(),
+		FileId:         fileID,
+		UploadMetadata: metadata,
 	})
 	if err != nil {
-		return "", err
+		s.handleBulkUploadError(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	return fileID, nil
+	// Redirect to the view page
+	s.handleBulkUploadSuccess(w, r, agg.ID)
 }
 
 func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Request) {
@@ -184,4 +207,34 @@ func (s *Server) bulkUploadAdminView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, bulk_upload.ViewBulkUpload(agg))
+}
+
+func (s *Server) bulkUploadAdminDownload(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	agg, err := s.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		slog.Error("error getting bulk upload", "err", err)
+		http.Error(w, "error: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// TODO: implement download logic
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	// indicate not implemented
+	data, err := s.getFile(r.Context(), agg.GetFileID())
+	if err != nil {
+		slog.Error("error getting file", "err", err)
+		http.Error(w, "error: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/octet-stream")
+	w.Header().Add("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Add("Content-Disposition", "attachment; filename=\"bulk_upload\"") // TODO: proper extension
+	w.Write(data)
+}
+
+func (s *Server) getFile(ctx context.Context, fileID string) ([]byte, error) {
+	return s.FileSvc.GetFileBytes(ctx, eda.File_BULK_UPLOAD.String(), fileID)
 }
