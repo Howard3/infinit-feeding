@@ -1,9 +1,20 @@
 package bulk_domains
 
 import (
+	"context"
 	"geevly/gen/go/eda"
+	"geevly/internal/bulk_upload"
+	"geevly/internal/file"
+	"geevly/internal/school"
+	"geevly/internal/student"
 	"net/http"
 )
+
+// ValidationResult contains the result of a bulk upload validation
+type ValidationResult struct {
+	IsValid bool
+	Errors  []eda.BulkUpload_ValidationError
+}
 
 // BulkUploadDomain defines the interface for domain-specific upload handlers
 type BulkUploadDomain interface {
@@ -11,7 +22,7 @@ type BulkUploadDomain interface {
 	ValidateFormData(r *http.Request) (map[string]string, error)
 
 	// UploadFile handles the file upload process
-	UploadFile(r *http.Request, fileSvc FileService) (string, error)
+	UploadFile(r *http.Request, fileSvc *file.Service) (string, error)
 
 	// GetTargetDomain returns the EDA domain type
 	GetDomain() eda.BulkUpload_Domain
@@ -21,12 +32,16 @@ type BulkUploadDomain interface {
 
 	// GetMaxFileSize returns the maximum file size in bytes
 	GetMaxFileSize() int64
+
+	// ValidateUpload validates the uploaded file against business rules
+	ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) (*ValidationResult, error)
 }
 
-// FileService defines the interface for file storage operations
-type FileService interface {
-	CreateFile(ctx http.Request, fileBytes []byte, fileCreate *eda.File_Create) (string, error)
-	GetFileBytes(ctx http.Request, domainRef string, fileID string) ([]byte, error)
+// ServiceRegistry contains all services that domain handlers might need. Redefined here to prevent circular dependencies.
+type ServiceRegistry struct {
+	SchoolService  *school.Service
+	StudentService *student.StudentService
+	FileService    *file.Service
 }
 
 // DomainRegistry manages domain handlers
@@ -35,14 +50,14 @@ type DomainRegistry struct {
 }
 
 // NewDomainRegistry creates and initializes a new domain registry
-func NewDomainRegistry() *DomainRegistry {
+func NewDomainRegistry(services *ServiceRegistry) *DomainRegistry {
 	registry := &DomainRegistry{
 		domains: make(map[string]BulkUploadDomain),
 	}
 
-	// Register domains
-	registry.domains["new_students"] = &NewStudentsDomain{}
-	registry.domains["grades"] = &GradesDomain{}
+	// Register domains with access to services
+	registry.domains["new_students"] = NewNewStudentsDomain(services)
+	registry.domains["grades"] = NewGradesDomain(services)
 
 	return registry
 }
@@ -56,4 +71,22 @@ func (r *DomainRegistry) GetDomain(domainName string) (BulkUploadDomain, bool) {
 // RegisterDomain adds a new domain handler to the registry
 func (r *DomainRegistry) RegisterDomain(name string, domain BulkUploadDomain) {
 	r.domains[name] = domain
+}
+
+// validateHeaders checks if all required columns are present in the header
+func validateHeaders(header []string, requiredColumns []string) []string {
+	var missingColumns []string
+	headerMap := make(map[string]bool)
+
+	for _, col := range header {
+		headerMap[col] = true
+	}
+
+	for _, required := range requiredColumns {
+		if _, ok := headerMap[required]; !ok {
+			missingColumns = append(missingColumns, required)
+		}
+	}
+
+	return missingColumns
 }

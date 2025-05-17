@@ -23,7 +23,7 @@ func (s *Server) adminReports(r chi.Router) {
 }
 
 func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
-	schoolMap, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
 		return
@@ -66,13 +66,13 @@ func (s *Server) exportFeedingReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	studentList, err := s.StudentSvc.ListForSchool(r.Context(), schoolID)
+	studentList, err := s.Services.StudentSvc.ListForSchool(r.Context(), schoolID)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching students", err)
 		return
 	}
 
-	students, err := s.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, startDate, endDate)
+	students, err := s.Services.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, startDate, endDate)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding events", err)
 		return
@@ -169,7 +169,7 @@ func (s *Server) feedingReportCSV(w http.ResponseWriter, students []*student.Gro
 
 func (s *Server) adminSponsoredStudentsReport(w http.ResponseWriter, r *http.Request) {
 	// Get all current sponsorships
-	sponsorships, err := s.StudentSvc.GetAllCurrentSponsorships(r.Context())
+	sponsorships, err := s.Services.StudentSvc.GetAllCurrentSponsorships(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching sponsorships", err)
 		return
@@ -186,7 +186,7 @@ func (s *Server) adminSponsoredStudentsReport(w http.ResponseWriter, r *http.Req
 		}
 
 		// Get student details
-		student, err := s.StudentSvc.GetStudent(r.Context(), studentID)
+		student, err := s.Services.StudentSvc.GetStudent(r.Context(), studentID)
 		if err != nil {
 			s.errorPage(w, r, "Error fetching student details", err)
 			return
@@ -222,14 +222,14 @@ func (s *Server) adminSponsoredStudentsReport(w http.ResponseWriter, r *http.Req
 func (s *Server) adminRecentFeedingsReport(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := 20
-	feedingEvents, total, err := s.StudentSvc.GetRecentFeedingEvents(r.Context(), int(page), limit)
+	feedingEvents, total, err := s.Services.StudentSvc.GetRecentFeedingEvents(r.Context(), int(page), limit)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching recent feedings", err)
 		return
 	}
 
 	// Get school names
-	schoolMap, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
 		return

@@ -77,7 +77,7 @@ func (s *Server) feedingReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	evt, err := s.StudentSvc.GetStudentEvent(r.Context(), sID, eidUint)
+	evt, err := s.Services.StudentSvc.GetStudentEvent(r.Context(), sID, eidUint)
 	if err != nil {
 		s.errorPage(w, r, "Error getting event", err)
 		return
@@ -99,13 +99,13 @@ func (s *Server) feedingReport(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminViewStudent(w http.ResponseWriter, r *http.Request) {
 	studentID := s.getStudentIDFromContext(r.Context())
-	student, err := s.StudentSvc.GetStudent(r.Context(), studentID)
+	student, err := s.Services.StudentSvc.GetStudent(r.Context(), studentID)
 	if err != nil {
 		s.errorPage(w, r, "Error getting student", err)
 		return
 	}
 
-	schools, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	schools, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error getting schools", err)
 		return
@@ -138,7 +138,7 @@ func (s *Server) adminListStudents(w http.ResponseWriter, r *http.Request) {
 		opts = append(opts, student.WithNameSearch(searchQuery))
 	}
 
-	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
+	students, err := s.Services.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
 	if err != nil {
 		s.errorPage(w, r, "Error listing students", err)
 		return
@@ -169,7 +169,7 @@ func (s *Server) adminCreateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agg, err := s.StudentSvc.CreateStudent(r.Context(), &student)
+	agg, err := s.Services.StudentSvc.CreateStudent(r.Context(), &student)
 	if err != nil {
 		// TODO: handle error on-form
 		s.errorPage(w, r, "Error creating student", err)
@@ -197,7 +197,7 @@ func (s *Server) adminUpdateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &cmd)
+	_, err := s.Services.StudentSvc.RunCommand(r.Context(), studentID, &cmd)
 	if err != nil {
 		s.errorPage(w, r, "Error updating student", err)
 		return
@@ -221,7 +221,7 @@ func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetStatus{
+	_, err := s.Services.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetStatus{
 		Version: *vex.ReturnUint64(ex, "ver"),
 		Status:  newStatus,
 	})
@@ -236,7 +236,7 @@ func (s *Server) toggleStudentStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) adminStudentHistory(w http.ResponseWriter, r *http.Request) {
 	studentID := s.getStudentIDFromContext(r.Context())
 
-	history, err := s.StudentSvc.GetHistory(r.Context(), studentID)
+	history, err := s.Services.StudentSvc.GetHistory(r.Context(), studentID)
 	if err != nil {
 		s.errorPage(w, r, "Error getting student history", err)
 		return
@@ -259,7 +259,7 @@ func (s *Server) adminEnrollStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &cmd)
+	_, err := s.Services.StudentSvc.RunCommand(r.Context(), studentID, &cmd)
 	if err != nil {
 		s.errorPage(w, r, "Error enrolling student", err)
 		return
@@ -279,7 +279,7 @@ func (s *Server) adminUnenrollStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_Unenroll{
+	_, err := s.Services.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_Unenroll{
 		Version: version,
 	})
 	if err != nil {
@@ -309,7 +309,7 @@ func (s *Server) adminRegenerateCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: retry on fail
-	_, err = s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetLookupCode{
+	_, err = s.Services.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetLookupCode{
 		CodeUniqueId: code,
 		Version:      ver,
 	})
@@ -332,7 +332,7 @@ func (s *Server) toggleStudentEligibility(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err = s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetEligibility{
+	_, err = s.Services.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetEligibility{
 		Version:  *vex.ReturnUint64(ex, "ver"),
 		Eligible: eligible,
 	})
@@ -399,7 +399,7 @@ func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fileID, err := s.FileSvc.CreateFile(r.Context(), fileBytes, &eda.File_Create{
+	fileID, err := s.Services.FileSvc.CreateFile(r.Context(), fileBytes, &eda.File_Create{
 		Name:            "profile_photo",
 		DomainReference: eda.File_STUDENT_PROFILE_PHOTO,
 	})
@@ -409,7 +409,7 @@ func (s *Server) adminUploadProfilePhoto(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	_, err = s.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetProfilePhoto{
+	_, err = s.Services.StudentSvc.RunCommand(r.Context(), studentID, &eda.Student_SetProfilePhoto{
 		FileId:  fileID,
 		Version: ver,
 	})

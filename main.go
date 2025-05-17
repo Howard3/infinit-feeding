@@ -66,13 +66,6 @@ func main() {
 	bulkUploadRepo := bulk_upload.NewRepository(db, &mq)
 	bulkUploadService := bulk_upload.NewService(bulkUploadRepo, bulkUploadACL)
 
-	server := webapi.Server{
-		StaticFS:      getStaticFS(),
-		StudentSvc:    studentService,
-		SchoolSvc:     schoolService,
-		FileSvc:       fileService,
-		Clerk:         clerkClient,
-		BulkUploadSvc: bulkUploadService,
-	}
+	server := webapi.NewServer(":3000", getStaticFS(), studentService, schoolService, fileService, bulkUploadService, clerkClient)
 	server.Start(ctx)
 }

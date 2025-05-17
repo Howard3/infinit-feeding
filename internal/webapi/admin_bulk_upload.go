@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"geevly/gen/go/eda"
-	"geevly/internal/webapi/bulk_domains"
 	"geevly/internal/webapi/static"
 	"geevly/internal/webapi/templates/admin/bulk_upload"
 	components "geevly/internal/webapi/templates/components"
@@ -29,25 +28,12 @@ func (s *Server) bulkUploadAdminRoutes(r chi.Router) {
 	r.Get("/{id}/download", s.bulkUploadAdminDownload)
 }
 
-// fileServiceWrapper adapts the Server's FileSvc to the bulk_domains.FileService interface
-type fileServiceWrapper struct {
-	svc *Server
-}
-
-func (f *fileServiceWrapper) CreateFile(r http.Request, fileBytes []byte, fileCreate *eda.File_Create) (string, error) {
-	return f.svc.FileSvc.CreateFile(r.Context(), fileBytes, fileCreate)
-}
-
-func (f *fileServiceWrapper) GetFileBytes(r http.Request, domainRef string, fileID string) ([]byte, error) {
-	return f.svc.FileSvc.GetFileBytes(r.Context(), domainRef, fileID)
-}
-
 func (s *Server) bulkUploadAdminList(w http.ResponseWriter, r *http.Request) {
 	limit := s.limitQuery(r)
 	page := s.pageQuery(r)
 
 	// Fetch bulk uploads from the service
-	uploadList, err := s.BulkUploadSvc.ListBulkUploads(r.Context(), limit, page-1)
+	uploadList, err := s.Services.BulkUploadSvc.ListBulkUploads(r.Context(), limit, page-1)
 	if err != nil {
 		slog.Error("failed to list bulk uploads", "error", err)
 		s.errorPage(w, r, "Failed to load bulk uploads", err)
@@ -79,7 +65,7 @@ func (s *Server) bulkUploadAdminUploadForm(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) grades(w http.ResponseWriter, r *http.Request) {
-	schools, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	schools, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -89,7 +75,7 @@ func (s *Server) grades(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) newStudents(w http.ResponseWriter, r *http.Request) {
-	schools, err := s.SchoolSvc.MapSchoolsByID(r.Context())
+	schools, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -111,23 +97,17 @@ func (s *Server) handleBulkUploadSuccess(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Request) {
-	// Create a domain registry
-	registry := bulk_domains.NewDomainRegistry()
-
 	// Get domain handler for the requested domain
 	domainName := r.FormValue("domain")
-	domain, exists := registry.GetDomain(domainName)
+	domain, exists := s.bulkDomainRegistry.GetDomain(domainName)
 
 	if !exists {
 		http.Error(w, "Invalid domain", http.StatusBadRequest)
 		return
 	}
 
-	// Create a file service wrapper to adapt our service to the domain interface
-	fileService := &fileServiceWrapper{svc: s}
-
 	// Process the file upload using the domain handler
-	fileID, err := domain.UploadFile(r, fileService)
+	fileID, err := domain.UploadFile(r, s.Services.FileSvc)
 	if err != nil {
 		s.handleBulkUploadError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -141,7 +121,7 @@ func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Build the aggregate
-	agg, err := s.BulkUploadSvc.Create(r.Context(), &eda.BulkUpload_Create{
+	agg, err := s.Services.BulkUploadSvc.Create(r.Context(), &eda.BulkUpload_Create{
 		TargetDomain:   domain.GetDomain(),
 		FileId:         fileID,
 		UploadMetadata: metadata,
@@ -151,16 +131,56 @@ func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// We'll implement validation during the processing phase for now
+	slog.Info("file uploaded successfully, validation will occur during processing",
+		"domain", domainName,
+		"fileID", fileID)
+
 	// Redirect to the view page
 	s.handleBulkUploadSuccess(w, r, agg.ID)
 }
 
 func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement upload processing logic
+	id := chi.URLParam(r, "id")
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		slog.Error("error getting bulk upload for processing", "err", err)
+		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Convert enum domain to string domain name
+	var domainName string
+	switch agg.GetDomain() {
+	case eda.BulkUpload_NEW_STUDENTS:
+		domainName = "new_students"
+	case eda.BulkUpload_GRADES:
+		domainName = "grades"
+	default:
+		http.Error(w, "Unsupported domain in bulk upload", http.StatusBadRequest)
+		return
+	}
+
+	// Get domain handler based on the domain name
+	domain, exists := s.bulkDomainRegistry.GetDomain(domainName)
+	if !exists {
+		http.Error(w, "Invalid domain in bulk upload", http.StatusBadRequest)
+		return
+	}
+
+	data, err := s.getFile(r.Context(), agg.GetFileID())
+	if err != nil {
+		http.Error(w, "Error getting file", http.StatusInternalServerError)
+		return
+	}
+
+	domain.ValidateUpload(r.Context(), agg, data)
+
+	// TODO: implement full processing logic
+	// For now, just indicate it's being developed
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	// indicate not implemented
-	w.Write([]byte("Not implemented"))
+	w.Write([]byte("Processing implementation in progress"))
 }
 
 func (s *Server) bulkUploadAdminTemplate(w http.ResponseWriter, r *http.Request) {
@@ -199,7 +219,7 @@ func (s *Server) bulkUploadAdminInstructions(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) bulkUploadAdminView(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	agg, err := s.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
 	if err != nil {
 		slog.Error("error getting bulk upload", "err", err)
 		http.Error(w, "error: "+err.Error(), http.StatusNotFound)
@@ -211,7 +231,7 @@ func (s *Server) bulkUploadAdminView(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) bulkUploadAdminDownload(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	agg, err := s.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
 	if err != nil {
 		slog.Error("error getting bulk upload", "err", err)
 		http.Error(w, "error: "+err.Error(), http.StatusNotFound)
@@ -236,5 +256,5 @@ func (s *Server) bulkUploadAdminDownload(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) getFile(ctx context.Context, fileID string) ([]byte, error) {
-	return s.FileSvc.GetFileBytes(ctx, eda.File_BULK_UPLOAD.String(), fileID)
+	return s.Services.FileSvc.GetFileBytes(ctx, eda.File_BULK_UPLOAD.String(), fileID)
 }

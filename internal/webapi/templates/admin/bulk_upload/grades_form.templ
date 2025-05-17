@@ -169,7 +169,7 @@ templ GradesForm(schools map[uint64]string) {
 		}
 
 		// Call the function when the page loads
-		document.addEventListener('DOMContentLoaded', populateSchoolYears);
+		document.addEventListener('htmx:load', populateSchoolYears);
 
 		function updateFileName(input) {
 			const fileSelectedIndicator = document.getElementById('file-selected-indicator');

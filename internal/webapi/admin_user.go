@@ -76,7 +76,7 @@ func (s *Server) adminViewUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get a list of all schools
-	schools, err := s.SchoolSvc.List(r.Context(), 1000, 1)
+	schools, err := s.Services.SchoolSvc.List(r.Context(), 1000, 1)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
 		return
@@ -325,7 +325,7 @@ func (s *Server) setUserFeederInSchool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// verify the schoolID is a valid schoolID
-	if err := s.SchoolSvc.ValidateSchoolID(r.Context(), schoolIDInt); err != nil {
+	if err := s.Services.SchoolSvc.ValidateSchoolID(r.Context(), schoolIDInt); err != nil {
 		s.errorPage(w, r, "Error validating school ID", err)
 		return
 	}

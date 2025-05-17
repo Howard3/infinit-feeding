@@ -1,15 +1,29 @@
 package bulk_domains
 
 import (
+	"context"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"geevly/gen/go/eda"
+	"geevly/internal/bulk_upload"
+	"geevly/internal/file"
 )
 
 // NewStudentsDomain implements BulkUploadDomain for new students uploads
-type NewStudentsDomain struct{}
+type NewStudentsDomain struct {
+	services *ServiceRegistry
+}
+
+// NewNewStudentsDomain creates a new NewStudentsDomain with the provided services
+func NewNewStudentsDomain(services *ServiceRegistry) *NewStudentsDomain {
+	return &NewStudentsDomain{
+		services: services,
+	}
+}
 
 // ValidateFormData validates form data for new students upload
 func (d *NewStudentsDomain) ValidateFormData(r *http.Request) (map[string]string, error) {
@@ -25,7 +39,7 @@ func (d *NewStudentsDomain) ValidateFormData(r *http.Request) (map[string]string
 }
 
 // UploadFile handles file upload for new students
-func (d *NewStudentsDomain) UploadFile(r *http.Request, fileSvc FileService) (string, error) {
+func (d *NewStudentsDomain) UploadFile(r *http.Request, fileSvc *file.Service) (string, error) {
 	// Parse the multipart form with the specified max file size
 	if err := r.ParseMultipartForm(d.GetMaxFileSize()); err != nil {
 		return "", fmt.Errorf("parsing form: %w", err)
@@ -45,7 +59,7 @@ func (d *NewStudentsDomain) UploadFile(r *http.Request, fileSvc FileService) (st
 	}
 
 	// Store the file
-	fileID, err := fileSvc.CreateFile(*r, fileBytes, &eda.File_Create{
+	fileID, err := fileSvc.CreateFile(r.Context(), fileBytes, &eda.File_Create{
 		Name:            "bulk_upload_new_students",
 		DomainReference: eda.File_BULK_UPLOAD,
 	})
@@ -59,6 +73,61 @@ func (d *NewStudentsDomain) UploadFile(r *http.Request, fileSvc FileService) (st
 // GetTargetDomain returns the EDA domain type for new students
 func (d *NewStudentsDomain) GetDomain() eda.BulkUpload_Domain {
 	return eda.BulkUpload_NEW_STUDENTS
+}
+
+// ValidateUpload validates the uploaded students file against business rules
+func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) (*ValidationResult, error) {
+	// This is a placeholder implementation that will be enhanced later
+	result := &ValidationResult{
+		IsValid: true,
+		Errors:  []eda.BulkUpload_ValidationError{},
+	}
+
+	// Parse the CSV data
+	reader := csv.NewReader(strings.NewReader(string(fileBytes)))
+
+	// Read header row
+	header, err := reader.Read()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CSV header: %w", err)
+	}
+
+	// Validate header columns
+	requiredColumns := []string{"First Name", "Last Name", "LRN", "Grade Level", "Date of Birth", "Gender", "Status"}
+	missingColumns := validateHeaders(header, requiredColumns)
+
+	if len(missingColumns) > 0 {
+		result.IsValid = false
+		result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+			Field:   "headers",
+			Message: fmt.Sprintf("Missing required columns: %s", strings.Join(missingColumns, ", ")),
+		})
+		return result, nil
+	}
+
+	// Validate school ID exists
+	schoolIDStr := aggregate.GetUploadMetadata()["school_id"]
+	if schoolIDStr == "" {
+		result.IsValid = false
+		result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+			Field:   "school_id",
+			Message: "School ID is required",
+		})
+	} else if d.services != nil && d.services.SchoolService != nil {
+		// Convert schoolID to uint64 and validate it exists
+		// Note: This validation already happens in the aggregate, so this is just a placeholder
+	}
+
+	// Read and validate each row
+	// In a real implementation, we would:
+	// 1. Validate required fields
+	// 2. Validate data formats
+	// 3. Check for duplicate LRNs
+	// 4. Validate that students don't already exist in the system
+
+	return result, nil
 }
 
 // GetFileName returns the name of the file field in the form

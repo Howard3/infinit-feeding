@@ -28,7 +28,7 @@ func (s *Server) feedingRoutes(r chi.Router) {
 
 func (s *Server) confirmStudentByStudentSchoolID(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("student_school_id")
-	student, err := s.StudentSvc.GetStudentByStudentSchoolID(r.Context(), id)
+	student, err := s.Services.StudentSvc.GetStudentByStudentSchoolID(r.Context(), id)
 	if err != nil {
 		s.errorPage(w, r, "Error getting student", fmt.Errorf("error getting student by student school ID %q: %w", id, err))
 		return
@@ -70,7 +70,7 @@ func (s *Server) feedingProofUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileID, err := s.FileSvc.CreateFile(ctx, photo, &eda.File_Create{
+	fileID, err := s.Services.FileSvc.CreateFile(ctx, photo, &eda.File_Create{
 		Name:            "feeding_proof",
 		DomainReference: eda.File_FEEDING_HISTORY,
 	})
@@ -79,7 +79,7 @@ func (s *Server) feedingProofUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agg, err := s.StudentSvc.RunCommand(r.Context(), studID, &eda.Student_Feeding{
+	agg, err := s.Services.StudentSvc.RunCommand(r.Context(), studID, &eda.Student_Feeding{
 		UnixTimestamp: uint64(time.Now().Unix()),
 		FileId:        fileID,
 		Version:       studVer,
@@ -124,7 +124,7 @@ func (s *Server) confirmCode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) confirmCodeScreen(w http.ResponseWriter, r *http.Request, code []byte) {
-	student, err := s.StudentSvc.GetStudentByCode(r.Context(), code)
+	student, err := s.Services.StudentSvc.GetStudentByCode(r.Context(), code)
 	if err != nil {
 		s.errorPage(w, r, "Error getting student", fmt.Errorf("error getting student by code %q: %w", code, err))
 		return
@@ -153,7 +153,7 @@ func (s *Server) feedingConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agg, err := s.StudentSvc.RunCommand(r.Context(), studID, &eda.Student_Feeding{
+	agg, err := s.Services.StudentSvc.RunCommand(r.Context(), studID, &eda.Student_Feeding{
 		UnixTimestamp: uint64(time.Now().Unix()),
 		Version:       studVer,
 	})
