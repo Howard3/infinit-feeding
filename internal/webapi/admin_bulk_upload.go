@@ -174,7 +174,15 @@ func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	domain.ValidateUpload(r.Context(), agg, data)
+	validationResult := domain.ValidateUpload(r.Context(), agg, data)
+	if validationResult.Errors != nil {
+		if err := s.Services.BulkUploadSvc.SaveValidationErrors(r.Context(), id, validationResult.Errors); err != nil {
+			http.Error(w, "Error saving validation errors: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Validation error"))
+	}
 
 	// TODO: implement full processing logic
 	// For now, just indicate it's being developed

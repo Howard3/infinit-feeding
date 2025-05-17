@@ -2,6 +2,7 @@ package bulk_upload
 
 import (
 	"fmt"
+	"geevly/gen/go/eda"
 	"geevly/internal/bulk_upload"
 	"geevly/internal/webapi/templates/components"
 	"time"
@@ -36,12 +37,6 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 						"hx-post":     fmt.Sprintf("/admin/bulk-upload/%s/start-processing", agg.ID),
 						"hx-confirm":  "Are you sure you want to start processing this upload?",
 						"hx-push-url": "false",
-					})
-				}
-				if canRetry(getStatus(agg)) {
-					@components.PrimaryButton("Retry Processing", templ.Attributes{
-						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/retry", agg.ID),
-						"hx-confirm": "Are you sure you want to retry processing this upload?",
 					})
 				}
 				<!-- Secondary actions -->
@@ -128,9 +123,6 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 								if canStartProcessing(getStatus(agg)) {
 									<li>Click the blue <strong>Start Processing</strong> button to begin processing the upload</li>
 								}
-								if canRetry(getStatus(agg)) {
-									<li>Click the blue <strong>Retry Processing</strong> button to attempt processing again</li>
-								}
 								if canCancel(getStatus(agg)) {
 									<li>Click <strong>Cancel</strong> to stop the current operation</li>
 								}
@@ -166,7 +158,27 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 					<div class="grid grid-cols-2 gap-y-2">
 						for key, value := range meta {
 							<div class="text-sm font-semibold">{ key }:</div>
-							<div class="text-sm">{ value }</div>
+							if key == "school_id" {
+								<div class="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
+									<div class="flex items-center gap-2">
+										<div class="text-sm text-blue-700 font-medium">School ID:</div>
+										<a
+											href={ templ.URL(fmt.Sprintf("/admin/school/%s", value)) }
+											class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-base inline-flex items-center gap-1 min-w-[3rem] justify-center shadow-sm transition-colors"
+										>
+											<span>{ value }</span>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+											</svg>
+										</a>
+									</div>
+									<div class="text-xs text-blue-600 mt-1">
+										Click to view school details
+									</div>
+								</div>
+							} else {
+								<div class="text-sm">{ value }</div>
+							}
 						}
 					</div>
 				} else {
@@ -186,7 +198,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 				</div>
 			</div>
 		}
-		if getValidationErrors(agg) {
+		if validationErrors := getValidationErrors(agg); len(validationErrors) > 0 {
 			<div class="p-4">
 				<div class="border rounded-lg shadow p-4">
 					<h2 class="text-md font-medium mb-3">Validation Errors</h2>
@@ -201,15 +213,25 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 								</tr>
 							</thead>
 							<tbody>
-								<!-- Validation error records would be rendered here when data is available -->
-								<tr class="bg-white border-b hover:bg-gray-50">
-									<td class="px-6 py-4">ROW_NUMBER</td>
-									<td class="px-6 py-4">1</td>
-									<td class="px-6 py-4">name</td>
-									<td class="px-6 py-4">Field is required</td>
-								</tr>
+								for _, error := range validationErrors {
+									<tr class="bg-white border-b hover:bg-gray-50">
+										<td class="px-6 py-4">{ formatValidationContext(error.Context) }</td>
+										<td class="px-6 py-4">{ fmt.Sprintf("%d", error.RowNumber) }</td>
+										<td class="px-6 py-4">{ error.Field }</td>
+										<td class="px-6 py-4">{ error.Message }</td>
+									</tr>
+								}
 							</tbody>
 						</table>
+					</div>
+				</div>
+			</div>
+		} else if getStatus(agg) == "VALIDATION_FAILED" || getStatus(agg) == "COMPLETED" {
+			<div class="p-4">
+				<div class="border rounded-lg shadow p-4">
+					<h2 class="text-md font-medium mb-3">Validation Errors</h2>
+					<div class="text-center text-gray-500 py-4">
+						No validation errors found.
 					</div>
 				</div>
 			</div>
@@ -341,11 +363,6 @@ func canStartProcessing(status string) bool {
 	return status == "PENDING"
 }
 
-// Helper function to check if we can retry processing
-func canRetry(status string) bool {
-	return status == "VALIDATION_FAILED"
-}
-
 // Helper function to check if we can cancel processing
 func canCancel(status string) bool {
 	return status == "VALIDATING" || status == "PROCESSING"
@@ -373,9 +390,24 @@ func getUploadMetadata(agg *bulk_upload.Aggregate) map[string]string {
 	return agg.GetUploadMetadata()
 }
 
-func getValidationErrors(agg *bulk_upload.Aggregate) bool {
-	// Just returning if there are validation errors
-	return true // Showing errors by default for demonstration
+func getValidationErrors(agg *bulk_upload.Aggregate) []*eda.BulkUpload_ValidationError {
+	return agg.GetValidationErrors()
+}
+
+// Helper function to format the validation context enum as a string
+func formatValidationContext(context eda.BulkUpload_ValidationError_Context) string {
+	switch context {
+	case eda.BulkUpload_ValidationError_ROW_NUMBER:
+		return "Row"
+	case eda.BulkUpload_ValidationError_METADATA_FIELD:
+		return "Metadata"
+	case eda.BulkUpload_ValidationError_CSV_HEADER:
+		return "Header"
+	case eda.BulkUpload_ValidationError_CSV_DATA:
+		return "Data"
+	default:
+		return context.String()
+	}
 }
 
 // Helper function to get error message if available
@@ -390,7 +422,5 @@ func getErrorMessage(agg *bulk_upload.Aggregate) string {
 
 // Helper function to safely access aggregate data
 func getStatus(agg *bulk_upload.Aggregate) string {
-	// Since we can't directly access the private data field,
-	// we'll use a default value if needed
-	return "PENDING" // Default to PENDING, replace with actual implementation
+	return agg.GetStatus().String()
 }

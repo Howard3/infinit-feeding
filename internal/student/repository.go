@@ -68,6 +68,7 @@ type Repository interface {
 	GetFeedingEventsForSponsorships(ctx context.Context, sponsorships []*SponsorshipProjection, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
 	GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error)
 	GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
+	getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error)
 }
 
 type ProjectedStudent struct {
@@ -672,6 +673,26 @@ func (r *sqlRepository) getStudentIDByCode(ctx context.Context, code []byte) (ui
 
 	if err := r.db.QueryRow(query, code).Scan(&id); err != nil {
 		return 0, fmt.Errorf("failed to get student ID by code: %w", err)
+	}
+
+	return id, nil
+}
+
+// getStudentByStudentAndSchoolID - returns the student aggregate ID by student school ID and school ID
+func (r *sqlRepository) getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error) {
+	if studentSchoolID == "" {
+		return 0, fmt.Errorf("student school ID is required")
+	}
+	
+	if schoolID == "" {
+		return 0, fmt.Errorf("school ID is required")
+	}
+
+	query := `SELECT id FROM student_projections WHERE student_id = ? AND school_id = ?`
+	var id uint64
+
+	if err := r.db.QueryRowContext(ctx, query, studentSchoolID, schoolID).Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to get student ID by student school ID and school ID: %w", err)
 	}
 
 	return id, nil

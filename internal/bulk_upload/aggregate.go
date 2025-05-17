@@ -21,6 +21,7 @@ const (
 	EventStartInvalidation    = "BulkUploadStartInvalidation"
 	EventCompleteInvalidation = "BulkUploadCompleteInvalidation"
 	EventFail                 = "BulkUploadFail"
+	EventAddValidationErrors  = "BulkUploadAddValidationErrors"
 )
 
 type Aggregate struct {
@@ -28,8 +29,78 @@ type Aggregate struct {
 	data *eda.BulkUpload
 }
 
+func (a *Aggregate) GetValidationErrors() []*eda.BulkUpload_ValidationError {
+	if a.data == nil {
+		return nil
+	}
+	return a.data.ValidationErrors
+}
+
+func (a *Aggregate) GetStatus() eda.BulkUpload_Status {
+	if a.data == nil {
+		return eda.BulkUpload_UNKNOWN
+	}
+	return a.data.Status
+}
+
 func (a *Aggregate) GetDomain() eda.BulkUpload_Domain {
 	return a.data.GetTargetDomain()
+}
+
+// AddValidationErrors adds validation errors to the aggregate
+func (a *Aggregate) AddValidationErrors(errors []*eda.BulkUpload_ValidationError) (*gosignal.Event, error) {
+	if a.data == nil {
+		return nil, fmt.Errorf("bulk upload aggregate is not initialized")
+	}
+
+	return a.ApplyEvent(BulkUploadEvent{
+		eventType: EventAddValidationErrors,
+		data: &eda.BulkUpload_ValidationError_Event{
+			Errors: errors,
+		},
+		version: a.Version,
+	})
+}
+
+// StartProcessing initiates the processing of a bulk upload
+func (a *Aggregate) StartProcessing(cmd *eda.BulkUpload_StartProcessing) (*gosignal.Event, error) {
+	if a.data == nil {
+		return nil, errors.New("bulk upload does not exist")
+	}
+
+	if a.data.Status != eda.BulkUpload_PENDING {
+		return nil, fmt.Errorf("cannot start processing, current status: %s", a.data.Status.String())
+	}
+
+	return a.ApplyEvent(BulkUploadEvent{
+		eventType: EventStartProcessing,
+		data: &eda.BulkUpload_StartProcessing_Event{
+			Status:       eda.BulkUpload_VALIDATING,
+			TotalRecords: cmd.TotalRecords,
+			StartedAt:    timestamppb.Now(),
+		},
+		version: cmd.Version,
+	})
+}
+
+// UpdateProgress updates the progress of a bulk upload
+func (a *Aggregate) UpdateProgress(cmd *eda.BulkUpload_UpdateProgress) (*gosignal.Event, error) {
+	if a.data == nil {
+		return nil, errors.New("bulk upload does not exist")
+	}
+
+	if a.data.Status != eda.BulkUpload_VALIDATING && a.data.Status != eda.BulkUpload_PROCESSING {
+		return nil, fmt.Errorf("cannot update progress, current status: %s", a.data.Status.String())
+	}
+
+	return a.ApplyEvent(BulkUploadEvent{
+		eventType: EventUpdateProgress,
+		data: &eda.BulkUpload_UpdateProgress_Event{
+			ProcessedRecords: cmd.ProcessedRecords,
+			ValidationErrors: cmd.ValidationErrors,
+		},
+		version: cmd.Version,
+	})
 }
 
 func (a *Aggregate) GetFileID() string {
@@ -88,6 +159,9 @@ func (a *Aggregate) routeEvent(evt gosignal.Event) error {
 	case EventFail:
 		eventData = &eda.BulkUpload_Fail_Event{}
 		handler = a.handleFail
+	case EventAddValidationErrors:
+		eventData = &eda.BulkUpload_ValidationError_Event{}
+		handler = a.handleAddValidationErrors
 	default:
 		return fmt.Errorf("unknown event type: %s", evt.Type)
 	}
@@ -99,8 +173,41 @@ func (a *Aggregate) routeEvent(evt gosignal.Event) error {
 	return handler(eventData)
 }
 
+func (a *Aggregate) handleAddValidationErrors(event proto.Message) error {
+	evt := event.(*eda.BulkUpload_ValidationError_Event)
+
+	// Update status to VALIDATION_FAILED
+	a.data.Status = eda.BulkUpload_VALIDATION_FAILED
+
+	// Add timestamp for status change
+	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
+		Status:    eda.BulkUpload_VALIDATION_FAILED,
+		Timestamp: timestamppb.Now(),
+	})
+
+	for _, error := range evt.Errors {
+		a.data.ValidationErrors = append(a.data.ValidationErrors, error)
+	}
+
+	return nil
+}
+
 func (a *Aggregate) handleStartProcessing(event proto.Message) error {
-	panic("not implemented")
+	evt := event.(*eda.BulkUpload_StartProcessing_Event)
+
+	// Update status to VALIDATING
+	a.data.Status = eda.BulkUpload_VALIDATING
+
+	// Add timestamp for status change
+	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
+		Status:    eda.BulkUpload_VALIDATING,
+		Timestamp: timestamppb.Now(),
+	})
+
+	// Set total records
+	a.data.TotalRecords = evt.TotalRecords
+
+	return nil
 }
 
 func (a *Aggregate) handleCompleteProcessing(event proto.Message) error {
@@ -108,7 +215,16 @@ func (a *Aggregate) handleCompleteProcessing(event proto.Message) error {
 }
 
 func (a *Aggregate) handleFail(event proto.Message) error {
-	panic("not implemented")
+	// Update status to VALIDATION_FAILED
+	a.data.Status = eda.BulkUpload_VALIDATION_FAILED
+
+	// Add timestamp for status change
+	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
+		Status:    eda.BulkUpload_VALIDATION_FAILED,
+		Timestamp: timestamppb.Now(),
+	})
+
+	return nil
 }
 
 func (a *Aggregate) handleStartInvalidation(event proto.Message) error {
@@ -120,11 +236,32 @@ func (a *Aggregate) handleCompleteInvalidation(event proto.Message) error {
 }
 
 func (a *Aggregate) handleComplete(event proto.Message) error {
-	panic("not implemented")
+	evt := event.(*eda.BulkUpload_Complete_Event)
+
+	// Update status to COMPLETED
+	a.data.Status = eda.BulkUpload_COMPLETED
+
+	// Add timestamp for status change
+	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
+		Status:    eda.BulkUpload_COMPLETED,
+		Timestamp: evt.CompletedAt,
+	})
+
+	return nil
 }
 
 func (a *Aggregate) handleUpdateProgress(event proto.Message) error {
-	panic("not implemented")
+	evt := event.(*eda.BulkUpload_UpdateProgress_Event)
+
+	// Update processed records count
+	a.data.ProcessedRecords = evt.ProcessedRecords
+
+	// Add any validation errors
+	if len(evt.ValidationErrors) > 0 {
+		a.data.ValidationErrors = append(a.data.ValidationErrors, evt.ValidationErrors...)
+	}
+
+	return nil
 }
 
 // BulkUploadEvent is a struct that holds the event type and the data

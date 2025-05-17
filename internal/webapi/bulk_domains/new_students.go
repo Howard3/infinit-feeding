@@ -76,11 +76,11 @@ func (d *NewStudentsDomain) GetDomain() eda.BulkUpload_Domain {
 }
 
 // ValidateUpload validates the uploaded students file against business rules
-func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) (*ValidationResult, error) {
+func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) *ValidationResult {
 	// This is a placeholder implementation that will be enhanced later
 	result := &ValidationResult{
 		IsValid: true,
-		Errors:  []eda.BulkUpload_ValidationError{},
+		Errors:  []*eda.BulkUpload_ValidationError{},
 	}
 
 	// Parse the CSV data
@@ -89,28 +89,32 @@ func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_
 	// Read header row
 	header, err := reader.Read()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV header: %w", err)
+		result.IsValid = false
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+			Field:   "headers",
+			Message: fmt.Sprintf("Failed to read CSV header: %v", err),
+		})
 	}
 
 	// Validate header columns
 	requiredColumns := []string{"First Name", "Last Name", "LRN", "Grade Level", "Date of Birth", "Gender", "Status"}
-	missingColumns := validateHeaders(header, requiredColumns)
+	missingColumns := validateCSVHeaders(header, requiredColumns)
 
 	if len(missingColumns) > 0 {
 		result.IsValid = false
-		result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
 			Field:   "headers",
 			Message: fmt.Sprintf("Missing required columns: %s", strings.Join(missingColumns, ", ")),
 		})
-		return result, nil
 	}
 
 	// Validate school ID exists
 	schoolIDStr := aggregate.GetUploadMetadata()["school_id"]
 	if schoolIDStr == "" {
 		result.IsValid = false
-		result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
 			Field:   "school_id",
 			Message: "School ID is required",
@@ -127,7 +131,7 @@ func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_
 	// 3. Check for duplicate LRNs
 	// 4. Validate that students don't already exist in the system
 
-	return result, nil
+	return result
 }
 
 // GetFileName returns the name of the file field in the form

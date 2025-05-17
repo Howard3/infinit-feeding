@@ -48,11 +48,35 @@ func (d *GradesDomain) ValidateFormData(r *http.Request) (map[string]string, err
 	}, nil
 }
 
+func (d *GradesDomain) validateSchoolID(ctx context.Context, schoolID string) error {
+	if d.services != nil && d.services.SchoolService != nil {
+		schoolIDInt, err := strconv.ParseUint(schoolID, 10, 64)
+		if err == nil {
+			err = d.services.SchoolService.ValidateSchoolID(ctx, schoolIDInt)
+			if err != nil {
+				return fmt.Errorf("invalid school ID: %s", err.Error())
+			}
+		}
+	}
+	return nil
+}
+
+func (d *GradesDomain) validateHeaders(_ context.Context, firstRow []string) error {
+	requiredColumns := []string{"LRN", "Grade"}
+	missingColumns := validateCSVHeaders(firstRow, requiredColumns)
+
+	if len(missingColumns) > 0 {
+		return fmt.Errorf("missing required columns: %v", missingColumns)
+	}
+
+	return nil
+}
+
 // ValidateUpload validates the uploaded grades file against business rules
-func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) (*ValidationResult, error) {
+func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) *ValidationResult {
 	result := &ValidationResult{
 		IsValid: true,
-		Errors:  []eda.BulkUpload_ValidationError{},
+		Errors:  []*eda.BulkUpload_ValidationError{},
 	}
 
 	// Get metadata from aggregate
@@ -60,19 +84,12 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 	schoolID := metadata["school_id"]
 
 	// Validate school exists (if school service is available)
-	if d.services != nil && d.services.SchoolService != nil {
-		schoolIDInt, err := strconv.ParseUint(schoolID, 10, 64)
-		if err == nil {
-			err = d.services.SchoolService.ValidateSchoolID(ctx, schoolIDInt)
-			if err != nil {
-				result.IsValid = false
-				result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
-					Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
-					Field:   "school_id",
-					Message: fmt.Sprintf("Invalid school ID: %s", err.Error()),
-				})
-			}
-		}
+	if err := d.validateSchoolID(ctx, schoolID); err != nil {
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+			Field:   "school_id",
+			Message: fmt.Sprintf("Invalid school ID: %s", err.Error()),
+		})
 	}
 
 	// Parse the CSV data
@@ -81,27 +98,27 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 	// Read header row
 	header, err := reader.Read()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV header: %w", err)
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_CSV_HEADER,
+			Message: fmt.Sprintf("Failed to read CSV header: %s", err.Error()),
+		})
 	}
 
 	// Validate header columns
-	requiredColumns := []string{"LRN", "Grade"}
-	missingColumns := validateHeaders(header, requiredColumns)
-
-	if len(missingColumns) > 0 {
-		result.IsValid = false
-		result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
-			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
-			Field:   "headers",
-			Message: fmt.Sprintf("Missing required columns: %s", strings.Join(missingColumns, ", ")),
+	if headerErr := d.validateHeaders(ctx, header); headerErr != nil {
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_CSV_HEADER,
+			Message: fmt.Sprintf("Invalid header columns: %s", headerErr.Error()),
 		})
-		return result, nil
 	}
 
 	// Read all rows for validation
 	rows, err := reader.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV data: %w", err)
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_CSV_DATA,
+			Message: fmt.Sprintf("Failed to read CSV data: %s", err.Error()),
+		})
 	}
 
 	// Track LRNs to check for duplicates
@@ -119,7 +136,7 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 		// Check for missing data
 		if len(row) < 2 || row[0] == "" || row[1] == "" {
 			result.IsValid = false
-			result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
 				RowNumber: uint64(rowNum),
 				Message:   "Row is missing required data (LRN or Grade)",
@@ -133,7 +150,7 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 		// Check for duplicate LRNs
 		if prevRow, exists := lrnMap[lrn]; exists {
 			result.IsValid = false
-			result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
 				RowNumber: uint64(rowNum),
 				Message:   fmt.Sprintf("Duplicate LRN %s (previously seen on row %d)", lrn, prevRow),
@@ -146,16 +163,28 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 		gradeVal, err := strconv.ParseFloat(grade, 64)
 		if err != nil || gradeVal < 0 || gradeVal > 100 {
 			result.IsValid = false
-			result.Errors = append(result.Errors, eda.BulkUpload_ValidationError{
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
 				RowNumber: uint64(rowNum),
 				Field:     "Grade",
 				Message:   fmt.Sprintf("Invalid grade value: %s (must be a number between 0 and 100)", grade),
 			})
 		}
+
+		// Validate the LRN's against the student service
+		_, err = d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, lrn, schoolID)
+		if err != nil {
+			result.IsValid = false
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
+				RowNumber: uint64(rowNum),
+				Field:     "LRN",
+				Message:   fmt.Sprintf("Invalid LRN: %s for school ID %s", lrn, schoolID),
+			})
+		}
 	}
 
-	return result, nil
+	return result
 }
 
 // UploadFile handles file upload for grades

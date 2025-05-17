@@ -69,11 +69,17 @@ message BulkUpload {
     string field = 3; // This could be a specific field within the context
     string message = 4;
 
+    message Event {
+      repeated ValidationError errors = 1;
+    }
+
     enum Context {
       UNKNOWN = 0;
       ROW_NUMBER = 1;
       METADATA_FIELD = 2;
       OTHER = 3;
+      CSV_HEADER = 4;
+      CSV_DATA = 5;
     }
   }
 

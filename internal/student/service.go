@@ -228,6 +228,16 @@ func (s *StudentService) GetStudentByStudentSchoolID(ctx context.Context, studen
 	return s.GetStudent(ctx, id)
 }
 
+// GetStudentByStudentAndSchoolID returns a student by their student school ID and school ID combination
+func (s *StudentService) GetStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (*Aggregate, error) {
+	id, err := s.repo.getStudentByStudentAndSchoolID(ctx, studentSchoolID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get student ID by student school ID and school ID: %w", err)
+	}
+	
+	return s.GetStudent(ctx, id)
+}
+
 type StudentFeedingHistory struct {
 	Student *ProjectedStudent
 	Events  []*ProjectedFeedingEvent

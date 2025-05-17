@@ -13,7 +13,7 @@ import (
 // ValidationResult contains the result of a bulk upload validation
 type ValidationResult struct {
 	IsValid bool
-	Errors  []eda.BulkUpload_ValidationError
+	Errors  []*eda.BulkUpload_ValidationError
 }
 
 // BulkUploadDomain defines the interface for domain-specific upload handlers
@@ -34,7 +34,7 @@ type BulkUploadDomain interface {
 	GetMaxFileSize() int64
 
 	// ValidateUpload validates the uploaded file against business rules
-	ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) (*ValidationResult, error)
+	ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) *ValidationResult
 }
 
 // ServiceRegistry contains all services that domain handlers might need. Redefined here to prevent circular dependencies.
@@ -74,7 +74,7 @@ func (r *DomainRegistry) RegisterDomain(name string, domain BulkUploadDomain) {
 }
 
 // validateHeaders checks if all required columns are present in the header
-func validateHeaders(header []string, requiredColumns []string) []string {
+func validateCSVHeaders(header []string, requiredColumns []string) []string {
 	var missingColumns []string
 	headerMap := make(map[string]bool)
 

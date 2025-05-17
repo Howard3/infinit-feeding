@@ -78,6 +78,26 @@ func (s *Service) Create(ctx context.Context, cmd *eda.BulkUpload_Create) (*Aggr
 	return agg, nil
 }
 
+func (s *Service) SaveValidationErrors(ctx context.Context, id string, res []*eda.BulkUpload_ValidationError) error {
+	agg, err := s.repo.loadBulkUpload(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load bulk upload: %w", err)
+	}
+
+	event, err := agg.AddValidationErrors(res)
+	if err != nil {
+		return fmt.Errorf("failed to add validation errors: %w", err)
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*event}); err != nil {
+		return fmt.Errorf("failed to save bulk upload event: %w", err)
+	}
+
+	s.eventHandlers.HandleBulkUploadEvent(ctx, event)
+
+	return nil
+}
+
 // ListBulkUploads retrieves a paginated list of bulk uploads
 func (s *Service) ListBulkUploads(ctx context.Context, limit, page uint) (*ListResponse, error) {
 	// Get bulk uploads
