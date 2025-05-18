@@ -31,6 +31,13 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 			</div>
 			<div class="flex flex-wrap gap-2">
 				<!-- Primary actions -->
+				if canValidate(getStatus(agg)) {
+					@components.PrimaryButton("Validate", templ.Attributes{
+						"hx-post":     fmt.Sprintf("/admin/bulk-upload/%s/validate", agg.ID),
+						"hx-confirm":  "Are you sure you want to validate this upload?",
+						"hx-push-url": "false",
+					})
+				}
 				if canStartProcessing(getStatus(agg)) {
 					@components.PrimaryButton("Start Processing", templ.Attributes{
 						"hx-post":     fmt.Sprintf("/admin/bulk-upload/%s/start-processing", agg.ID),
@@ -39,13 +46,6 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 					})
 				}
 				<!-- Secondary actions -->
-				if canCancel(getStatus(agg)) {
-					@components.SecondaryButton("Cancel", templ.Attributes{
-						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/cancel", agg.ID),
-						"class":      "text-orange-600 hover:text-orange-800 border-orange-600 hover:border-orange-800",
-						"hx-confirm": "Are you sure you want to cancel this upload?",
-					})
-				}
 				if canInvalidate(getStatus(agg)) {
 					@components.SecondaryButton("Invalidate", templ.Attributes{
 						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/invalidate", agg.ID),
@@ -119,6 +119,9 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 								<div class="text-red-600 mb-2">⚠️ Error detected. See error message section below.</div>
 							}
 							<ul class="list-disc list-inside space-y-1">
+								if canValidate(getStatus(agg)) {
+									<li>Click the blue <strong>Validate</strong> button to validate the upload</li>
+								}
 								if canStartProcessing(getStatus(agg)) {
 									<li>Click the blue <strong>Start Processing</strong> button to begin processing the upload</li>
 								}
@@ -281,11 +284,15 @@ templ viewStatusExplanation(status string) {
 	switch status {
 		case "PENDING":
 			<div class="p-2 bg-yellow-50 rounded-md mt-2">
-				<p>This upload is waiting to be processed. Click "Start Processing" to begin.</p>
+				<p>This upload is waiting to be processed. Click "Validate" to begin.</p>
 			</div>
 		case "VALIDATING":
 			<div class="p-2 bg-blue-50 rounded-md mt-2">
 				<p>The system is currently validating the uploaded data. You can wait or cancel the process.</p>
+			</div>
+		case "VALIDATED":
+			<div class="p-2 bg-green-50 rounded-md mt-2">
+				<p>Validation completed successfully. Click "Start Processing" to begin.</p>
 			</div>
 		case "PROCESSING":
 			<div class="p-2 bg-indigo-50 rounded-md mt-2">
@@ -358,9 +365,12 @@ func canInvalidate(status string) bool {
 	return status == "COMPLETED"
 }
 
-// Helper function to check if we can start processing
-func canStartProcessing(status string) bool {
+func canValidate(status string) bool {
 	return status == "PENDING"
+}
+
+func canStartProcessing(status string) bool {
+	return status == "VALIDATED"
 }
 
 // Helper function to check if we can cancel processing

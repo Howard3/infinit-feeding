@@ -23,11 +23,14 @@ message BulkUpload {
     UNKNOWN = 0;
     PENDING = 1;
     VALIDATING = 2;
-    PROCESSING = 3;
-    COMPLETED = 4; // end status, unless another action is taken
-    VALIDATION_FAILED = 5; // end status
-    INVALIDATING = 6;
-    INVALIDATED = 7; // end status
+    VALIDATED = 3;
+    PROCESSING = 4;
+    COMPLETED = 5;
+    VALIDATION_FAILED = 6; // end status
+    INVALIDATING = 7;
+    INVALIDATED = 8; // end status
+    ERROR = 9;
+    INVALIDATION_FAILED = 10;
   }
 
   // Domain represents the domain of the bulk upload.
@@ -99,69 +102,9 @@ message BulkUpload {
     }
   }
 
-  message StartProcessing {
-    uint64 version = 1;
+  message SetStatusEvent {
+  	Status status = 1;
     events.metadata.Metadata metadata = 2;
-    uint64 total_records = 3;
-
-    message Event {
-      Status status = 1;
-      uint64 total_records = 2;
-      google.protobuf.Timestamp started_at = 3;
-    }
-  }
-
-  message UpdateProgress {
-    uint64 version = 1;
-    uint64 processed_records = 2;
-    repeated ValidationError validation_errors = 4;
-    events.metadata.Metadata metadata = 5;
-
-    message Event {
-      uint64 processed_records = 1;
-      repeated ValidationError validation_errors = 3;
-    }
-  }
-
-  message Complete {
-    uint64 version = 1;
-    events.metadata.Metadata metadata = 2;
-
-    message Event {
-      Status status = 1;
-      google.protobuf.Timestamp completed_at = 2;
-    }
-  }
-
-  message StartInvalidation {
-    uint64 version = 1;
-    events.metadata.Metadata metadata = 2;
-
-    message Event {
-      Status status = 1;
-      google.protobuf.Timestamp invalidation_started_at = 2;
-    }
-  }
-
-  message CompleteInvalidation {
-    uint64 version = 1;
-    events.metadata.Metadata metadata = 2;
-
-    message Event {
-      Status status = 1;
-      google.protobuf.Timestamp invalidation_completed_at = 2;
-    }
-  }
-
-  message Fail {
-    uint64 version = 1;
-    string error_message = 2;
-    events.metadata.Metadata metadata = 3;
-
-    message Event {
-      Status status = 1;
-      string error_message = 2;
-      google.protobuf.Timestamp failed_at = 3;
-    }
+    google.protobuf.Timestamp status_timestamp = 3;
   }
 }

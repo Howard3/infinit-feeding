@@ -35,12 +35,8 @@ func (eh *eventHandlers) HandleBulkUploadEvent(ctx context.Context, evt *gosigna
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	switch evt.Type {
 	case EventCreate,
-		EventStartProcessing,
-		EventUpdateProgress,
-		EventComplete,
-		EventStartInvalidation,
-		EventCompleteInvalidation,
-		EventFail:
+		EventSetStatus,
+		EventAddValidationErrors:
 		eh.HandleBulkUploadEvent(ctx, evt)
 	default:
 		slog.Error("unknown event type", "type", evt.Type)

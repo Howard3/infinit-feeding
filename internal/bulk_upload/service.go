@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"geevly/gen/go/eda"
 	"geevly/internal/bulk_upload/db/sqlc"
-	"time"
 
 	"github.com/Howard3/gosignal"
 	"github.com/google/uuid"
@@ -118,13 +117,22 @@ func (s *Service) ListBulkUploads(ctx context.Context, limit, page uint) (*ListR
 	}, nil
 }
 
-// Add other service methods for handling different commands...
-
-// timeFromTimestampToPtr converts a protobuf timestamp to a time.Time pointer
-func timeFromTimestampToPtr(ts *timestamppb.Timestamp) *time.Time {
-	if ts == nil {
-		return nil
+func (s *Service) SetStatus(ctx context.Context, id string, status eda.BulkUpload_Status) error {
+	agg, err := s.repo.loadBulkUpload(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load bulk upload: %w", err)
 	}
-	t := ts.AsTime()
-	return &t
+
+	event, err := agg.setStatus(status)
+	if err != nil {
+		return fmt.Errorf("failed to set status: %w", err)
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*event}); err != nil {
+		return fmt.Errorf("failed to save bulk upload event: %w", err)
+	}
+
+	s.eventHandlers.HandleBulkUploadEvent(ctx, event)
+
+	return nil
 }

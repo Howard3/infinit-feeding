@@ -24,6 +24,7 @@ func (s *Server) bulkUploadAdminRoutes(r chi.Router) {
 	r.Get("/template", s.bulkUploadAdminTemplate)
 	r.Get("/instructions", s.bulkUploadAdminInstructions)
 	r.Get("/{id}/view", s.bulkUploadAdminView)
+	r.Post("/{id}/validate", s.bulkUploadAdminValidateUpload)
 	r.Post("/{id}/start-processing", s.bulkUploadAdminProcessUpload)
 	r.Get("/{id}/download", s.bulkUploadAdminDownload)
 }
@@ -140,7 +141,7 @@ func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Reque
 	s.handleBulkUploadSuccess(w, r, agg.ID)
 }
 
-func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Request) {
+func (s *Server) bulkUploadAdminValidateUpload(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
 	if err != nil {
@@ -148,6 +149,8 @@ func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
 		return
 	}
+
+	s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATING)
 
 	// Convert enum domain to string domain name
 	var domainName string
@@ -175,20 +178,28 @@ func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Req
 	}
 
 	validationResult := domain.ValidateUpload(r.Context(), agg, data)
-	if validationResult.Errors != nil {
+	if len(validationResult.Errors) > 0 {
 		if err := s.Services.BulkUploadSvc.SaveValidationErrors(r.Context(), id, validationResult.Errors); err != nil {
 			http.Error(w, "Error saving validation errors: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATION_FAILED)
 
 		s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Validation error"))
+		return
+	} else {
+		err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATED)
+		if err != nil {
+			http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	// TODO: implement full processing logic
-	// For now, just indicate it's being developed
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Processing implementation in progress"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Validation error"))
+}
+
+func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("not implemented"))
 }
 
 func (s *Server) bulkUploadAdminTemplate(w http.ResponseWriter, r *http.Request) {
