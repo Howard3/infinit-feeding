@@ -3,6 +3,7 @@ package events.student;
 option go_package = "geevly/eda";
 
 import "metadata.proto";
+import "google/protobuf/timestamp.proto";
 
 message Student {
   string first_name = 1;
@@ -20,8 +21,7 @@ message Student {
   bool eligible_for_sponsorship = 16;
   repeated SponsorshipRecord sponsorship_history = 19;
   repeated GradeReport grade_history = 20;
-
-  repeated HealthReport health_reports = 10;
+  repeated HealthAssessment health_assessments = 10;
   repeated Feeding.Event feeding_report = 11;
   uint64 feeding_next_id = 15;
 
@@ -40,6 +40,22 @@ message Student {
   //
   // Commands, Events, and Responses
   //
+
+  message HealthAssessment {
+  	float height_cm = 1;
+  	float weight_kg = 2;
+   	google.protobuf.Timestamp assessment_date = 3;
+    string associated_bulk_upload_id = 4;
+
+    message Event {
+      float height_cm = 1;
+      float weight_kg = 2;
+      google.protobuf.Timestamp assessment_date = 3;
+      string associated_bulk_upload_id = 4;
+
+    }
+  }
+
   // GradeReport records a student's grade history
   message GradeReport {
     int32 grade = 1;
@@ -68,19 +84,6 @@ message Student {
     message Event {
       uint64 unix_timestamp = 1;
       string file_id = 2;
-    }
-  }
-
-  // Report a student's results
-  message HealthReport {
-    int32 bmi = 1;
-    int32 height_cm = 2;
-    Date date = 3;
-
-    message Event {
-      int32 bmi = 1;
-      int32 height_cm = 2;
-      Date test_date = 3;
     }
   }
 

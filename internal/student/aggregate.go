@@ -29,6 +29,7 @@ const EVENT_FEED_STUDENT = "FeedStudent"
 const EVENT_SET_ELIGIBILITY = "SetEligibility"
 const EVENT_UPDATE_SPONSORSHIP = "UpdateSponsorship"
 const EVENT_ADD_GRADE_REPORT = "AddGradeReport"
+const EVENT_ADD_HEALTH_ASSESSMENT = "AddHealthAssessment"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -96,6 +97,10 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_ADD_GRADE_REPORT:
 		eventData = &eda.Student_GradeReport_Event{}
 		handler = sd.handleAddGradeReport
+	case EVENT_ADD_HEALTH_ASSESSMENT:
+		eventData = &eda.Student_HealthAssessment_Event{}
+		handler = sd.handleAddHealthAssessment
+
 	default:
 		return ErrEventNotFound
 	}
@@ -112,6 +117,36 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	wevt := wrappedEvent{event: evt, data: eventData}
 
 	return handler(wevt)
+}
+
+func (sd *Aggregate) AddHealthAssessment(cmd *eda.Student_HealthAssessment) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	// TODO: error on conflict
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_ADD_HEALTH_ASSESSMENT,
+		data: &eda.Student_HealthAssessment_Event{
+			AssessmentDate:         cmd.GetAssessmentDate(),
+			AssociatedBulkUploadId: cmd.GetAssociatedBulkUploadId(),
+			HeightCm:               cmd.GetHeightCm(),
+			WeightKg:               cmd.GetWeightKg(),
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) handleAddHealthAssessment(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_HealthAssessment_Event)
+	sd.data.HealthAssessments = append(sd.data.HealthAssessments, &eda.Student_HealthAssessment{
+		AssessmentDate:         event.AssessmentDate,
+		AssociatedBulkUploadId: event.AssociatedBulkUploadId,
+		HeightCm:               event.HeightCm,
+		WeightKg:               event.WeightKg,
+	})
+	return nil
 }
 
 func (sd *Aggregate) AddGradeReport(cmd *eda.Student_GradeReport) (*gosignal.Event, error) {

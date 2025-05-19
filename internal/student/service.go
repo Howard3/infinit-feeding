@@ -351,3 +351,24 @@ func (s *StudentService) AddGradeReport(ctx context.Context, id uint64, report *
 
 	return nil
 }
+
+func (s *StudentService) AddHealthAssessment(ctx context.Context, id uint64, report *eda.Student_HealthAssessment) error {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load student: %w", err)
+	}
+
+	// Add the health assessment to the student aggregate
+	event, err := studentAgg.AddHealthAssessment(report)
+	if err != nil {
+		return fmt.Errorf("failed to add health assessment: %w", err)
+	}
+
+	// Save the updated student aggregate
+	err = s.saveEvent(ctx, event)
+	if err != nil {
+		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	return nil
+}

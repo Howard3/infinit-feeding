@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type HealthAssessmentRow struct {
@@ -224,5 +226,33 @@ func (d *HealthAssessmentDomain) parseCSV(data []byte) (header []string, rows []
 
 // ProcessUpload processes the validated upload
 func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error {
-	return fmt.Errorf("not implemented")
+	_, rows, errors := d.parseCSV(fileBytes)
+	if len(errors) > 0 {
+		errMsgs := make([]string, len(errors))
+		for i, err := range errors {
+			errMsgs[i] = err.Error()
+		}
+		return fmt.Errorf("errors occurred while parsing CSV: %s", strings.Join(errMsgs, ", "))
+	}
+
+	for _, row := range rows {
+		assessment := &eda.Student_HealthAssessment{
+			HeightCm:               float32(row.HeightCM),
+			WeightKg:               float32(row.WeightKG),
+			AssociatedBulkUploadId: aggregate.GetID(),
+			AssessmentDate:         timestamppb.New(row.AssesmentDate),
+		}
+
+		student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, row.LRN, aggregate.GetUploadMetadataField("school_id"))
+		if err != nil {
+			return fmt.Errorf("error getting student by LRN %s: %w", row.LRN, err)
+		}
+
+		err = d.services.StudentService.AddHealthAssessment(ctx, student.GetIDUint64(), assessment)
+		if err != nil {
+			return fmt.Errorf("error creating health assessment for LRN %s: %w", row.LRN, err)
+		}
+	}
+
+	return nil
 }
