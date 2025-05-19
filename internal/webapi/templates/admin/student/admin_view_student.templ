@@ -43,6 +43,8 @@ templ AdminViewStudent(params ViewParams) {
 				@profilePhoto(params)
 				@codeSection(params)
 			</div>
+			// Embed Grade Reports Section
+			@gradeReportsSection(params.Student.GradeHistory)
 			// Embed History Section
 			<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/student/%d/history", params.ID) } hx-target="this">
 				Loading...
@@ -305,4 +307,42 @@ templ profilePhoto(p ViewParams) {
 			</label>
 		</div>
 	</form>
+}
+
+templ gradeReportsSection(gradeReports []*eda.Student_GradeReport) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full mt-4" data-v0-t="card">
+		<div class="flex flex-col space-y-1.5 p-6">
+			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
+				Grade Reports
+			</h3>
+		</div>
+		<div class="p-6 pt-0">
+			if len(gradeReports) == 0 {
+				<div class="text-sm text-gray-500 p-2">No grade reports available</div>
+			} else {
+				<div class="border rounded-md overflow-hidden">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="bg-gray-100 border-b">
+								<th class="py-3 px-4 text-left font-medium">Grade</th>
+								<th class="py-3 px-4 text-left font-medium">Test Date</th>
+								<th class="py-3 px-4 text-left font-medium">School Year</th>
+								<th class="py-3 px-4 text-left font-medium">Grading Period</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, report := range gradeReports {
+								<tr class="border-b hover:bg-gray-50">
+									<td class="py-2 px-4">{ fmt.Sprintf("%d", report.Grade) }</td>
+									<td class="py-2 px-4">{ dateToFormDate(report.TestDate) }</td>
+									<td class="py-2 px-4">{ report.SchoolYear }</td>
+									<td class="py-2 px-4">{ report.GradingPeriod }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
+	</div>
 }
