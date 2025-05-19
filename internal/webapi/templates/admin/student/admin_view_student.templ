@@ -170,9 +170,9 @@ templ StudentHistorySection(evts []gosignal.Event) {
 				</h3>
 			</div>
 			<div class="p-0">
-				<div class="grid min-w-[400px] w-full divide-y">
+				<div id="history-events-container" class="grid min-w-[400px] w-full divide-y">
 					for _, evt := range evts {
-						<div class="grid grid-cols-3 items-center p-3 bg-gray-100">
+						<div class="grid grid-cols-3 items-center p-3 bg-gray-100 history-event">
 							<div class="text-sm text-gray-500" hx-target="#content" hx-push-url="true">
 								switch evt.Type {
 									case student.EVENT_ADD_STUDENT:
@@ -208,9 +208,45 @@ templ StudentHistorySection(evts []gosignal.Event) {
 						</div>
 					}
 				</div>
+				<div class="p-4 text-center" id="view-more-container" style="display: none;">
+					<button id="view-all-history-btn" class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">
+						View All History
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
+	<script>
+		// History collapsing functionality
+		(function() {
+			const MAX_VISIBLE_EVENTS = 5;
+			const eventsContainer = document.getElementById('history-events-container');
+			const viewMoreContainer = document.getElementById('view-more-container');
+			const viewAllBtn = document.getElementById('view-all-history-btn');
+			const events = Array.from(eventsContainer.querySelectorAll('.history-event'));
+
+			// If we have more events than the maximum to show
+			if (events.length > MAX_VISIBLE_EVENTS) {
+				// Hide all events except the last MAX_VISIBLE_EVENTS
+				events.slice(0, events.length - MAX_VISIBLE_EVENTS).forEach(event => {
+					event.style.display = 'none';
+				});
+
+				// Show the view more button
+				viewMoreContainer.style.display = 'block';
+
+				// Add click handler to view all button
+				viewAllBtn.addEventListener('click', function() {
+					// Show all events
+					events.forEach(event => {
+						event.style.display = 'grid';
+					});
+					// Hide the view more button
+					viewMoreContainer.style.display = 'none';
+				});
+			}
+		})();
+	</script>
 }
 
 templ backToList() {
