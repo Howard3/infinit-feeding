@@ -35,6 +35,8 @@ type BulkUploadDomain interface {
 
 	// ValidateUpload validates the uploaded file against business rules
 	ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) *ValidationResult
+
+	ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error
 }
 
 // ServiceRegistry contains all services that domain handlers might need. Redefined here to prevent circular dependencies.
@@ -46,30 +48,30 @@ type ServiceRegistry struct {
 
 // DomainRegistry manages domain handlers
 type DomainRegistry struct {
-	domains map[string]BulkUploadDomain
+	domains map[eda.BulkUpload_Domain]BulkUploadDomain
 }
 
 // NewDomainRegistry creates and initializes a new domain registry
 func NewDomainRegistry(services *ServiceRegistry) *DomainRegistry {
 	registry := &DomainRegistry{
-		domains: make(map[string]BulkUploadDomain),
+		domains: make(map[eda.BulkUpload_Domain]BulkUploadDomain),
 	}
 
 	// Register domains with access to services
-	registry.domains["new_students"] = NewNewStudentsDomain(services)
-	registry.domains["grades"] = NewGradesDomain(services)
+	registry.domains[eda.BulkUpload_NEW_STUDENTS] = NewNewStudentsDomain(services)
+	registry.domains[eda.BulkUpload_GRADES] = NewGradesDomain(services)
 
 	return registry
 }
 
 // GetDomain retrieves a domain handler by name
-func (r *DomainRegistry) GetDomain(domainName string) (BulkUploadDomain, bool) {
+func (r *DomainRegistry) GetDomain(domainName eda.BulkUpload_Domain) (BulkUploadDomain, bool) {
 	domain, exists := r.domains[domainName]
 	return domain, exists
 }
 
 // RegisterDomain adds a new domain handler to the registry
-func (r *DomainRegistry) RegisterDomain(name string, domain BulkUploadDomain) {
+func (r *DomainRegistry) RegisterDomain(name eda.BulkUpload_Domain, domain BulkUploadDomain) {
 	r.domains[name] = domain
 }
 

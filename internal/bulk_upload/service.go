@@ -136,3 +136,43 @@ func (s *Service) SetStatus(ctx context.Context, id string, status eda.BulkUploa
 
 	return nil
 }
+
+func (s *Service) MarkRecordsAsProcessed(ctx context.Context, id string, recordIds []string) error {
+	agg, err := s.repo.loadBulkUpload(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load bulk upload: %w", err)
+	}
+
+	event, err := agg.markRecordsAsProcessed(recordIds)
+	if err != nil {
+		return fmt.Errorf("failed to mark records as processed: %w", err)
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*event}); err != nil {
+		return fmt.Errorf("failed to save bulk upload event: %w", err)
+	}
+
+	s.eventHandlers.HandleBulkUploadEvent(ctx, event)
+
+	return nil
+}
+
+func (s *Service) AddRecordsToProcess(ctx context.Context, id string, recordIds []string) error {
+	agg, err := s.repo.loadBulkUpload(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load bulk upload: %w", err)
+	}
+
+	event, err := agg.addRecordsToProcess(recordIds)
+	if err != nil {
+		return fmt.Errorf("failed to add records to process: %w", err)
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*event}); err != nil {
+		return fmt.Errorf("failed to save bulk upload event: %w", err)
+	}
+
+	s.eventHandlers.HandleBulkUploadEvent(ctx, event)
+
+	return nil
+}

@@ -15,15 +15,18 @@ import (
 )
 
 const (
-	EventCreate              = "BulkUploadCreate"
-	EventAddValidationErrors = "BulkUploadAddValidationErrors"
-	EventSetStatus           = "BulkUploadSetStatus"
+	EventCreate                   = "BulkUploadCreate"
+	EventAddValidationErrors      = "BulkUploadAddValidationErrors"
+	EventSetStatus                = "BulkUploadSetStatus"
+	EventMarkRecordsAsProcessed   = "BulkUploadMarkRecordsAsProcessed"
+	EventAddRecordsToProcessEvent = "BulkUploadAddRecordsToProcess"
 )
 
 var permittedStatusChanges = map[eda.BulkUpload_Status][]eda.BulkUpload_Status{
 	eda.BulkUpload_UNKNOWN:      {eda.BulkUpload_PENDING},
 	eda.BulkUpload_PENDING:      {eda.BulkUpload_VALIDATING},
 	eda.BulkUpload_VALIDATING:   {eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
+	eda.BulkUpload_VALIDATED:    {eda.BulkUpload_PROCESSING},
 	eda.BulkUpload_PROCESSING:   {eda.BulkUpload_COMPLETED, eda.BulkUpload_ERROR},
 	eda.BulkUpload_COMPLETED:    {eda.BulkUpload_INVALIDATING},
 	eda.BulkUpload_INVALIDATING: {eda.BulkUpload_INVALIDATED, eda.BulkUpload_INVALIDATION_FAILED},
@@ -101,6 +104,34 @@ func (a *Aggregate) setStatus(status eda.BulkUpload_Status) (*gosignal.Event, er
 	})
 }
 
+func (a *Aggregate) addRecordsToProcess(recordIds []string) (*gosignal.Event, error) {
+	if a.data == nil {
+		return nil, fmt.Errorf("bulk upload aggregate is not initialized")
+	}
+
+	return a.ApplyEvent(BulkUploadEvent{
+		eventType: EventAddRecordsToProcessEvent,
+		data: &eda.BulkUpload_AddRecordsToProcessEvent{
+			RecordIds: recordIds,
+		},
+		version: a.Version,
+	})
+}
+
+func (a *Aggregate) markRecordsAsProcessed(recordIds []string) (*gosignal.Event, error) {
+	if a.data == nil {
+		return nil, fmt.Errorf("bulk upload aggregate is not initialized")
+	}
+
+	return a.ApplyEvent(BulkUploadEvent{
+		eventType: EventMarkRecordsAsProcessed,
+		data: &eda.BulkUpload_MarkRecordsAsProcessed{
+			RecordIds: recordIds,
+		},
+		version: a.Version,
+	})
+}
+
 func (a *Aggregate) GetFileID() string {
 	return a.data.FileId
 }
@@ -145,6 +176,12 @@ func (a *Aggregate) routeEvent(evt gosignal.Event) error {
 	case EventSetStatus:
 		eventData = &eda.BulkUpload_SetStatusEvent{}
 		handler = a.handleSetStatus
+	case EventMarkRecordsAsProcessed:
+		eventData = &eda.BulkUpload_MarkRecordsAsProcessed{}
+		handler = a.handleMarkRecordsAsProcessed
+	case EventAddRecordsToProcessEvent:
+		eventData = &eda.BulkUpload_AddRecordsToProcessEvent{}
+		handler = a.handleAddRecordsToProcess
 	default:
 		return fmt.Errorf("unknown event type: %s", evt.Type)
 	}
@@ -154,6 +191,32 @@ func (a *Aggregate) routeEvent(evt gosignal.Event) error {
 	}
 
 	return handler(eventData)
+}
+
+func (a *Aggregate) handleAddRecordsToProcess(event proto.Message) error {
+	evt := event.(*eda.BulkUpload_AddRecordsToProcessEvent)
+
+	for _, record := range evt.RecordIds {
+		if _, exists := a.data.RecordsProcessed[record]; exists {
+			continue
+		}
+		a.data.RecordsProcessed[record] = false
+	}
+
+	return nil
+}
+
+func (a *Aggregate) handleMarkRecordsAsProcessed(event proto.Message) error {
+	evt := event.(*eda.BulkUpload_MarkRecordsAsProcessed)
+
+	for _, record := range evt.RecordIds {
+		if _, exists := a.data.RecordsProcessed[record]; !exists {
+			continue
+		}
+		a.data.RecordsProcessed[record] = true
+	}
+
+	return nil
 }
 
 func (a *Aggregate) handleSetStatus(event proto.Message) error {
@@ -316,12 +379,13 @@ func (a *Aggregate) handleCreate(msg proto.Message) error {
 	evt := msg.(*eda.BulkUpload_Create_Event)
 
 	a.data = &eda.BulkUpload{
-		Id:             a.ID,
-		Status:         eda.BulkUpload_PENDING,
-		TargetDomain:   evt.TargetDomain,
-		Metadata:       evt.Metadata,
-		FileId:         evt.FileId,
-		UploadMetadata: evt.UploadMetadata,
+		Id:               a.ID,
+		Status:           eda.BulkUpload_PENDING,
+		TargetDomain:     evt.TargetDomain,
+		Metadata:         evt.Metadata,
+		FileId:           evt.FileId,
+		UploadMetadata:   evt.UploadMetadata,
+		RecordsProcessed: make(map[string]bool),
 		StatusTimestamps: []*eda.BulkUpload_StatusTimestamp{
 			{
 				Status:    eda.BulkUpload_PENDING,

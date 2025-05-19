@@ -19,6 +19,7 @@ message Student {
   uint64 grade_level = 14;
   bool eligible_for_sponsorship = 16;
   repeated SponsorshipRecord sponsorship_history = 19;
+  repeated GradeReport grade_history = 20;
 
   repeated HealthReport health_reports = 10;
   repeated Feeding.Event feeding_report = 11;
@@ -39,6 +40,24 @@ message Student {
   //
   // Commands, Events, and Responses
   //
+  // GradeReport records a student's grade history
+  message GradeReport {
+    int32 grade = 1;
+    Date test_date = 2;
+    string associated_bulk_upload_id = 3;
+    string school_year = 4;
+    string grading_period = 5;
+
+    message Event {
+      int32 grade = 1;
+      Date test_date = 2;
+      string associated_bulk_upload_id = 3;
+      string school_year = 4;
+      string grading_period = 5;
+    }
+  }
+
+
   // Feeding records a student's feeding
   message Feeding {
     uint64 unix_timestamp = 1;

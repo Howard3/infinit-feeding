@@ -234,7 +234,7 @@ func (s *StudentService) GetStudentByStudentAndSchoolID(ctx context.Context, stu
 	if err != nil {
 		return nil, fmt.Errorf("failed to get student ID by student school ID and school ID: %w", err)
 	}
-	
+
 	return s.GetStudent(ctx, id)
 }
 
@@ -329,4 +329,25 @@ func (s *StudentService) GetRecentFeedingEvents(ctx context.Context, page, limit
 	}
 
 	return events, total, nil
+}
+
+func (s *StudentService) AddGradeReport(ctx context.Context, id uint64, report *eda.Student_GradeReport) error {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load student: %w", err)
+	}
+
+	// Add the grade report to the student aggregate
+	event, err := studentAgg.AddGradeReport(report)
+	if err != nil {
+		return fmt.Errorf("failed to add grade report: %w", err)
+	}
+
+	// Save the updated student aggregate
+	err = s.saveEvent(ctx, event)
+	if err != nil {
+		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	return nil
 }

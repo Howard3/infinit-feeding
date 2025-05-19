@@ -3,11 +3,13 @@ package bulk_domains
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"geevly/gen/go/eda"
 	"geevly/internal/bulk_upload"
@@ -37,6 +39,10 @@ func (d *GradesDomain) ValidateFormData(r *http.Request) (map[string]string, err
 	// Check required fields
 	if schoolID == "" || schoolYear == "" || gradingPeriod == "" || effectiveDate == "" {
 		return nil, fmt.Errorf("Missing required fields")
+	}
+
+	if _, err := d.parseDate(effectiveDate); err != nil {
+		return nil, fmt.Errorf("invalid effective date: %s", err.Error())
 	}
 
 	// Return the metadata - deep validation happens in the aggregate
@@ -72,6 +78,83 @@ func (d *GradesDomain) validateHeaders(_ context.Context, firstRow []string) err
 	return nil
 }
 
+// GradeRow represents a single row in the grades CSV file
+type GradeRow struct {
+	LRN   string
+	Grade string
+}
+
+func (row *GradeRow) Validate() error {
+	if row.LRN == "" {
+		return errors.New("LRN is required")
+	}
+	if row.Grade == "" {
+		return errors.New("Grade is required")
+	}
+	grade, err := row.GradeInt()
+	if err != nil {
+		return errors.New("Grade must be a number")
+	}
+	if grade < 0 || grade > 100 {
+		return errors.New("Grade must be between 0 and 100")
+	}
+	return nil
+}
+
+// GradeInt returns the grade as an integer
+func (row *GradeRow) GradeInt() (int, error) {
+	return strconv.Atoi(row.Grade)
+}
+
+// parseCSV parses the CSV file bytes and returns rows as GradeRow structs
+func (d *GradesDomain) parseCSV(fileBytes []byte) (header []string, rows []GradeRow, err error) {
+	// Parse the CSV data
+	reader := csv.NewReader(strings.NewReader(string(fileBytes)))
+
+	// Read header row
+	header, err = reader.Read()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read CSV header: %w", err)
+	}
+
+	// Find column indexes
+	lrnIndex := -1
+	gradeIndex := -1
+	for i, col := range header {
+		if col == "LRN" {
+			lrnIndex = i
+		} else if col == "Grade" {
+			gradeIndex = i
+		}
+	}
+
+	if lrnIndex == -1 || gradeIndex == -1 {
+		return header, nil, fmt.Errorf("required columns not found: LRN and/or Grade")
+	}
+
+	// Read all data rows
+	dataRows, err := reader.ReadAll()
+	if err != nil {
+		return header, nil, fmt.Errorf("failed to read CSV data: %w", err)
+	}
+
+	// Convert rows to structs
+	rows = make([]GradeRow, 0, len(dataRows))
+	for _, row := range dataRows {
+		if len(row) <= max(lrnIndex, gradeIndex) {
+			continue // Skip rows that don't have enough columns
+		}
+
+		gradeRow := GradeRow{
+			LRN:   row[lrnIndex],
+			Grade: row[gradeIndex],
+		}
+		rows = append(rows, gradeRow)
+	}
+
+	return header, rows, nil
+}
+
 // ValidateUpload validates the uploaded grades file against business rules
 func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) *ValidationResult {
 	result := &ValidationResult{
@@ -93,32 +176,22 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 	}
 
 	// Parse the CSV data
-	reader := csv.NewReader(strings.NewReader(string(fileBytes)))
-
-	// Read header row
-	header, err := reader.Read()
+	header, rows, err := d.parseCSV(fileBytes)
 	if err != nil {
 		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
-			Context: eda.BulkUpload_ValidationError_CSV_HEADER,
-			Message: fmt.Sprintf("Failed to read CSV header: %s", err.Error()),
+			Context: eda.BulkUpload_ValidationError_CSV_DATA,
+			Message: fmt.Sprintf("Failed to parse CSV: %s", err.Error()),
 		})
 	}
 
 	// Validate header columns
-	if headerErr := d.validateHeaders(ctx, header); headerErr != nil {
-		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
-			Context: eda.BulkUpload_ValidationError_CSV_HEADER,
-			Message: fmt.Sprintf("Invalid header columns: %s", headerErr.Error()),
-		})
-	}
-
-	// Read all rows for validation
-	rows, err := reader.ReadAll()
-	if err != nil {
-		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
-			Context: eda.BulkUpload_ValidationError_CSV_DATA,
-			Message: fmt.Sprintf("Failed to read CSV data: %s", err.Error()),
-		})
+	if header != nil {
+		if err := d.validateHeaders(ctx, header); err != nil {
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+				Context: eda.BulkUpload_ValidationError_CSV_HEADER,
+				Message: fmt.Sprintf("Invalid header columns: %s", err.Error()),
+			})
+		}
 	}
 
 	// Track LRNs to check for duplicates
@@ -128,13 +201,11 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 	for i, row := range rows {
 		rowNum := i + 2 // +2 because row numbers are 1-based and we've already read the header
 
-		// Skip empty rows
-		if len(row) == 0 || (len(row) == 1 && row[0] == "") {
-			continue
-		}
-
 		// Check for missing data
-		if len(row) < 2 || row[0] == "" || row[1] == "" {
+		lrn := row.LRN
+		grade := row.Grade
+
+		if lrn == "" || grade == "" {
 			result.IsValid = false
 			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
@@ -143,9 +214,6 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 			})
 			continue
 		}
-
-		lrn := row[0]
-		grade := row[1]
 
 		// Check for duplicate LRNs
 		if prevRow, exists := lrnMap[lrn]; exists {
@@ -160,14 +228,13 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 		}
 
 		// Validate grade format (numeric, 0-100)
-		gradeVal, err := strconv.ParseFloat(grade, 64)
-		if err != nil || gradeVal < 0 || gradeVal > 100 {
+		if err := row.Validate(); err != nil {
 			result.IsValid = false
 			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
 				RowNumber: uint64(rowNum),
 				Field:     "Grade",
-				Message:   fmt.Sprintf("Invalid grade value: %s (must be a number between 0 and 100)", grade),
+				Message:   fmt.Sprintf("Invalid LRN or grade value: %s (must be a number between 0 and 100)", grade),
 			})
 		}
 
@@ -232,4 +299,98 @@ func (d *GradesDomain) GetFileName() string {
 // GetMaxFileSize returns the maximum file size in bytes (10MB)
 func (d *GradesDomain) GetMaxFileSize() int64 {
 	return 10 << 20 // 10MB
+}
+
+func (d *GradesDomain) recordFilesToProcess(ctx context.Context, agg *bulk_upload.Aggregate, svc *bulk_upload.Service, rows []GradeRow) error {
+	recordIDs := make([]string, len(rows))
+	for i, row := range rows {
+		recordIDs[i] = row.LRN
+	}
+	return svc.AddRecordsToProcess(ctx, agg.GetID(), recordIDs)
+}
+
+// ProcessUpload processes the uploaded file for grades
+func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error {
+	if d.services == nil {
+		return fmt.Errorf("services are not initialized")
+	}
+
+	if d.services.StudentService == nil {
+		return fmt.Errorf("student service is not initialized")
+	}
+
+	// Parse the CSV data using the common function
+	_, rows, err := d.parseCSV(fileBytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse CSV: %w", err)
+	}
+
+	// Get metadata from aggregate
+	metadata := aggregate.GetUploadMetadata()
+	schoolID := metadata["school_id"]
+	schoolYear := metadata["school_year"]
+	gradingPeriod := metadata["grading_period"]
+	effectiveDate := metadata["effective_date"]
+
+	if schoolID == "" || schoolYear == "" || gradingPeriod == "" || effectiveDate == "" {
+		return fmt.Errorf("missing required metadata for processing")
+	}
+
+	// Record files to process
+	if err := d.recordFilesToProcess(ctx, aggregate, svc, rows); err != nil {
+		return fmt.Errorf("failed to record files to process: %w", err)
+	}
+
+	effectiveDateParsed, err := d.parseDate(effectiveDate)
+	if err != nil {
+		return fmt.Errorf("invalid effective date: %s", err.Error())
+	}
+
+	// Process each row and update student grades
+	recentlyProcessed := make([]string, 0)
+
+	for _, row := range rows {
+		// Parse the grade value
+		gradeVal, err := row.GradeInt()
+		if err != nil {
+			return fmt.Errorf("failed to parse grade value: %w", err)
+		}
+
+		// Find the student by LRN and school ID
+		student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, row.LRN, schoolID)
+		if err != nil {
+			return fmt.Errorf("failed to find student with LRN %s and school ID %s: %w", row.LRN, schoolID, err)
+		}
+
+		// Create a grade update command based on your actual data model
+		// This is a placeholder - use the actual command structure for your system
+		gradeCmd := &eda.Student_GradeReport{
+			Grade: int32(gradeVal),
+			TestDate: &eda.Date{
+				Year:  int32(effectiveDateParsed.Year()),
+				Month: int32(effectiveDateParsed.Month()),
+				Day:   int32(effectiveDateParsed.Day()),
+			},
+			AssociatedBulkUploadId: aggregate.GetID(),
+			SchoolYear:             schoolYear,
+			GradingPeriod:          gradingPeriod,
+		}
+
+		err = d.services.StudentService.AddGradeReport(ctx, student.GetIDUint64(), gradeCmd)
+		if err != nil {
+			return fmt.Errorf("failed to add grade report for student %s: %w", student.GetID(), err)
+		}
+
+		recentlyProcessed = append(recentlyProcessed, student.GetID())
+	}
+
+	// TODO: implement more regularly, for example every 10-20 records
+	svc.MarkRecordsAsProcessed(ctx, aggregate.GetID(), recentlyProcessed)
+
+	return nil
+}
+
+// date parser YYYY-MM-DD
+func (d *GradesDomain) parseDate(dateStr string) (time.Time, error) {
+	return time.Parse("2006-01-02", dateStr)
 }

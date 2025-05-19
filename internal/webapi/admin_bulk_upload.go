@@ -97,13 +97,24 @@ func (s *Server) handleBulkUploadSuccess(w http.ResponseWriter, r *http.Request,
 	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", aggID), "File uploaded"))
 }
 
+func (s *Server) getDomain(domain string) eda.BulkUpload_Domain {
+	switch domain {
+	case "grades":
+		return eda.BulkUpload_GRADES
+	case "new_students":
+		return eda.BulkUpload_NEW_STUDENTS
+	default:
+		return eda.BulkUpload_UNKNOWN_DOMAIN
+	}
+}
+
 func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Request) {
 	// Get domain handler for the requested domain
 	domainName := r.FormValue("domain")
-	domain, exists := s.bulkDomainRegistry.GetDomain(domainName)
 
+	domain, exists := s.bulkDomainRegistry.GetDomain(s.getDomain(domainName))
 	if !exists {
-		http.Error(w, "Invalid domain", http.StatusBadRequest)
+		s.handleBulkUploadError(w, "could not find the specified domain", http.StatusInternalServerError)
 		return
 	}
 
@@ -152,20 +163,8 @@ func (s *Server) bulkUploadAdminValidateUpload(w http.ResponseWriter, r *http.Re
 
 	s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATING)
 
-	// Convert enum domain to string domain name
-	var domainName string
-	switch agg.GetDomain() {
-	case eda.BulkUpload_NEW_STUDENTS:
-		domainName = "new_students"
-	case eda.BulkUpload_GRADES:
-		domainName = "grades"
-	default:
-		http.Error(w, "Unsupported domain in bulk upload", http.StatusBadRequest)
-		return
-	}
-
 	// Get domain handler based on the domain name
-	domain, exists := s.bulkDomainRegistry.GetDomain(domainName)
+	domain, exists := s.bulkDomainRegistry.GetDomain(agg.GetDomain())
 	if !exists {
 		http.Error(w, "Invalid domain in bulk upload", http.StatusBadRequest)
 		return
@@ -199,7 +198,41 @@ func (s *Server) bulkUploadAdminValidateUpload(w http.ResponseWriter, r *http.Re
 }
 
 func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("not implemented"))
+	id := chi.URLParam(r, "id")
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Error getting aggregate: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_PROCESSING); err != nil {
+		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	domain, exists := s.bulkDomainRegistry.GetDomain(agg.GetDomain())
+	if !exists {
+		http.Error(w, "Domain not found", http.StatusNotFound)
+		return
+	}
+
+	data, err := s.getFile(r.Context(), agg.GetFileID())
+	if err != nil {
+		http.Error(w, "Error getting file", http.StatusInternalServerError)
+		return
+	}
+
+	if err := domain.ProcessUpload(r.Context(), agg, s.Services.BulkUploadSvc, data); err != nil {
+		http.Error(w, "Error processing upload: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_COMPLETED); err != nil {
+		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Validation error"))
 }
 
 func (s *Server) bulkUploadAdminTemplate(w http.ResponseWriter, r *http.Request) {

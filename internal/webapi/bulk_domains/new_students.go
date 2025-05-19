@@ -143,3 +143,10 @@ func (d *NewStudentsDomain) GetFileName() string {
 func (d *NewStudentsDomain) GetMaxFileSize() int64 {
 	return 50 << 20 // 50MB
 }
+
+func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error {
+	// Implement the logic to process the uploaded file
+	// This could involve reading the CSV, validating data, and saving to the database
+
+	return nil
+}

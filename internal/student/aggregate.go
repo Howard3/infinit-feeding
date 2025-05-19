@@ -28,6 +28,7 @@ const EVENT_SET_PROFILE_PHOTO = "SetProfilePhoto"
 const EVENT_FEED_STUDENT = "FeedStudent"
 const EVENT_SET_ELIGIBILITY = "SetEligibility"
 const EVENT_UPDATE_SPONSORSHIP = "UpdateSponsorship"
+const EVENT_ADD_GRADE_REPORT = "AddGradeReport"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -92,6 +93,9 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_UPDATE_SPONSORSHIP:
 		eventData = &eda.Student_UpdateSponsorship_Event{}
 		handler = sd.handleUpdateSponsorship
+	case EVENT_ADD_GRADE_REPORT:
+		eventData = &eda.Student_GradeReport_Event{}
+		handler = sd.handleAddGradeReport
 	default:
 		return ErrEventNotFound
 	}
@@ -108,6 +112,38 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	wevt := wrappedEvent{event: evt, data: eventData}
 
 	return handler(wevt)
+}
+
+func (sd *Aggregate) AddGradeReport(cmd *eda.Student_GradeReport) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	// TODO: error on conflict
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_ADD_GRADE_REPORT,
+		data: &eda.Student_GradeReport_Event{
+			Grade:                  cmd.GetGrade(),
+			TestDate:               cmd.GetTestDate(),
+			AssociatedBulkUploadId: cmd.GetAssociatedBulkUploadId(),
+			SchoolYear:             cmd.GetSchoolYear(),
+			GradingPeriod:          cmd.GetGradingPeriod(),
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) handleAddGradeReport(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_GradeReport_Event)
+	sd.data.GradeHistory = append(sd.data.GradeHistory, &eda.Student_GradeReport{
+		Grade:                  event.Grade,
+		TestDate:               event.TestDate,
+		AssociatedBulkUploadId: event.AssociatedBulkUploadId,
+		SchoolYear:             event.SchoolYear,
+		GradingPeriod:          event.GradingPeriod,
+	})
+	return nil
 }
 
 // feed - handles the feeding of a student

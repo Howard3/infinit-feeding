@@ -16,7 +16,7 @@ message BulkUpload {
   uint64 total_records = 11;
   uint64 processed_records = 12;
   map<string, string> upload_metadata = 14; // Additional data like reporting period, school year etc.
-  map<string, bool> record_processing_status = 15; // Track which records are processed or not
+  map<string, bool> records_processed = 15; // Track which records are processed or not
   repeated RecordAction record_actions = 16;
 
   enum Status {
@@ -35,10 +35,18 @@ message BulkUpload {
 
   // Domain represents the domain of the bulk upload.
   enum Domain {
-    UNSPECIFIED = 0;
+    UNKNOWN_DOMAIN = 0;
     NEW_STUDENTS = 1;
     UPDATE_STUDENTS = 2;
     GRADES = 3;
+  }
+
+  message AddRecordsToProcessEvent {
+    repeated string record_ids = 1;
+  }
+
+  message MarkRecordsAsProcessed {
+    repeated string record_ids = 1;
   }
 
   // RecordAction represents an action taken on a record during the bulk upload process.
