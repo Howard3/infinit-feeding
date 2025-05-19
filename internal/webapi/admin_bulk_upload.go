@@ -116,6 +116,8 @@ func (s *Server) getDomain(domain string) eda.BulkUpload_Domain {
 		return eda.BulkUpload_GRADES
 	case "new_students":
 		return eda.BulkUpload_NEW_STUDENTS
+	case "health_assessment":
+		return eda.BulkUpload_HEALTH_ASSESSMENT
 	default:
 		return eda.BulkUpload_UNKNOWN_DOMAIN
 	}

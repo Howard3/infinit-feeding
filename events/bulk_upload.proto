@@ -39,6 +39,7 @@ message BulkUpload {
     NEW_STUDENTS = 1;
     UPDATE_STUDENTS = 2;
     GRADES = 3;
+    HEALTH_ASSESSMENT = 4;
   }
 
   message AddRecordsToProcessEvent {

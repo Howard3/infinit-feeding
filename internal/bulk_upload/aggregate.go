@@ -148,6 +148,10 @@ func (a *Aggregate) GetUploadMetadata() map[string]string {
 	return a.data.UploadMetadata
 }
 
+func (a *Aggregate) GetUploadMetadataField(field string) string {
+	return a.data.UploadMetadata[field]
+}
+
 // Apply event to the bulk upload
 func (a *Aggregate) Apply(evt gosignal.Event) error {
 	return sourcing.SafeApply(evt, a, a.routeEvent)
@@ -284,8 +288,12 @@ func (a *Aggregate) Create(cmd *eda.BulkUpload_Create) (*gosignal.Event, error) 
 		if err := a.validateGrades(cmd); err != nil {
 			return nil, err
 		}
+	case eda.BulkUpload_HEALTH_ASSESSMENT:
+		if err := a.validateHealthAssessment(cmd); err != nil {
+			return nil, err
+		}
 	default:
-		return nil, errors.New("invalid target domain")
+		return nil, errors.New("agg:create - invalid target domain")
 	}
 
 	return a.ApplyEvent(BulkUploadEvent{
@@ -298,6 +306,17 @@ func (a *Aggregate) Create(cmd *eda.BulkUpload_Create) (*gosignal.Event, error) 
 			UploadMetadata: cmd.UploadMetadata,
 		},
 	})
+}
+
+func (a *Aggregate) validateHealthAssessment(cmd *eda.BulkUpload_Create) error {
+	switch {
+	case cmd.UploadMetadata == nil:
+		return errors.New("upload metadata is required")
+	case cmd.UploadMetadata["school_id"] == "":
+		return errors.New("school id is required")
+	default:
+		return nil
+	}
 }
 
 func (a *Aggregate) validateNewStudents(cmd *eda.BulkUpload_Create) error {

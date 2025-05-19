@@ -60,6 +60,7 @@ func NewDomainRegistry(services *ServiceRegistry) *DomainRegistry {
 	// Register domains with access to services
 	registry.domains[eda.BulkUpload_NEW_STUDENTS] = NewNewStudentsDomain(services)
 	registry.domains[eda.BulkUpload_GRADES] = NewGradesDomain(services)
+	registry.domains[eda.BulkUpload_HEALTH_ASSESSMENT] = NewHealthAsssementDomain(services)
 
 	return registry
 }
