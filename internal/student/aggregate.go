@@ -3,6 +3,8 @@ package student
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
 	"time"
 
 	"geevly/gen/go/eda"
@@ -34,6 +36,49 @@ const EVENT_ADD_HEALTH_ASSESSMENT = "AddHealthAssessment"
 type wrappedEvent struct {
 	event gosignal.Event
 	data  proto.Message
+}
+
+type HealthReport struct {
+	AssessmentDate         time.Time
+	AssociatedBulkUploadId string
+	HeightCm               float32
+	WeightKg               float32
+	sex                    *eda.Student_Sex
+	dob                    *time.Time
+}
+
+func (h *HealthReport) BMI() float32 {
+	heightMeters := h.HeightCm / 100
+	return h.WeightKg / (heightMeters * heightMeters)
+}
+
+func (h *HealthReport) AgeYears() float64 {
+	if h.dob == nil {
+		return 0
+	}
+
+	return time.Since(*h.dob).Hours() / 24 / 365
+}
+
+func (h *HealthReport) NutritionalStatus() NutritionalStatus {
+	var gender Gender
+	switch *h.sex {
+	case eda.Student_MALE:
+		gender = Male
+	case eda.Student_FEMALE:
+		gender = Female
+	default:
+		return NutritionalStatusGenderError
+	}
+
+	age := int(math.Round(h.AgeYears()))
+
+	status, err := CalculateNutritionalStatus(gender, age, h.BMI())
+	if err != nil {
+		slog.Error("error calculating nutritional status", "error", err)
+		return NutritionalStatusError
+	}
+	return status
 }
 
 type Aggregate struct {
@@ -117,6 +162,26 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	wevt := wrappedEvent{event: evt, data: eventData}
 
 	return handler(wevt)
+}
+
+func (sd *Aggregate) GetHealthAssessments() []*HealthReport {
+	hr := make([]*HealthReport, len(sd.data.HealthAssessments))
+	dob := time.Date(
+		int(sd.data.DateOfBirth.Year),
+		time.Month(sd.data.DateOfBirth.Month),
+		int(sd.data.DateOfBirth.Day), 0, 0, 0, 0, time.UTC)
+
+	for i, h := range sd.data.HealthAssessments {
+		hr[i] = &HealthReport{
+			AssessmentDate:         h.AssessmentDate.AsTime(),
+			AssociatedBulkUploadId: h.AssociatedBulkUploadId,
+			HeightCm:               h.HeightCm,
+			WeightKg:               h.WeightKg,
+			sex:                    &sd.data.Sex,
+			dob:                    &dob,
+		}
+	}
+	return hr
 }
 
 func (sd *Aggregate) AddHealthAssessment(cmd *eda.Student_HealthAssessment) (*gosignal.Event, error) {

@@ -14,13 +14,14 @@ type ViewParams struct {
 	Student   *eda.Student
 	Version   uint64
 	SchoolMap map[string]string
+	Aggregate *student.Aggregate
 }
 
 func base64Encode(b []byte) string {
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
 }
 
-templ healthAssessmentsSection(healthAssessments []*eda.Student_HealthAssessment) {
+templ healthAssessmentsSection(healthAssessments []*student.HealthReport) {
 	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full mt-4" data-v0-t="card">
 		<div class="flex flex-col space-y-1.5 p-6">
 			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
@@ -38,18 +39,41 @@ templ healthAssessmentsSection(healthAssessments []*eda.Student_HealthAssessment
 								<th class="py-3 px-4 text-left font-medium">Date</th>
 								<th class="py-3 px-4 text-left font-medium">Height (cm)</th>
 								<th class="py-3 px-4 text-left font-medium">Weight (kg)</th>
+								<th class="py-3 px-4 text-left font-medium bg-blue-50">BMI *</th>
+								<th class="py-3 px-4 text-left font-medium bg-blue-50">Age *</th>
+								<th class="py-3 px-4 text-left font-medium bg-blue-50">Status *</th>
 							</tr>
 						</thead>
 						<tbody>
 							for _, assessment := range healthAssessments {
 								<tr class="border-b hover:bg-gray-50">
-									<td class="py-2 px-4">{ assessment.AssessmentDate.AsTime().Format("2006-01-02") }</td>
+									<td class="py-2 px-4">{ assessment.AssessmentDate.Format("2006-01-02") }</td>
 									<td class="py-2 px-4">{ fmt.Sprintf("%.1f", assessment.HeightCm) }</td>
 									<td class="py-2 px-4">{ fmt.Sprintf("%.1f", assessment.WeightKg) }</td>
+									<td class="py-2 px-4 bg-blue-50 font-medium">{ fmt.Sprintf("%.1f", assessment.BMI()) }</td>
+									<td class="py-2 px-4 bg-blue-50 font-medium">{ fmt.Sprintf("%.1f", assessment.AgeYears()) }</td>
+									<td class="py-2 px-4 bg-blue-50 font-medium">
+										if assessment.NutritionalStatus() == student.SeverelyWasted {
+											<span class="px-2 py-1 text-white bg-red-600 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										} else if assessment.NutritionalStatus() == student.Wasted {
+											<span class="px-2 py-1 text-white bg-amber-600 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										} else if assessment.NutritionalStatus() == student.Normal {
+											<span class="px-2 py-1 text-white bg-green-600 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										} else {
+											<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										}
+									</td>
 								</tr>
 							}
 						</tbody>
 					</table>
+					<div class="text-xs text-gray-500 mt-2 pl-4 flex items-center gap-2">
+						* Calculated fields
+						<span class="ml-2 px-2 py-1 text-white bg-green-600 rounded-md text-xs font-semibold">Normal</span>
+						<span class="px-2 py-1 text-white bg-amber-600 rounded-md text-xs font-semibold">Wasted</span>
+						<span class="px-2 py-1 text-white bg-red-600 rounded-md text-xs font-semibold">Severely Wasted</span>
+						<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold">Error</span>
+					</div>
 				</div>
 			}
 		</div>
@@ -82,7 +106,7 @@ templ AdminViewStudent(params ViewParams) {
 			// Embed Grade Reports Section
 			@gradeReportsSection(params.Student.GradeHistory)
 			// Embed Health Assessments Section
-			@healthAssessmentsSection(params.Student.HealthAssessments)
+			@healthAssessmentsSection(params.Aggregate.GetHealthAssessments())
 			// Embed History Section
 			<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/student/%d/history", params.ID) } hx-target="this">
 				Loading...
