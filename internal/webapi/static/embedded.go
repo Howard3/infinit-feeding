@@ -125,9 +125,9 @@ func createNewStudentsZipTemplate() ([]byte, error) {
 func getHealthAssessmentTemplate(templateType BulkTemplateType) (BulkTemplateInfo, error) {
 	switch templateType {
 	case CSV:
-		data := []byte(`student_id,height_cm,weight_kg,bmi,nutrition_status,assessment_date
-"ST001",120.5,23.4,16.1,"NORMAL","2023-10-15"
-"ST002",115.0,21.0,15.9,"NORMAL","2023-10-15"`)
+		data := []byte(`lrn,height_cm,weight_kg,assessment_date
+"ST001",120.5,23.4,"2023-10-15"
+"ST002",115.0,21.0,"2023-10-15"`)
 
 		return BulkTemplateInfo{
 			Filename:    "health_assessment_template.csv",

@@ -60,6 +60,9 @@ func (s *Server) bulkUploadAdminUploadForm(w http.ResponseWriter, r *http.Reques
 	case "grades":
 		s.grades(w, r)
 		return
+	case "health_assessment":
+		s.healthAssessment(w, r)
+		return
 	}
 
 	// TODO: handle fallthrough
@@ -73,6 +76,16 @@ func (s *Server) grades(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTempl(w, r, bulk_upload.GradesForm(schools))
+}
+
+func (s *Server) healthAssessment(w http.ResponseWriter, r *http.Request) {
+	schools, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.renderTempl(w, r, bulk_upload.HealthAssessmentForm(schools))
 }
 
 func (s *Server) newStudents(w http.ResponseWriter, r *http.Request) {
