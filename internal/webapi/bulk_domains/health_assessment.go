@@ -241,8 +241,13 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 	recentlyProcessed := make([]string, 0)
 
 	defer func() {
+		actions := bulk_upload.RecordActions{
+			RecordIds:  recentlyProcessed,
+			RecordType: eda.BulkUpload_STUDENT,
+			Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+		}
 		// Mark records as processed, regardless of how we exit
-		svc.MarkRecordsAsProcessed(ctx, aggregate.GetID(), recentlyProcessed)
+		svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), actions)
 	}()
 
 	for _, row := range rows {
@@ -262,7 +267,13 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 		toProcess[student.GetIDUint64()] = assessment
 	}
 
-	if err := svc.AddRecordsToProcess(ctx, aggregate.ID, toProcessIDs); err != nil {
+	recordActions := bulk_upload.RecordActions{
+		RecordIds:  toProcessIDs,
+		RecordType: eda.BulkUpload_STUDENT,
+		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+	}
+
+	if err := svc.AddRecordsToProcess(ctx, aggregate.ID, recordActions); err != nil {
 		return fmt.Errorf("error adding records to process: %w", err)
 	}
 

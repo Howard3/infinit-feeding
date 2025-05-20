@@ -306,7 +306,11 @@ func (d *GradesDomain) recordFilesToProcess(ctx context.Context, agg *bulk_uploa
 	for i, row := range rows {
 		recordIDs[i] = row.LRN
 	}
-	return svc.AddRecordsToProcess(ctx, agg.GetID(), recordIDs)
+	return svc.AddRecordsToProcess(ctx, agg.GetID(), bulk_upload.RecordActions{
+		RecordIds:  recordIDs,
+		RecordType: eda.BulkUpload_STUDENT,
+		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+	})
 }
 
 // ProcessUpload processes the uploaded file for grades
@@ -385,7 +389,11 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 	}
 
 	// TODO: implement more regularly, for example every 10-20 records
-	svc.MarkRecordsAsProcessed(ctx, aggregate.GetID(), recentlyProcessed)
+	svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), bulk_upload.RecordActions{
+		RecordIds:  recentlyProcessed,
+		RecordType: eda.BulkUpload_STUDENT,
+		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+	})
 
 	return nil
 }

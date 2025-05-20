@@ -15,21 +15,21 @@ import (
 )
 
 const (
-	EventCreate                   = "BulkUploadCreate"
-	EventAddValidationErrors      = "BulkUploadAddValidationErrors"
-	EventSetStatus                = "BulkUploadSetStatus"
-	EventMarkRecordsAsProcessed   = "BulkUploadMarkRecordsAsProcessed"
-	EventAddRecordsToProcessEvent = "BulkUploadAddRecordsToProcess"
+	EventCreate              = "BulkUploadCreate"
+	EventAddValidationErrors = "BulkUploadAddValidationErrors"
+	EventSetStatus           = "BulkUploadSetStatus"
+	EventRecordActions       = "BulkUploadRecordActionsEvent"
 )
 
 var permittedStatusChanges = map[eda.BulkUpload_Status][]eda.BulkUpload_Status{
-	eda.BulkUpload_UNKNOWN:      {eda.BulkUpload_PENDING},
-	eda.BulkUpload_PENDING:      {eda.BulkUpload_VALIDATING},
-	eda.BulkUpload_VALIDATING:   {eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
-	eda.BulkUpload_VALIDATED:    {eda.BulkUpload_PROCESSING},
-	eda.BulkUpload_PROCESSING:   {eda.BulkUpload_COMPLETED, eda.BulkUpload_ERROR},
-	eda.BulkUpload_COMPLETED:    {eda.BulkUpload_INVALIDATING},
-	eda.BulkUpload_INVALIDATING: {eda.BulkUpload_INVALIDATED, eda.BulkUpload_INVALIDATION_FAILED},
+	eda.BulkUpload_UNKNOWN:           {eda.BulkUpload_PENDING},
+	eda.BulkUpload_PENDING:           {eda.BulkUpload_VALIDATING},
+	eda.BulkUpload_VALIDATING:        {eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
+	eda.BulkUpload_VALIDATED:         {eda.BulkUpload_PROCESSING, eda.BulkUpload_VALIDATING},
+	eda.BulkUpload_PROCESSING:        {eda.BulkUpload_COMPLETED, eda.BulkUpload_ERROR},
+	eda.BulkUpload_COMPLETED:         {eda.BulkUpload_INVALIDATING},
+	eda.BulkUpload_INVALIDATING:      {eda.BulkUpload_INVALIDATED, eda.BulkUpload_INVALIDATION_FAILED},
+	eda.BulkUpload_VALIDATION_FAILED: {eda.BulkUpload_VALIDATING},
 }
 
 // BulkUploadEvent is a struct that holds the event type and the data
@@ -51,8 +51,8 @@ func GetStatusTimestamps(a *Aggregate) []*eda.BulkUpload_StatusTimestamp {
 	return a.data.StatusTimestamps
 }
 
-func (a *Aggregate) GetRecordProcessedStatuses() map[string]bool {
-	return a.data.RecordsProcessed
+func (a *Aggregate) GetRecordStates() map[string]*eda.BulkUpload_RecordActions {
+	return a.data.RecordActions
 }
 
 func (a *Aggregate) GetValidationErrors() []*eda.BulkUpload_ValidationError {
@@ -82,7 +82,8 @@ func (a *Aggregate) AddValidationErrors(errors []*eda.BulkUpload_ValidationError
 	return a.ApplyEvent(BulkUploadEvent{
 		eventType: EventAddValidationErrors,
 		data: &eda.BulkUpload_ValidationError_Event{
-			Errors: errors,
+			Errors:    errors,
+			Timestamp: timestamppb.Now(),
 		},
 		version: a.Version,
 	})
@@ -115,29 +116,37 @@ func (a *Aggregate) setStatus(status eda.BulkUpload_Status) (*gosignal.Event, er
 	})
 }
 
-func (a *Aggregate) addRecordsToProcess(recordIds []string) (*gosignal.Event, error) {
+func (a *Aggregate) addRecordsToProcess(recordActions RecordActions) (*gosignal.Event, error) {
 	if a.data == nil {
 		return nil, fmt.Errorf("bulk upload aggregate is not initialized")
 	}
 
 	return a.ApplyEvent(BulkUploadEvent{
-		eventType: EventAddRecordsToProcessEvent,
-		data: &eda.BulkUpload_AddRecordsToProcessEvent{
-			RecordIds: recordIds,
+		eventType: EventRecordActions,
+		data: &eda.BulkUpload_RecordAction_RecordActionsEvent{
+			RecordIds:  recordActions.RecordIds,
+			RecordType: recordActions.RecordType,
+			Timestamp:  timestamppb.Now(),
+			Action:     eda.BulkUpload_RecordAction_MARKED_FOR_PROCESSING,
+			Reason:     eda.BulkUpload_RecordAction_Reason(recordActions.RecordType),
 		},
 		version: a.Version,
 	})
 }
 
-func (a *Aggregate) markRecordsAsProcessed(recordIds []string) (*gosignal.Event, error) {
+func (a *Aggregate) markRecordsAsUpdated(recordActions RecordActions) (*gosignal.Event, error) {
 	if a.data == nil {
 		return nil, fmt.Errorf("bulk upload aggregate is not initialized")
 	}
 
 	return a.ApplyEvent(BulkUploadEvent{
-		eventType: EventMarkRecordsAsProcessed,
-		data: &eda.BulkUpload_MarkRecordsAsProcessed{
-			RecordIds: recordIds,
+		eventType: EventRecordActions,
+		data: &eda.BulkUpload_RecordAction_RecordActionsEvent{
+			RecordIds:  recordActions.RecordIds,
+			RecordType: recordActions.RecordType,
+			Timestamp:  timestamppb.Now(),
+			Action:     eda.BulkUpload_RecordAction_UPDATED,
+			Reason:     recordActions.Reason,
 		},
 		version: a.Version,
 	})
@@ -191,12 +200,9 @@ func (a *Aggregate) routeEvent(evt gosignal.Event) error {
 	case EventSetStatus:
 		eventData = &eda.BulkUpload_SetStatusEvent{}
 		handler = a.handleSetStatus
-	case EventMarkRecordsAsProcessed:
-		eventData = &eda.BulkUpload_MarkRecordsAsProcessed{}
-		handler = a.handleMarkRecordsAsProcessed
-	case EventAddRecordsToProcessEvent:
-		eventData = &eda.BulkUpload_AddRecordsToProcessEvent{}
-		handler = a.handleAddRecordsToProcess
+	case EventRecordActions:
+		eventData = &eda.BulkUpload_RecordAction_RecordActionsEvent{}
+		handler = a.handleRecordActions
 	default:
 		return fmt.Errorf("unknown event type: %s", evt.Type)
 	}
@@ -208,27 +214,22 @@ func (a *Aggregate) routeEvent(evt gosignal.Event) error {
 	return handler(eventData)
 }
 
-func (a *Aggregate) handleAddRecordsToProcess(event proto.Message) error {
-	evt := event.(*eda.BulkUpload_AddRecordsToProcessEvent)
+func (a *Aggregate) handleRecordActions(event proto.Message) error {
+	evt := event.(*eda.BulkUpload_RecordAction_RecordActionsEvent)
 
 	for _, record := range evt.RecordIds {
-		if _, exists := a.data.RecordsProcessed[record]; exists {
-			continue
+		if _, ok := a.data.RecordActions[record]; !ok {
+			a.data.RecordActions[record] = &eda.BulkUpload_RecordActions{
+				RecordActions: make([]*eda.BulkUpload_RecordAction, 0),
+			}
 		}
-		a.data.RecordsProcessed[record] = false
-	}
 
-	return nil
-}
-
-func (a *Aggregate) handleMarkRecordsAsProcessed(event proto.Message) error {
-	evt := event.(*eda.BulkUpload_MarkRecordsAsProcessed)
-
-	for _, record := range evt.RecordIds {
-		if _, exists := a.data.RecordsProcessed[record]; !exists {
-			continue
-		}
-		a.data.RecordsProcessed[record] = true
+		a.data.RecordActions[record].RecordActions = append(a.data.RecordActions[record].RecordActions, &eda.BulkUpload_RecordAction{
+			RecordId:   record,
+			Action:     evt.Action,
+			RecordType: evt.RecordType,
+			Timestamp:  evt.Timestamp,
+		})
 	}
 
 	return nil
@@ -238,6 +239,10 @@ func (a *Aggregate) handleSetStatus(event proto.Message) error {
 	evt := event.(*eda.BulkUpload_SetStatusEvent)
 
 	a.data.Status = evt.Status
+
+	if a.data.Status == eda.BulkUpload_VALIDATING {
+		a.data.ValidationErrors = make([]*eda.BulkUpload_ValidationError, 0)
+	}
 
 	// Add timestamp for status change
 	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
@@ -257,7 +262,7 @@ func (a *Aggregate) handleAddValidationErrors(event proto.Message) error {
 	// Add timestamp for status change
 	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
 		Status:    eda.BulkUpload_VALIDATION_FAILED,
-		Timestamp: timestamppb.Now(),
+		Timestamp: evt.GetTimestamp(),
 	})
 
 	for _, error := range evt.Errors {
@@ -407,15 +412,16 @@ func (a *Aggregate) validateGrades(cmd *eda.BulkUpload_Create) error {
 // Event handlers
 func (a *Aggregate) handleCreate(msg proto.Message) error {
 	evt := msg.(*eda.BulkUpload_Create_Event)
+	recordActions := make(map[string]*eda.BulkUpload_RecordActions, 0)
 
 	a.data = &eda.BulkUpload{
-		Id:               a.ID,
-		Status:           eda.BulkUpload_PENDING,
-		TargetDomain:     evt.TargetDomain,
-		Metadata:         evt.Metadata,
-		FileId:           evt.FileId,
-		UploadMetadata:   evt.UploadMetadata,
-		RecordsProcessed: make(map[string]bool),
+		Id:             a.ID,
+		Status:         eda.BulkUpload_PENDING,
+		TargetDomain:   evt.TargetDomain,
+		Metadata:       evt.Metadata,
+		FileId:         evt.FileId,
+		UploadMetadata: evt.UploadMetadata,
+		RecordActions:  recordActions,
 		StatusTimestamps: []*eda.BulkUpload_StatusTimestamp{
 			{
 				Status:    eda.BulkUpload_PENDING,

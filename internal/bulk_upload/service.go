@@ -137,13 +137,19 @@ func (s *Service) SetStatus(ctx context.Context, id string, status eda.BulkUploa
 	return nil
 }
 
-func (s *Service) MarkRecordsAsProcessed(ctx context.Context, id string, recordIds []string) error {
+type RecordActions struct {
+	RecordIds  []string
+	RecordType eda.BulkUpload_RecordType
+	Reason     eda.BulkUpload_RecordAction_Reason
+}
+
+func (s *Service) MarkRecordsAsUpdated(ctx context.Context, id string, actions RecordActions) error {
 	agg, err := s.repo.loadBulkUpload(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to load bulk upload: %w", err)
 	}
 
-	event, err := agg.markRecordsAsProcessed(recordIds)
+	event, err := agg.markRecordsAsUpdated(actions)
 	if err != nil {
 		return fmt.Errorf("failed to mark records as processed: %w", err)
 	}
@@ -157,13 +163,13 @@ func (s *Service) MarkRecordsAsProcessed(ctx context.Context, id string, recordI
 	return nil
 }
 
-func (s *Service) AddRecordsToProcess(ctx context.Context, id string, recordIds []string) error {
+func (s *Service) AddRecordsToProcess(ctx context.Context, id string, actions RecordActions) error {
 	agg, err := s.repo.loadBulkUpload(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to load bulk upload: %w", err)
 	}
 
-	event, err := agg.addRecordsToProcess(recordIds)
+	event, err := agg.addRecordsToProcess(actions)
 	if err != nil {
 		return fmt.Errorf("failed to add records to process: %w", err)
 	}

@@ -16,8 +16,7 @@ message BulkUpload {
   uint64 total_records = 11;
   uint64 processed_records = 12;
   map<string, string> upload_metadata = 14; // Additional data like reporting period, school year etc.
-  map<string, bool> records_processed = 15; // Track which records are processed or not
-  repeated RecordAction record_actions = 16;
+  map<string, RecordActions> record_actions = 15;
 
   enum Status {
     UNKNOWN = 0;
@@ -33,6 +32,11 @@ message BulkUpload {
     INVALIDATION_FAILED = 10;
   }
 
+  enum RecordType {
+    UNKNOWN_TYPE = 0;
+    STUDENT = 1;
+  }
+
   // Domain represents the domain of the bulk upload.
   enum Domain {
     UNKNOWN_DOMAIN = 0;
@@ -42,31 +46,38 @@ message BulkUpload {
     HEALTH_ASSESSMENT = 4;
   }
 
-  message AddRecordsToProcessEvent {
-    repeated string record_ids = 1;
-  }
-
-  message MarkRecordsAsProcessed {
-    repeated string record_ids = 1;
+  message RecordActions {
+    repeated RecordAction record_actions = 1;
   }
 
   // RecordAction represents an action taken on a record during the bulk upload process.
   message RecordAction {
     string record_id = 1;
-    Type record_type = 2;
+    RecordType record_type = 2;
     Action action = 3;
     google.protobuf.Timestamp timestamp = 4;
+    Reason reason = 5;
 
     enum Action {
       UNKNOWN_ACTION = 0;
-      CREATED = 1;
-      UPDATED = 2;
-      DELETED = 3;
+      MARKED_FOR_PROCESSING = 1;
+      CREATED = 2;
+      UPDATED = 3;
+      DELETED = 4;
     }
 
-    enum Type {
-      UNKNOWN_TYPE = 0;
-      STUDENT = 1;
+    message RecordActionsEvent{
+      repeated string record_ids = 1;
+      RecordType record_type = 2;
+      google.protobuf.Timestamp timestamp = 3;
+      Action action = 4;
+      Reason reason = 5;
+    }
+
+    enum Reason {
+   		UNKNOWN_REASON = 0;
+     	PROCESSING = 1;
+      	INVALIDATED = 2;
     }
   }
 
@@ -83,6 +94,7 @@ message BulkUpload {
 
     message Event {
       repeated ValidationError errors = 1;
+      google.protobuf.Timestamp timestamp = 2;
     }
 
     enum Context {

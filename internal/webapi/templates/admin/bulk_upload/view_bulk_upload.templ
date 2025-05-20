@@ -48,11 +48,10 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 						"hx-push-url": "false",
 					})
 				}
-				<!-- Secondary actions -->
+				<!-- Danger actions -->
 				if canInvalidate(getStatus(agg)) {
-					@components.SecondaryButton("Invalidate", templ.Attributes{
+					@components.DangerButton("Invalidate", templ.Attributes{
 						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/invalidate", agg.ID),
-						"class":      "text-red-600 hover:text-red-800 border-red-600 hover:border-red-800",
 						"hx-confirm": "Are you sure you want to invalidate this upload? This will undo all changes made by this upload.",
 					})
 				}
@@ -108,7 +107,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 							@viewProgressBarWithPercentage(
 								int(getProcessedRecords(agg)),
 								int(getTotalRecords(agg)),
-								false, // TODO: Fix
+								len(agg.GetValidationErrors()) > 0,
 							)
 						</div>
 						<div class="text-sm text-center text-gray-600">
@@ -136,7 +135,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 									<li>Click <strong>Cancel</strong> to stop the current operation</li>
 								}
 								if canInvalidate(getStatus(agg)) {
-									<li>Click <strong>Invalidate</strong> to revert all changes</li>
+									<li>Click the red <strong>Invalidate</strong> button to revert all changes made by this upload</li>
 								}
 								<li>Click <strong>View File</strong> to view the uploaded file</li>
 							</ul>
@@ -158,9 +157,9 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 					} else {
 						for _, item := range getStatusTimestamps(agg) {
 							<div class="mb-4 relative">
-								<div class={"absolute -left-6 mt-1 w-3 h-3 rounded-full " + item.Color}></div>
-								<div class="text-sm font-semibold">{item.Status}</div>
-								<div class="text-xs text-gray-500">{item.Timestamp}</div>
+								<div class={ "absolute -left-6 mt-1 w-3 h-3 rounded-full " + item.Color }></div>
+								<div class="text-sm font-semibold">{ item.Status }</div>
+								<div class="text-xs text-gray-500">{ item.Timestamp }</div>
 							</div>
 						}
 					}
@@ -261,6 +260,8 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 								<tr>
 									<th scope="col" class="px-6 py-3">Record ID</th>
 									<th scope="col" class="px-6 py-3">Status</th>
+									<th scope="col" class="px-6 py-3">Action</th>
+									<th scope="col" class="px-6 py-3">Timestamp</th>
 									<th scope="col" class="px-6 py-3">Actions</th>
 								</tr>
 							</thead>
@@ -277,6 +278,18 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 												<span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
 													Pending
 												</span>
+											}
+										</td>
+										<td class="px-6 py-4">
+											<span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-600/20">
+												{ record.Action }
+											</span>
+										</td>
+										<td class="px-6 py-4">
+											if !record.Timestamp.IsZero() {
+												{ record.Timestamp.Format("2006-01-02 15:04:05") }
+											} else {
+												<span class="text-gray-400">—</span>
 											}
 										</td>
 										<td class="px-6 py-4">
@@ -428,7 +441,7 @@ func canInvalidate(status string) bool {
 }
 
 func canValidate(status string) bool {
-	return status == "PENDING"
+	return status == "PENDING" || status == "VALIDATION_FAILED" || status == "VALIDATED"
 }
 
 func canStartProcessing(status string) bool {
@@ -445,11 +458,40 @@ func getTargetDomain(agg *bulk_upload.Aggregate) string {
 }
 
 func getTotalRecords(agg *bulk_upload.Aggregate) uint64 {
-	return agg.CountTotalRecords()
+	if agg == nil {
+		return 0
+	}
+	records := agg.GetRecordStates()
+	if records == nil {
+		return 0
+	}
+	return uint64(len(records))
 }
 
 func getProcessedRecords(agg *bulk_upload.Aggregate) uint64 {
-	return agg.CountProcessedRecords()
+	if agg == nil {
+		return 0
+	}
+	records := agg.GetRecordStates()
+	if records == nil {
+		return 0
+	}
+	processedCount := uint64(0)
+	
+	for _, actions := range records {
+		if actions != nil && len(actions.RecordActions) > 0 {
+			// Get the most recent action
+			lastAction := actions.RecordActions[len(actions.RecordActions)-1]
+			
+			// Count as processed if it was created or updated
+			if lastAction.Action == eda.BulkUpload_RecordAction_CREATED || 
+			   lastAction.Action == eda.BulkUpload_RecordAction_UPDATED {
+				processedCount++
+			}
+		}
+	}
+	
+	return processedCount
 }
 
 type StatusTimelineItem struct {
@@ -493,7 +535,7 @@ func getStatusTimestamps(agg *bulk_upload.Aggregate) []StatusTimelineItem {
 		case eda.BulkUpload_INVALIDATION_FAILED:
 			color = "bg-red-500"
 		}
-		
+
 		item := StatusTimelineItem{
 			Status:    ts.Status.String(),
 			Timestamp: t.Format(time.RFC1123),
@@ -501,14 +543,14 @@ func getStatusTimestamps(agg *bulk_upload.Aggregate) []StatusTimelineItem {
 		}
 		result = append(result, item)
 	}
-	
+
 	// Sort by timestamp (oldest first)
 	sort.Slice(result, func(i, j int) bool {
 		t1, _ := time.Parse(time.RFC1123, result[i].Timestamp)
 		t2, _ := time.Parse(time.RFC1123, result[j].Timestamp)
 		return t1.Before(t2)
 	})
-	
+
 	return result
 }
 
@@ -555,16 +597,26 @@ func getStatus(agg *bulk_upload.Aggregate) string {
 type RecordStatus struct {
 	ID        string
 	Processed bool
+	Action    string
+	Timestamp time.Time
 }
 
 // Helper function to get record processing statuses in a deterministic order
 func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
-	statuses := agg.GetRecordProcessedStatuses()
-	result := make([]RecordStatus, 0, len(statuses))
+	if agg == nil {
+		return []RecordStatus{}
+	}
+	
+	recordActions := agg.GetRecordStates()
+	if recordActions == nil {
+		return []RecordStatus{}
+	}
+	
+	result := make([]RecordStatus, 0, len(recordActions))
 
 	// Extract keys (record IDs) from the map
-	recordIDs := make([]string, 0, len(statuses))
-	for id := range statuses {
+	recordIDs := make([]string, 0, len(recordActions))
+	for id := range recordActions {
 		recordIDs = append(recordIDs, id)
 	}
 
@@ -573,9 +625,39 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 
 	// Create a sorted slice of RecordStatus structs
 	for _, id := range recordIDs {
+		if recordActions[id] == nil {
+			continue
+		}
+		
+		// Get the actions for this record
+		actions := recordActions[id].RecordActions
+		
+		// Default values
+		processed := false
+		actionStr := "UNKNOWN"
+		var timestamp time.Time
+		
+		// If we have actions, use the most recent one
+		if len(actions) > 0 {
+			// Get the most recent action (last in the array)
+			lastAction := actions[len(actions)-1]
+			
+			// Consider a record processed if it was created or updated
+			processed = lastAction.Action == eda.BulkUpload_RecordAction_CREATED || 
+			            lastAction.Action == eda.BulkUpload_RecordAction_UPDATED
+			
+			// Get the action string and timestamp
+			actionStr = lastAction.Action.String()
+			if lastAction.Timestamp != nil {
+				timestamp = lastAction.Timestamp.AsTime()
+			}
+		}
+		
 		result = append(result, RecordStatus{
 			ID:        id,
-			Processed: statuses[id],
+			Processed: processed,
+			Action:    actionStr,
+			Timestamp: timestamp,
 		})
 	}
 
