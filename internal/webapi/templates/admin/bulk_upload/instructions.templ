@@ -1,104 +1,308 @@
 package bulk_upload
 
 templ InstructionsComingSoon() {
-    <div class="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </div>
-            <h1 class="text-2xl font-bold mb-2">Bulk Upload Instructions</h1>
-            <p class="text-gray-600">
-                Basic guidelines for preparing your data files
-            </p>
-        </div>
-        
-        <div class="space-y-8">
-            <div class="border-b pb-6">
-                <h2 class="text-xl font-semibold mb-4">General Guidelines</h2>
-                <ul class="list-disc pl-6 space-y-2 text-gray-700">
-                    <li>Use the provided templates as a starting point</li>
-                    <li>Ensure all required fields are filled in</li>
-                    <li>Save your file as CSV format with UTF-8 encoding</li>
-                    <li>Maximum file size is 10MB</li>
-                    <li>The first row must contain column headers exactly as shown in the template</li>
-                    <li>Student IDs must match existing records in the system</li>
-                </ul>
-            </div>
-            
-            <div class="border-b pb-6">
-                <h2 class="text-xl font-semibold mb-4">Health Assessment Data</h2>
-                <p class="mb-4 text-gray-700">Required fields:</p>
-                <ul class="list-disc pl-6 space-y-2 text-gray-700">
-                    <li><strong>student_id</strong>: The student's unique identifier</li>
-                    <li><strong>school_id</strong>: The school's unique identifier</li>
-                    <li><strong>height_cm</strong>: Height in centimeters (numeric value)</li>
-                    <li><strong>weight_kg</strong>: Weight in kilograms (numeric value)</li>
-                    <li><strong>bmi</strong>: Body Mass Index (calculated or provided)</li>
-                    <li><strong>nutrition_status</strong>: One of: NORMAL, UNDERWEIGHT, OVERWEIGHT, OBESE</li>
-                    <li><strong>assessment_date</strong>: Date in YYYY-MM-DD format</li>
-                </ul>
-            </div>
-            
-            <div class="border-b pb-6">
-                <h2 class="text-xl font-semibold mb-4">Academic Grades Data</h2>
-                <p class="mb-4 text-gray-700">Required fields:</p>
-                <ul class="list-disc pl-6 space-y-2 text-gray-700">
-                    <li><strong>student_id</strong>: The student's unique identifier</li>
-                    <li><strong>school_id</strong>: The school's unique identifier</li>
-                    <li><strong>subject</strong>: Subject name</li>
-                    <li><strong>grade</strong>: Numeric grade (0-100)</li>
-                    <li><strong>term</strong>: Academic term (e.g., "Term 1")</li>
-                    <li><strong>academic_year</strong>: Academic year (e.g., "2023-2024")</li>
-                </ul>
-            </div>
-            
-            <div class="border-b pb-6">
-                <h2 class="text-xl font-semibold mb-4">Attendance Records Data</h2>
-                <p class="mb-4 text-gray-700">Required fields:</p>
-                <ul class="list-disc pl-6 space-y-2 text-gray-700">
-                    <li><strong>student_id</strong>: The student's unique identifier</li>
-                    <li><strong>school_id</strong>: The school's unique identifier</li>
-                    <li><strong>date</strong>: Date in YYYY-MM-DD format</li>
-                    <li><strong>status</strong>: One of: PRESENT, ABSENT, LATE, EXCUSED</li>
-                    <li><strong>reason</strong>: Optional reason for absence or late arrival</li>
-                </ul>
-            </div>
-            
-            <div>
-                <h2 class="text-xl font-semibold mb-4">New Students Data</h2>
-                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-yellow-700">
-                                New student uploads require both CSV data and profile photos. This feature is coming soon.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <p class="text-gray-700">When available, this feature will allow you to upload:</p>
-                <ul class="list-disc pl-6 space-y-2 text-gray-700">
-                    <li>A CSV file with student information</li>
-                    <li>A ZIP file containing profile photos for each student</li>
-                    <li>Photos must be named according to the student ID</li>
-                </ul>
-            </div>
-        </div>
-        
-        <div class="mt-8 text-center">
-            <button 
-                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                hx-get="/admin/bulk-upload/create"
-                hx-target="#content"
-            >
-                Back to Upload Options
-            </button>
-        </div>
-    </div>
-} 
+	<div class="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+		<div class="text-center mb-8">
+			<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-6">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				</svg>
+			</div>
+			<h1 class="text-2xl font-bold mb-2">Bulk Upload Instructions</h1>
+			<p class="text-gray-600">
+				Comprehensive guidelines for preparing and uploading your data files
+			</p>
+		</div>
+		<div class="space-y-8">
+			<div class="border-b pb-6">
+				<h2 class="text-xl font-semibold mb-4">General Guidelines</h2>
+				<ul class="list-disc pl-6 space-y-2 text-gray-700">
+					<li>Download the provided templates using the "Download Template" button on the upload form</li>
+					<li>Ensure all required fields are filled in correctly according to the validation rules</li>
+					<li>Save your file as CSV format with UTF-8 encoding (except for New Students, which requires a ZIP file)</li>
+					<li>The first row must contain column headers exactly as shown in the template</li>
+					<li>Student IDs (LRN) must match existing records in the system for updates</li>
+					<li>Select the correct school when uploading data</li>
+					<li>After uploading, you must validate and then process the data</li>
+				</ul>
+			</div>
+			<div class="border-b pb-6">
+				<h2 class="text-xl font-semibold mb-4">Health Assessment Data</h2>
+				<p class="mb-4 text-gray-700">Required fields:</p>
+				<ul class="list-disc pl-6 space-y-2 text-gray-700">
+					<li><strong>lrn</strong>: The student's unique identifier (LRN number)</li>
+					<li><strong>height_cm</strong>: Height in centimeters (numeric value, e.g., 120.5)</li>
+					<li><strong>weight_kg</strong>: Weight in kilograms (numeric value, e.g., 23.4)</li>
+					<li><strong>assessment_date</strong>: Date in YYYY-MM-DD format (e.g., 2023-10-15)</li>
+				</ul>
+				<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
+					<p class="text-sm text-blue-700">
+						<strong>Example:</strong> Your CSV should look like this:
+						<div class="mt-2 bg-gray-100 p-2 rounded overflow-x-auto font-mono">
+							lrn,height_cm,weight_kg,assessment_date<br>
+							"ST001",120.5,23.4,"2023-10-15"<br>
+							"ST002",115.0,21.0,"2023-10-15"
+						</div>
+					</p>
+				</div>
+			</div>
+			<div class="border-b pb-6">
+				<h2 class="text-xl font-semibold mb-4">Academic Grades Data</h2>
+				<p class="mb-4 text-gray-700">Required fields:</p>
+				<ul class="list-disc pl-6 space-y-2 text-gray-700">
+					<li><strong>LRN</strong>: The student's unique identifier (Learner Reference Number)</li>
+					<li><strong>Grade</strong>: Numeric grade (0-100)</li>
+				</ul>
+				<p class="mt-4 text-sm text-gray-700">
+					<strong>Required metadata:</strong> When uploading grades, you must also provide:
+				</p>
+				<ul class="list-disc pl-6 space-y-2 text-gray-700 text-sm">
+					<li><strong>School ID</strong>: Selected from the dropdown menu</li>
+					<li><strong>School Year</strong>: In YYYY-YYYY format (e.g., 2023-2024)</li>
+					<li><strong>Grading Period</strong>: Quarter number (1-4)</li>
+					<li><strong>Effective Date</strong>: The date when grades become effective</li>
+				</ul>
+				<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
+					<p class="text-sm text-blue-700">
+						<strong>Example:</strong> Your CSV should look like this:
+						<div class="mt-2 bg-gray-100 p-2 rounded overflow-x-auto font-mono">
+							LRN,Grade<br>
+							"12345678",92<br>
+							"23456789",88<br>
+							"34567890",90
+						</div>
+					</p>
+				</div>
+			</div>
+			<div class="border-b pb-6">
+				<h2 class="text-xl font-semibold mb-4">Attendance Records Data</h2>
+				<p class="mb-4 text-gray-700">Required fields:</p>
+				<ul class="list-disc pl-6 space-y-2 text-gray-700">
+					<li><strong>student_id</strong>: The student's unique identifier (LRN)</li>
+					<li><strong>date</strong>: Date in YYYY-MM-DD format</li>
+					<li><strong>status</strong>: One of: PRESENT, ABSENT, LATE, EXCUSED</li>
+					<li><strong>reason</strong>: Optional reason for absence or late arrival</li>
+				</ul>
+				<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
+					<p class="text-sm text-blue-700">
+						<strong>Example:</strong> Your CSV should look like this:
+						<div class="mt-2 bg-gray-100 p-2 rounded overflow-x-auto font-mono">
+							student_id,date,status,reason<br>
+							"ST001","2023-10-01","PRESENT",""<br>
+							"ST001","2023-10-02","ABSENT","Sick"<br>
+							"ST001","2023-10-03","PRESENT",""
+						</div>
+					</p>
+				</div>
+			</div>
+			<div>
+				<h2 class="text-xl font-semibold mb-4">New Students Data</h2>
+				<p class="mb-4 text-gray-700">Required fields in the CSV:</p>
+				<ul class="list-disc pl-6 space-y-2 text-gray-700">
+					<li><strong>First Name</strong>: Student's first name</li>
+					<li><strong>Last Name</strong>: Student's last name</li>
+					<li><strong>LRN</strong>: Learner Reference Number (must be unique)</li>
+					<li><strong>Grade Level</strong>: Current grade level</li>
+					<li><strong>Date of Birth</strong>: In YYYY-MM-DD format</li>
+					<li><strong>Gender</strong>: Student's gender</li>
+					<li><strong>Status</strong>: Enrollment status</li>
+					<li><strong>Sponsorship</strong>: Sponsorship information if applicable</li>
+				</ul>
+
+				<div class="bg-indigo-50 border-l-4 border-indigo-400 p-4 mb-4 mt-4">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<svg class="h-5 w-5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+								<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+							</svg>
+						</div>
+						<div class="ml-3">
+							<p class="text-sm text-indigo-700">
+								<strong>Important:</strong> Use the ZIP template that includes:
+							</p>
+							<ul class="list-disc pl-6 mt-2 text-sm text-indigo-700">
+								<li>A CSV template file (renamed to students.csv)</li>
+								<li>A photos directory for student profile photos</li>
+								<li>README.txt with detailed instructions</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+
+				<div class="bg-gray-50 border rounded p-4 mt-4">
+					<h3 class="text-md font-medium mb-2">ZIP File Structure</h3>
+					<p class="text-sm text-gray-700 mb-2">Your upload must be a ZIP file with this structure:</p>
+					<div class="bg-gray-100 p-3 text-xs rounded font-mono">
+						new_students_upload.zip<br>
+						├── students.csv         # CSV with student data<br>
+						├── README.txt           # Instructions file<br>
+						└── photos/              # Directory containing photos<br>
+						&nbsp;&nbsp;&nbsp;&nbsp;├── 12345678.jpg     # Photo named by student LRN<br>
+						&nbsp;&nbsp;&nbsp;&nbsp;├── 23456789.jpg<br>
+						&nbsp;&nbsp;&nbsp;&nbsp;└── README.txt       # Photo naming instructions
+					</div>
+				</div>
+
+				<p class="mt-4 text-gray-700">
+					<strong>Photo Requirements:</strong>
+				</p>
+				<ul class="list-disc pl-6 space-y-1 text-gray-700">
+					<li>Each photo must be named using the student's LRN (e.g., 12345678.jpg)</li>
+					<li>Photos should be in JPG/JPEG format</li>
+					<li>Recommended size: passport photo dimensions</li>
+					<li>Maximum file size: 2MB per photo</li>
+				</ul>
+			</div>
+		</div>
+		<div class="mt-8">
+			<h2 class="text-xl font-semibold mb-4 pb-2 border-b">Validation and Processing</h2>
+			<div class="mb-6">
+				<p class="mb-3 text-gray-700">After uploading your data file, follow these steps:</p>
+				<ol class="list-decimal pl-6 space-y-2 text-gray-700">
+					<li>
+						<strong>Validate:</strong> Click the "Validate" button to check your data for errors. The system will
+						verify field formats, required values, and referential integrity.
+					</li>
+					<li>
+						<strong>Review Validation:</strong> If validation fails, review the error messages and fix your data file.
+						Upload the corrected file and validate again.
+					</li>
+					<li>
+						<strong>Process:</strong> Once validation succeeds, click "Start Processing" to apply the changes to the system.
+					</li>
+					<li>
+						<strong>Verify:</strong> After processing completes, verify the changes have been applied correctly.
+					</li>
+				</ol>
+			</div>
+
+			<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+				<p class="text-sm text-blue-700">
+					<strong>Tip:</strong> For large uploads, processing may take some time. The status indicators will
+					show progress. You can download the original file for reference if needed.
+				</p>
+			</div>
+
+			<div class="mb-6 border-t pt-6">
+				<h3 class="text-lg font-medium mb-3">Locking Uploads</h3>
+				<p class="text-gray-700 mb-3">
+					After an upload has been successfully validated and processed with a status of <span class="font-semibold">COMPLETED</span>,
+					you should lock it to prevent any further changes and finalize the data in the system.
+				</p>
+
+				<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+							</svg>
+						</div>
+						<div class="ml-3">
+							<h4 class="text-sm font-medium text-yellow-800">Important: Locking is permanent</h4>
+							<div class="mt-2 text-sm text-yellow-700">
+								<p>Once an upload is locked, this action cannot be undone. You will no longer be able to:</p>
+								<ul class="list-disc list-inside mt-1 ml-2">
+									<li>Modify the upload data</li>
+									<li>Validate or re-validate the upload</li>
+									<li>Process the upload again</li>
+								</ul>
+								<p class="mt-2">Locking changes the status to <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">LOCKED</span> and prevents any further system operations on this upload.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<p class="text-gray-700 mb-2">When to lock an upload:</p>
+				<ul class="list-disc pl-6 space-y-1 text-gray-700 mb-4">
+					<li>After the upload has been fully processed and validated</li>
+					<li>When you've verified that all data has been correctly imported into the system</li>
+					<li>When you want to prevent any accidental modification of this import batch</li>
+					<li>As part of your data governance process to finalize imports</li>
+				</ul>
+
+				<p class="text-gray-700 mb-2">To lock an upload:</p>
+				<ol class="list-decimal pl-6 space-y-1 text-gray-700">
+					<li>Navigate to the upload details page</li>
+					<li>Click the "Lock Upload" button</li>
+					<li>You'll be taken to a confirmation page with detailed information about the upload</li>
+					<li>Carefully review the upload information to ensure you're locking the correct upload</li>
+					<li>Enter the confirmation code in the format <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">LOCK-XXXXXX</span> where XXXXXX is the first 6 characters of the upload ID</li>
+					<li>Click "Lock Upload" to confirm and permanently lock the upload</li>
+				</ol>
+			</div>
+			
+			<div class="mb-6 border-t pt-6">
+				<h3 class="text-lg font-medium mb-3">Invalidating Uploads</h3>
+				<p class="text-gray-700 mb-3">
+					In certain situations, you may need to invalidate a previously processed upload to revert its changes.
+					This is a destructive action that attempts to undo all modifications made by the upload.
+				</p>
+
+				<div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+							</svg>
+						</div>
+						<div class="ml-3">
+							<h4 class="text-sm font-medium text-red-800">Warning: Destructive action</h4>
+							<div class="mt-2 text-sm text-red-700">
+								<p>Invalidating a bulk upload will attempt to revert all changes made by this upload. This is a destructive action that may affect data in the system.</p>
+								<p class="mt-2 font-semibold">This action will:</p>
+								<ul class="list-disc list-inside mt-1 ml-2">
+									<li>Attempt to revert all created or updated records</li>
+									<li>Mark this upload as invalidated in the system</li>
+									<li>Potentially affect other data that depends on these records</li>
+								</ul>
+								<p class="mt-2">Invalidation changes the status to <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATED</span> after attempting to revert all changes.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<p class="text-gray-700 mb-2">When to invalidate an upload:</p>
+				<ul class="list-disc pl-6 space-y-1 text-gray-700 mb-4">
+					<li>When you discover the upload contained incorrect or corrupted data</li>
+					<li>When a processing error occurred that resulted in partial or inconsistent data</li>
+					<li>When instructed by system administrators to revert specific changes</li>
+					<li>When compliance or data governance requirements necessitate removal of specific records</li>
+				</ul>
+
+				<p class="text-gray-700 mb-2">To invalidate an upload:</p>
+				<ol class="list-decimal pl-6 space-y-1 text-gray-700">
+					<li>Navigate to the upload details page</li>
+					<li>Click the "Invalidate Upload" button</li>
+					<li>You'll be taken to a confirmation page showing how many records will be affected</li>
+					<li>Carefully review the upload information to understand the impact</li>
+					<li>Enter the confirmation code in the format <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATE-XXXXXX</span> where XXXXXX is the first 6 characters of the upload ID</li>
+					<li>Click "Invalidate Upload" to confirm and begin the invalidation process</li>
+				</ol>
+				
+				<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
+					<p class="text-sm text-blue-700">
+						<strong>Note:</strong> The invalidation process may take some time for large uploads. The system will first change the status to <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATING</span> while it attempts to revert changes, and then to <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATED</span> once complete.
+					</p>
+				</div>
+			</div>
+		</div>
+		
+		<div class="mt-8 text-center">
+			<button
+				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+				hx-get="/admin/bulk-upload/create"
+				hx-target="#content"
+			>
+				Back to Upload Options
+			</button>
+			<a
+				href="#"
+				class="ml-4 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors inline-block"
+				hx-get="/admin/bulk-upload"
+				hx-target="#content"
+			>
+				View All Uploads
+			</a>
+		</div>
+	</div>
+}
