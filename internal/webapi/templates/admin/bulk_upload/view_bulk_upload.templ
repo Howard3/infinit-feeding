@@ -50,16 +50,15 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 				}
 				if canLock(getStatus(agg)) {
 					@components.SecondaryButton("Lock Upload", templ.Attributes{
-						"hx-post":     fmt.Sprintf("/admin/bulk-upload/%s/lock", agg.ID),
-						"hx-confirm":  "Are you sure you want to lock this upload? This action cannot be undone.",
-						"hx-push-url": "false",
+						"hx-get":     fmt.Sprintf("/admin/bulk-upload/%s/confirm-lock", agg.ID),
+						"hx-target": "#content",
 					})
 				}
 				<!-- Danger actions -->
 				if canInvalidate(getStatus(agg)) {
 					@components.DangerButton("Invalidate", templ.Attributes{
-						"hx-post":    fmt.Sprintf("/admin/bulk-upload/%s/invalidate", agg.ID),
-						"hx-confirm": "Are you sure you want to invalidate this upload? This will undo all changes made by this upload.",
+						"hx-get":    fmt.Sprintf("/admin/bulk-upload/%s/confirm-invalidate", agg.ID),
+						"hx-target": "#content",
 					})
 				}
 				<a

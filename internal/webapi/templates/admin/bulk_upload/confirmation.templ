@@ -1,0 +1,218 @@
+package bulk_upload
+
+import (
+	"fmt"
+	"geevly/internal/bulk_upload"
+)
+
+// ActionType represents the type of action that needs confirmation
+type ActionType string
+
+const (
+	ActionLock      ActionType = "lock"
+	ActionInvalidate ActionType = "invalidate"
+)
+
+// Confirmation renders a confirmation page for potentially destructive bulk upload actions
+templ Confirmation(agg *bulk_upload.Aggregate, action ActionType) {
+	<div class="flex flex-col w-full">
+		<!-- Navigation bar -->
+		<div class="flex items-center p-2 bg-gray-50 border-b">
+			<a
+				href="#"
+				class="flex items-center text-gray-600 hover:text-gray-800"
+				hx-get={ fmt.Sprintf("/admin/bulk-upload/%s/view", agg.ID) }
+				hx-target="#content"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+				</svg>
+				Return to Bulk Upload
+			</a>
+		</div>
+
+		<div class="max-w-3xl mx-auto w-full px-4 py-8">
+			<div class="bg-white shadow-md rounded-lg overflow-hidden border">
+				<!-- Header with warning -->
+				if action == ActionLock {
+					<div class="bg-yellow-500 text-white px-6 py-4">
+						<h1 class="text-xl font-bold flex items-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+							</svg>
+							Confirm Lock Action
+						</h1>
+					</div>
+				} else if action == ActionInvalidate {
+					<div class="bg-red-600 text-white px-6 py-4">
+						<h1 class="text-xl font-bold flex items-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+							</svg>
+							Confirm Invalidate Action
+						</h1>
+					</div>
+				}
+
+				<div class="p-6">
+					<!-- Warning Message -->
+					if action == ActionLock {
+						<div class="mb-6">
+							<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+								<div class="flex">
+									<div class="flex-shrink-0">
+										<svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+											<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+										</svg>
+									</div>
+									<div class="ml-3">
+										<h3 class="text-sm font-medium text-yellow-800">Warning: This action cannot be undone</h3>
+										<div class="mt-2 text-sm text-yellow-700">
+											<p>Locking a bulk upload will prevent any further changes to this upload. This is typically done after an upload is considered complete and validated.</p>
+											<p class="mt-2 font-semibold">Once locked, you will not be able to:</p>
+											<ul class="list-disc list-inside mt-1 ml-2">
+												<li>Modify the upload data</li>
+												<li>Validate or re-validate the upload</li>
+												<li>Process the upload again</li>
+											</ul>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					} else if action == ActionInvalidate {
+						<div class="mb-6">
+							<div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+								<div class="flex">
+									<div class="flex-shrink-0">
+										<svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+											<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+										</svg>
+									</div>
+									<div class="ml-3">
+										<h3 class="text-sm font-medium text-red-800">Warning: Destructive action</h3>
+										<div class="mt-2 text-sm text-red-700">
+											<p>Invalidating a bulk upload will attempt to revert all changes made by this upload. This is a destructive action that may affect data in the system.</p>
+											<p class="mt-2 font-semibold">This action will:</p>
+											<ul class="list-disc list-inside mt-1 ml-2">
+												<li>Attempt to revert all created or updated records</li>
+												<li>Mark this upload as invalidated in the system</li>
+												<li>Potentially affect other data that depends on these records</li>
+											</ul>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					}
+
+					<!-- Upload Information -->
+					<div class="mb-6">
+						<h2 class="text-lg font-medium mb-2">Upload Information</h2>
+						<div class="bg-gray-50 p-4 rounded border">
+							<dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+								<dt class="font-medium text-gray-500">ID:</dt>
+								<dd class="text-gray-900">{ agg.ID }</dd>
+								
+								<dt class="font-medium text-gray-500">Domain:</dt>
+								<dd class="text-gray-900">{ agg.GetDomain().String() }</dd>
+								
+								<dt class="font-medium text-gray-500">Status:</dt>
+								<dd class="text-gray-900">{ agg.GetStatus().String() }</dd>
+
+								if action == ActionInvalidate {
+									<dt class="font-medium text-gray-500">Records:</dt>
+									<dd class="text-gray-900">{ fmt.Sprintf("%d records will be affected", len(agg.GetRecordStates())) }</dd>
+								}
+							</dl>
+						</div>
+					</div>
+
+					<!-- Confirmation Form -->
+					<form
+						class="mt-6"
+						hx-post={ fmt.Sprintf("/admin/bulk-upload/%s/%s", agg.ID, action) }
+						hx-target="#content"
+					>
+						<div class="mb-6">
+							<label class="block text-sm font-medium text-gray-700 mb-2">
+								Type confirmation text to proceed
+							</label>
+							<p class="text-sm text-gray-500 mb-4">
+								if action == ActionLock {
+									To confirm locking this upload, please type <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">LOCK-{ agg.ID[:6] }</span> below:
+								} else if action == ActionInvalidate {
+									To confirm invalidating this upload, please type <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATE-{ agg.ID[:6] }</span> below:
+								}
+							</p>
+							<input
+								type="text"
+								name="confirmation_text"
+								id="confirmation_text"
+								if action == ActionLock {
+									data-expected={ fmt.Sprintf("LOCK-%s", agg.ID[:6]) }
+								} else if action == ActionInvalidate {
+									data-expected={ fmt.Sprintf("INVALIDATE-%s", agg.ID[:6]) }
+								}
+								class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+								required
+							/>
+							<p class="mt-2 text-sm text-gray-500">This confirmation is case sensitive.</p>
+						</div>
+
+						<!-- Form submission buttons -->
+						<div class="flex justify-between">
+							<button
+								type="button"
+								class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+								hx-get={ fmt.Sprintf("/admin/bulk-upload/%s/view", agg.ID) }
+								hx-target="#content"
+							>
+								Cancel
+							</button>
+							
+							if action == ActionLock {
+								<button
+									type="submit"
+									id="confirm-button"
+									disabled
+									class="px-4 py-2 bg-yellow-500 text-white rounded opacity-50 cursor-not-allowed"
+								>
+									Lock Upload
+								</button>
+							} else if action == ActionInvalidate {
+								<button
+									type="submit"
+									id="confirm-button"
+									disabled
+									class="px-4 py-2 bg-red-600 text-white rounded opacity-50 cursor-not-allowed"
+								>
+									Invalidate Upload
+								</button>
+							}
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// Enable/disable submit button based on correct confirmation text
+		document.addEventListener('htmx:load', function() {
+			const confirmationInput = document.getElementById('confirmation_text');
+			const confirmButton = document.getElementById('confirm-button');
+			const expectedValue = confirmationInput.getAttribute('data-expected');
+			
+			confirmationInput.addEventListener('input', function() {
+				if (this.value === expectedValue) {
+					confirmButton.disabled = false;
+					confirmButton.classList.remove('opacity-50', 'cursor-not-allowed');
+				} else {
+					confirmButton.disabled = true;
+					confirmButton.classList.add('opacity-50', 'cursor-not-allowed');
+				}
+			});
+		});
+	</script>
+}

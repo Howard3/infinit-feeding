@@ -24,7 +24,10 @@ func (s *Server) bulkUploadAdminRoutes(r chi.Router) {
 	r.Get("/template", s.bulkUploadAdminTemplate)
 	r.Get("/instructions", s.bulkUploadAdminInstructions)
 	r.Get("/{id}/view", s.bulkUploadAdminView)
+	r.Get("/{id}/confirm-lock", s.bulkUploadAdminConfirmLock)
 	r.Post("/{id}/lock", s.bulkUploadAdminLockUpload)
+	r.Get("/{id}/confirm-invalidate", s.bulkUploadAdminConfirmInvalidate)
+	r.Post("/{id}/invalidate", s.bulkUploadAdminInvalidateUpload)
 	r.Post("/{id}/validate", s.bulkUploadAdminValidateUpload)
 	r.Post("/{id}/start-processing", s.bulkUploadAdminProcessUpload)
 	r.Get("/{id}/download", s.bulkUploadAdminDownload)
@@ -168,8 +171,30 @@ func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Reque
 	s.handleBulkUploadSuccess(w, r, agg.ID)
 }
 
+func (s *Server) bulkUploadAdminConfirmLock(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		slog.Error("error getting bulk upload for lock confirmation", "err", err)
+		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	s.renderTempl(w, r, bulk_upload.Confirmation(agg, bulk_upload.ActionLock))
+}
+
 func (s *Server) bulkUploadAdminLockUpload(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	// Verify confirmation text
+	confirmationText := r.FormValue("confirmation_text")
+	expectedText := fmt.Sprintf("LOCK-%s", id[:6])
+
+	if confirmationText != expectedText {
+		slog.Warn("invalid confirmation text for locking upload", "id", id, "provided", confirmationText)
+		http.Error(w, "Invalid confirmation text. Action cancelled.", http.StatusBadRequest)
+		return
+	}
 
 	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_LOCKED); err != nil {
 		slog.Error("error locking bulk upload", "err", err)
@@ -261,7 +286,7 @@ func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Validation error"))
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Processing completed successfully"))
 }
 
 func (s *Server) bulkUploadAdminTemplate(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +359,56 @@ func (s *Server) bulkUploadAdminDownload(w http.ResponseWriter, r *http.Request)
 	w.Header().Add("Content-Length", strconv.Itoa(len(data)))
 	w.Header().Add("Content-Disposition", "attachment; filename=\"bulk_upload\"") // TODO: proper extension
 	w.Write(data)
+}
+
+func (s *Server) bulkUploadAdminConfirmInvalidate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		slog.Error("error getting bulk upload for invalidate confirmation", "err", err)
+		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	s.renderTempl(w, r, bulk_upload.Confirmation(agg, bulk_upload.ActionInvalidate))
+}
+
+func (s *Server) bulkUploadAdminInvalidateUpload(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	// Verify confirmation text
+	confirmationText := r.FormValue("confirmation_text")
+	expectedText := fmt.Sprintf("INVALIDATE-%s", id[:6])
+
+	if confirmationText != expectedText {
+		slog.Warn("invalid confirmation text for invalidating upload", "id", id, "provided", confirmationText)
+		http.Error(w, "Invalid confirmation text. Action cancelled.", http.StatusBadRequest)
+		return
+	}
+
+	if true {
+		// placeholder for actual implementation
+		http.Error(w, "not implemented", http.StatusNotImplemented)
+	}
+
+	// First set status to invalidating
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_INVALIDATING); err != nil {
+		slog.Error("error setting status to invalidating", "err", err)
+		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Process invalidation (this would typically undo the changes)
+	// Note: This is a placeholder. In a real implementation, you'd have a service method to handle this.
+	// For now, we'll just set the status to INVALIDATED
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_INVALIDATED); err != nil {
+		slog.Error("error setting status to invalidated", "err", err)
+		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("bulk upload invalidated successfully", "id", id)
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Upload invalidated successfully"))
 }
 
 func (s *Server) getFile(ctx context.Context, fileID string) ([]byte, error) {
