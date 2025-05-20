@@ -44,6 +44,13 @@ type Aggregate struct {
 	data *eda.BulkUpload
 }
 
+func GetStatusTimestamps(a *Aggregate) []*eda.BulkUpload_StatusTimestamp {
+	if a.data == nil {
+		return nil
+	}
+	return a.data.StatusTimestamps
+}
+
 func (a *Aggregate) GetRecordProcessedStatuses() map[string]bool {
 	return a.data.RecordsProcessed
 }
@@ -234,8 +241,8 @@ func (a *Aggregate) handleSetStatus(event proto.Message) error {
 
 	// Add timestamp for status change
 	a.data.StatusTimestamps = append(a.data.StatusTimestamps, &eda.BulkUpload_StatusTimestamp{
-		Status:    eda.BulkUpload_VALIDATION_FAILED,
-		Timestamp: timestamppb.Now(),
+		Status:    evt.Status,
+		Timestamp: evt.GetStatusTimestamp(),
 	})
 
 	return nil
@@ -412,7 +419,7 @@ func (a *Aggregate) handleCreate(msg proto.Message) error {
 		StatusTimestamps: []*eda.BulkUpload_StatusTimestamp{
 			{
 				Status:    eda.BulkUpload_PENDING,
-				Timestamp: timestamppb.Now(),
+				Timestamp: evt.GetInitiatedAt(),
 			},
 		},
 	}
