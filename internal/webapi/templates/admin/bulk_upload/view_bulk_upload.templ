@@ -452,15 +452,15 @@ func isProcessing(status string) bool {
 
 // Helper function to check if invalidation is possible
 func canInvalidate(status string) bool {
-	return status == "COMPLETED" && status != "LOCKED"
+	return status == "COMPLETED"
 }
 
 func canValidate(status string) bool {
-	return (status == "PENDING" || status == "VALIDATION_FAILED" || status == "VALIDATED") && status != "LOCKED"
+	return status == "PENDING" || status == "VALIDATION_FAILED" || status == "VALIDATED"
 }
 
 func canStartProcessing(status string) bool {
-	return status == "VALIDATED" && status != "LOCKED"
+	return status == "VALIDATED"
 }
 
 // Helper function to check if we can cancel processing
@@ -497,20 +497,20 @@ func getProcessedRecords(agg *bulk_upload.Aggregate) uint64 {
 		return 0
 	}
 	processedCount := uint64(0)
-	
+
 	for _, actions := range records {
 		if actions != nil && len(actions.RecordActions) > 0 {
 			// Get the most recent action
 			lastAction := actions.RecordActions[len(actions.RecordActions)-1]
-			
+
 			// Count as processed if it was created or updated
-			if lastAction.Action == eda.BulkUpload_RecordAction_CREATED || 
-			   lastAction.Action == eda.BulkUpload_RecordAction_UPDATED {
+			if lastAction.Action == eda.BulkUpload_RecordAction_CREATED ||
+				lastAction.Action == eda.BulkUpload_RecordAction_UPDATED {
 				processedCount++
 			}
 		}
 	}
-	
+
 	return processedCount
 }
 
@@ -626,12 +626,12 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 	if agg == nil {
 		return []RecordStatus{}
 	}
-	
+
 	recordActions := agg.GetRecordStates()
 	if recordActions == nil {
 		return []RecordStatus{}
 	}
-	
+
 	result := make([]RecordStatus, 0, len(recordActions))
 
 	// Extract keys (record IDs) from the map
@@ -648,31 +648,31 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 		if recordActions[id] == nil {
 			continue
 		}
-		
+
 		// Get the actions for this record
 		actions := recordActions[id].RecordActions
-		
+
 		// Default values
 		processed := false
 		actionStr := "UNKNOWN"
 		var timestamp time.Time
-		
+
 		// If we have actions, use the most recent one
 		if len(actions) > 0 {
 			// Get the most recent action (last in the array)
 			lastAction := actions[len(actions)-1]
-			
+
 			// Consider a record processed if it was created or updated
-			processed = lastAction.Action == eda.BulkUpload_RecordAction_CREATED || 
-			            lastAction.Action == eda.BulkUpload_RecordAction_UPDATED
-			
+			processed = lastAction.Action == eda.BulkUpload_RecordAction_CREATED ||
+				lastAction.Action == eda.BulkUpload_RecordAction_UPDATED
+
 			// Get the action string and timestamp
 			actionStr = lastAction.Action.String()
 			if lastAction.Timestamp != nil {
 				timestamp = lastAction.Timestamp.AsTime()
 			}
 		}
-		
+
 		result = append(result, RecordStatus{
 			ID:        id,
 			Processed: processed,
