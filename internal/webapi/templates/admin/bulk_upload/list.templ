@@ -33,7 +33,7 @@ templ List(response *bulk_upload.ListResponse, pagination components.Pagination)
 							for _, upload := range response.BulkUploads {
 								<tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
 									<td class="p-4 align-middle">
-										{ upload.TargetDomain }
+										@formatDomain(upload.TargetDomain)
 									</td>
 									<td class="p-4 align-middle">
 										@statusBadge(upload.Status)
@@ -146,14 +146,29 @@ templ progressBarEl(percentage float64, hasErrors bool) {
 templ formatDomain(domain string) {
 	switch domain {
 		case "STUDENT":
-			<span>New Students</span>
-		case "HEALTH_ASSESSMENT":
-			<span>Health Assessment</span>
+			<span class="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2.5 py-1 text-sm font-medium text-blue-800 ring-1 ring-inset ring-blue-400">
+				<span class="font-bold">S</span>
+				<span>New Students</span>
+			</span>
+		case "HEALTH_ASSESSMENT", "HEALTH_ASSESMENT":
+			<span class="inline-flex items-center gap-1 rounded-md bg-green-100 px-2.5 py-1 text-sm font-medium text-green-800 ring-1 ring-inset ring-green-400">
+				<span class="font-bold">H</span>
+				<span>Health Assessment</span>
+			</span>
 		case "GRADES":
-			<span>Academic Grades</span>
+			<span class="inline-flex items-center gap-1 rounded-md bg-purple-100 px-2.5 py-1 text-sm font-medium text-purple-800 ring-1 ring-inset ring-purple-400">
+				<span class="font-bold">G</span>
+				<span>Academic Grades</span>
+			</span>
 		case "ATTENDANCE":
-			<span>Attendance</span>
+			<span class="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 text-sm font-medium text-amber-800 ring-1 ring-inset ring-amber-400">
+				<span class="font-bold">A</span>
+				<span>Attendance</span>
+			</span>
 		default:
-			<span>{ domain }</span>
+			<span class="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2.5 py-1 text-sm font-medium text-gray-800 ring-1 ring-inset ring-gray-400">
+				<span class="font-bold">?</span>
+				<span>{ domain }</span>
+			</span>
 	}
 }

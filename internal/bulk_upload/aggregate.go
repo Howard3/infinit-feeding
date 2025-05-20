@@ -44,6 +44,10 @@ type Aggregate struct {
 	data *eda.BulkUpload
 }
 
+func (a *Aggregate) GetRecordProcessedStatuses() map[string]bool {
+	return a.data.RecordsProcessed
+}
+
 func (a *Aggregate) GetValidationErrors() []*eda.BulkUpload_ValidationError {
 	if a.data == nil {
 		return nil

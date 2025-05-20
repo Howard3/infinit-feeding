@@ -5,6 +5,7 @@ import (
 	"geevly/gen/go/eda"
 	"geevly/internal/bulk_upload"
 	"geevly/internal/webapi/templates/components"
+	"slices"
 )
 
 templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
@@ -95,6 +96,10 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 							<div class="bg-gray-100 p-3 rounded text-center">
 								<div class="text-sm text-gray-600">Processed</div>
 								<div class="text-lg font-semibold">{ fmt.Sprintf("%d", getProcessedRecords(agg)) }</div>
+							</div>
+							<div class="bg-gray-100 p-3 rounded text-center">
+								<div class="text-sm text-gray-600">Pending</div>
+								<div class="text-lg font-semibold">{ fmt.Sprintf("%d", getTotalRecords(agg) - getProcessedRecords(agg)) }</div>
 							</div>
 						</div>
 						<div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
@@ -235,6 +240,57 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 					<h2 class="text-md font-medium mb-3">Validation Errors</h2>
 					<div class="text-center text-gray-500 py-4">
 						No validation errors found.
+					</div>
+				</div>
+			</div>
+		}
+		<!-- Record Processing Status Section -->
+		if recordStatuses := getRecordProcessingStatuses(agg); len(recordStatuses) > 0 {
+			<div class="p-4">
+				<div class="border rounded-lg shadow p-4">
+					<h2 class="text-md font-medium mb-3">Record Processing Status</h2>
+					<div class="relative overflow-x-auto">
+						<table class="w-full text-sm text-left text-gray-500">
+							<thead class="text-xs text-gray-700 uppercase bg-gray-100">
+								<tr>
+									<th scope="col" class="px-6 py-3">Record ID</th>
+									<th scope="col" class="px-6 py-3">Status</th>
+									<th scope="col" class="px-6 py-3">Actions</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, record := range recordStatuses {
+									<tr class="bg-white border-b hover:bg-gray-50">
+										<td class="px-6 py-4">{ record.ID }</td>
+										<td class="px-6 py-4">
+											if record.Processed {
+												<span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-800 ring-1 ring-inset ring-green-600/20">
+													Processed
+												</span>
+											} else {
+												<span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+													Pending
+												</span>
+											}
+										</td>
+										<td class="px-6 py-4">
+											if isStudentRelatedDomain(getTargetDomain(agg)) {
+												<a
+													href={ templ.URL(fmt.Sprintf("/admin/student/%s", record.ID)) }
+													class="text-indigo-600 hover:text-indigo-900 inline-flex items-center"
+												>
+													<span class="mr-1">View Student</span>
+													<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+													</svg>
+												</a>
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
 					</div>
 				</div>
 			</div>
@@ -433,4 +489,40 @@ func getErrorMessage(agg *bulk_upload.Aggregate) string {
 // Helper function to safely access aggregate data
 func getStatus(agg *bulk_upload.Aggregate) string {
 	return agg.GetStatus().String()
+}
+
+// RecordStatus holds a single record's processing status
+type RecordStatus struct {
+	ID        string
+	Processed bool
+}
+
+// Helper function to get record processing statuses in a deterministic order
+func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
+	statuses := agg.GetRecordProcessedStatuses()
+	result := make([]RecordStatus, 0, len(statuses))
+
+	// Extract keys (record IDs) from the map
+	recordIDs := make([]string, 0, len(statuses))
+	for id := range statuses {
+		recordIDs = append(recordIDs, id)
+	}
+
+	// Sort the record IDs for deterministic rendering
+	slices.Sort(recordIDs)
+
+	// Create a sorted slice of RecordStatus structs
+	for _, id := range recordIDs {
+		result = append(result, RecordStatus{
+			ID:        id,
+			Processed: statuses[id],
+		})
+	}
+
+	return result
+}
+
+// Helper function to check if domain is student-related
+func isStudentRelatedDomain(domain string) bool {
+	return domain == "GRADES" || domain == "HEALTH_ASSESSMENT" || domain == "NEW_STUDENTS" || domain == "UPDATE_STUDENTS"
 }

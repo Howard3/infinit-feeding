@@ -235,6 +235,16 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 		return fmt.Errorf("errors occurred while parsing CSV: %s", strings.Join(errMsgs, ", "))
 	}
 
+	// Track processed records
+	toProcess := make(map[uint64]*eda.Student_HealthAssessment)
+	toProcessIDs := make([]string, 0)
+	recentlyProcessed := make([]string, 0)
+
+	defer func() {
+		// Mark records as processed, regardless of how we exit
+		svc.MarkRecordsAsProcessed(ctx, aggregate.GetID(), recentlyProcessed)
+	}()
+
 	for _, row := range rows {
 		assessment := &eda.Student_HealthAssessment{
 			HeightCm:               float32(row.HeightCM),
@@ -248,10 +258,21 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 			return fmt.Errorf("error getting student by LRN %s: %w", row.LRN, err)
 		}
 
-		err = d.services.StudentService.AddHealthAssessment(ctx, student.GetIDUint64(), assessment)
+		toProcessIDs = append(toProcessIDs, student.GetID())
+		toProcess[student.GetIDUint64()] = assessment
+	}
+
+	if err := svc.AddRecordsToProcess(ctx, aggregate.ID, toProcessIDs); err != nil {
+		return fmt.Errorf("error adding records to process: %w", err)
+	}
+
+	for id, assessment := range toProcess {
+		err := d.services.StudentService.AddHealthAssessment(ctx, id, assessment)
 		if err != nil {
-			return fmt.Errorf("error creating health assessment for LRN %s: %w", row.LRN, err)
+			return fmt.Errorf("error creating health assessment for student ID %d: %w", id, err)
 		}
+
+		recentlyProcessed = append(recentlyProcessed, fmt.Sprintf("%d", id))
 	}
 
 	return nil
