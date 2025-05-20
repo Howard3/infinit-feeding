@@ -301,18 +301,6 @@ func (d *GradesDomain) GetMaxFileSize() int64 {
 	return 10 << 20 // 10MB
 }
 
-func (d *GradesDomain) recordFilesToProcess(ctx context.Context, agg *bulk_upload.Aggregate, svc *bulk_upload.Service, rows []GradeRow) error {
-	recordIDs := make([]string, len(rows))
-	for i, row := range rows {
-		recordIDs[i] = row.LRN
-	}
-	return svc.AddRecordsToProcess(ctx, agg.GetID(), bulk_upload.RecordActions{
-		RecordIds:  recordIDs,
-		RecordType: eda.BulkUpload_STUDENT,
-		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
-	})
-}
-
 // ProcessUpload processes the uploaded file for grades
 func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error {
 	if d.services == nil {
@@ -340,19 +328,48 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 		return fmt.Errorf("missing required metadata for processing")
 	}
 
-	// Record files to process
-	if err := d.recordFilesToProcess(ctx, aggregate, svc, rows); err != nil {
-		return fmt.Errorf("failed to record files to process: %w", err)
-	}
-
 	effectiveDateParsed, err := d.parseDate(effectiveDate)
 	if err != nil {
 		return fmt.Errorf("invalid effective date: %s", err.Error())
 	}
 
-	// Process each row and update student grades
+	// Track processed records
+	toProcessIDs := make([]string, 0)
 	recentlyProcessed := make([]string, 0)
 
+	defer func() {
+		actions := bulk_upload.RecordActions{
+			RecordIds:  recentlyProcessed,
+			RecordType: eda.BulkUpload_STUDENT,
+			Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+		}
+		// Mark records as processed, regardless of how we exit
+		svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), actions)
+	}()
+
+	// First pass: gather student IDs to process
+	for _, row := range rows {
+		// Find the student by LRN and school ID
+		student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, row.LRN, schoolID)
+		if err != nil {
+			return fmt.Errorf("failed to find student with LRN %s and school ID %s: %w", row.LRN, schoolID, err)
+		}
+
+		toProcessIDs = append(toProcessIDs, student.GetID())
+	}
+
+	// Mark records for processing
+	recordActions := bulk_upload.RecordActions{
+		RecordIds:  toProcessIDs,
+		RecordType: eda.BulkUpload_STUDENT,
+		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+	}
+
+	if err := svc.AddRecordsToProcess(ctx, aggregate.GetID(), recordActions); err != nil {
+		return fmt.Errorf("error adding records to process: %w", err)
+	}
+
+	// Second pass: process each row and update student grades
 	for _, row := range rows {
 		// Parse the grade value
 		gradeVal, err := row.GradeInt()
@@ -367,7 +384,6 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 		}
 
 		// Create a grade update command based on your actual data model
-		// This is a placeholder - use the actual command structure for your system
 		gradeCmd := &eda.Student_GradeReport{
 			Grade: int32(gradeVal),
 			TestDate: &eda.Date{
@@ -387,13 +403,6 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 
 		recentlyProcessed = append(recentlyProcessed, student.GetID())
 	}
-
-	// TODO: implement more regularly, for example every 10-20 records
-	svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), bulk_upload.RecordActions{
-		RecordIds:  recentlyProcessed,
-		RecordType: eda.BulkUpload_STUDENT,
-		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
-	})
 
 	return nil
 }
