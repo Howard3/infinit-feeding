@@ -27,9 +27,10 @@ var permittedStatusChanges = map[eda.BulkUpload_Status][]eda.BulkUpload_Status{
 	eda.BulkUpload_VALIDATING:        {eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
 	eda.BulkUpload_VALIDATED:         {eda.BulkUpload_PROCESSING, eda.BulkUpload_VALIDATING},
 	eda.BulkUpload_PROCESSING:        {eda.BulkUpload_COMPLETED, eda.BulkUpload_ERROR},
-	eda.BulkUpload_COMPLETED:         {eda.BulkUpload_INVALIDATING},
+	eda.BulkUpload_COMPLETED:         {eda.BulkUpload_INVALIDATING, eda.BulkUpload_LOCKED},
 	eda.BulkUpload_INVALIDATING:      {eda.BulkUpload_INVALIDATED, eda.BulkUpload_INVALIDATION_FAILED},
-	eda.BulkUpload_VALIDATION_FAILED: {eda.BulkUpload_VALIDATING},
+	eda.BulkUpload_VALIDATION_FAILED: {eda.BulkUpload_VALIDATING, eda.BulkUpload_LOCKED},
+	eda.BulkUpload_INVALIDATED:       {eda.BulkUpload_INVALIDATING, eda.BulkUpload_LOCKED},
 }
 
 // BulkUploadEvent is a struct that holds the event type and the data

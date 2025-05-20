@@ -30,6 +30,7 @@ message BulkUpload {
     INVALIDATED = 8; // end status
     ERROR = 9;
     INVALIDATION_FAILED = 10;
+    LOCKED = 11; // Prevent further changes to the upload
   }
 
   enum RecordType {

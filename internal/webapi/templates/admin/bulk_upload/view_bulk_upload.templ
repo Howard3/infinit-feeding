@@ -48,6 +48,13 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 						"hx-push-url": "false",
 					})
 				}
+				if canLock(getStatus(agg)) {
+					@components.SecondaryButton("Lock Upload", templ.Attributes{
+						"hx-post":     fmt.Sprintf("/admin/bulk-upload/%s/lock", agg.ID),
+						"hx-confirm":  "Are you sure you want to lock this upload? This action cannot be undone.",
+						"hx-push-url": "false",
+					})
+				}
 				<!-- Danger actions -->
 				if canInvalidate(getStatus(agg)) {
 					@components.DangerButton("Invalidate", templ.Attributes{
@@ -347,6 +354,10 @@ templ viewStatusBadge(status string) {
 			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
 				Invalidated
 			</span>
+		case "LOCKED":
+			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
+				Locked
+			</span>
 		default:
 			<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-600/20">
 				{ status }
@@ -388,6 +399,10 @@ templ viewStatusExplanation(status string) {
 		case "INVALIDATED":
 			<div class="p-2 bg-gray-50 rounded-md mt-2">
 				<p>This upload has been invalidated. All changes have been reverted.</p>
+			</div>
+		case "LOCKED":
+			<div class="p-2 bg-gray-50 rounded-md mt-2">
+				<p>This upload has been locked and cannot be modified.</p>
 			</div>
 		default:
 			<div class="p-2 bg-gray-50 rounded-md mt-2">
@@ -437,20 +452,25 @@ func isProcessing(status string) bool {
 
 // Helper function to check if invalidation is possible
 func canInvalidate(status string) bool {
-	return status == "COMPLETED"
+	return status == "COMPLETED" && status != "LOCKED"
 }
 
 func canValidate(status string) bool {
-	return status == "PENDING" || status == "VALIDATION_FAILED" || status == "VALIDATED"
+	return (status == "PENDING" || status == "VALIDATION_FAILED" || status == "VALIDATED") && status != "LOCKED"
 }
 
 func canStartProcessing(status string) bool {
-	return status == "VALIDATED"
+	return status == "VALIDATED" && status != "LOCKED"
 }
 
 // Helper function to check if we can cancel processing
 func canCancel(status string) bool {
 	return status == "VALIDATING" || status == "PROCESSING"
+}
+
+// Helper function to check if we can lock the upload
+func canLock(status string) bool {
+	return status != "LOCKED" && status != "PROCESSING" && status != "VALIDATING" && status != "INVALIDATING"
 }
 
 func getTargetDomain(agg *bulk_upload.Aggregate) string {

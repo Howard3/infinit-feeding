@@ -24,6 +24,7 @@ func (s *Server) bulkUploadAdminRoutes(r chi.Router) {
 	r.Get("/template", s.bulkUploadAdminTemplate)
 	r.Get("/instructions", s.bulkUploadAdminInstructions)
 	r.Get("/{id}/view", s.bulkUploadAdminView)
+	r.Post("/{id}/lock", s.bulkUploadAdminLockUpload)
 	r.Post("/{id}/validate", s.bulkUploadAdminValidateUpload)
 	r.Post("/{id}/start-processing", s.bulkUploadAdminProcessUpload)
 	r.Get("/{id}/download", s.bulkUploadAdminDownload)
@@ -165,6 +166,19 @@ func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Reque
 
 	// Redirect to the view page
 	s.handleBulkUploadSuccess(w, r, agg.ID)
+}
+
+func (s *Server) bulkUploadAdminLockUpload(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_LOCKED); err != nil {
+		slog.Error("error locking bulk upload", "err", err)
+		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("bulk upload locked successfully", "id", id)
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Upload locked successfully"))
 }
 
 func (s *Server) bulkUploadAdminValidateUpload(w http.ResponseWriter, r *http.Request) {
