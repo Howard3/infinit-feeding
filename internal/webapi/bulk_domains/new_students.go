@@ -150,3 +150,7 @@ func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_u
 
 	return nil
 }
+
+func (d *NewStudentsDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
+	panic("not implemented")
+}

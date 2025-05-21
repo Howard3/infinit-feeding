@@ -36,7 +36,11 @@ type BulkUploadDomain interface {
 	// ValidateUpload validates the uploaded file against business rules
 	ValidateUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, fileBytes []byte) *ValidationResult
 
+	// ProcessUpload handles the upload process for the file
 	ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error
+
+	// UndoUpload handles the undo process for the uploaded file
+	UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error
 }
 
 // ServiceRegistry contains all services that domain handlers might need. Redefined here to prevent circular dependencies.

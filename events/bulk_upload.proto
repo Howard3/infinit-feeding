@@ -65,6 +65,7 @@ message BulkUpload {
       CREATED = 2;
       UPDATED = 3;
       DELETED = 4;
+      UNDONE = 5;
     }
 
     message RecordActionsEvent{

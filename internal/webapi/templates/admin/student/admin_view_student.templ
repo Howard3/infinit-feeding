@@ -264,6 +264,10 @@ templ StudentHistorySection(evts []gosignal.Event) {
 										Grade report added
 									case student.EVENT_ADD_HEALTH_ASSESSMENT:
 										Health assessment added
+									case student.EVENT_REMOVE_GRADE_REPORT:
+										Grade report removed
+									case student.EVENT_REMOVE_HEALTH_ASSESSMENT:
+										Health assessment removed
 									default:
 										Unknown event: { evt.Type }
 								}

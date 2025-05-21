@@ -288,3 +288,36 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 
 	return nil
 }
+
+func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
+	recordsUpdated := make([]string, 0)
+	defer func() {
+		action := bulk_upload.RecordActions{
+			RecordIds:  recordsUpdated,
+			RecordType: eda.BulkUpload_STUDENT,
+			Reason:     eda.BulkUpload_RecordAction_INVALIDATED,
+		}
+
+		svc.MarkRecordsAsUndone(context.Background(), aggregate.ID, action)
+	}()
+
+	for studentID, states := range aggregate.GetRecordStates() {
+		finalState := states.RecordActions[len(states.RecordActions)-1]
+		if finalState.Reason != eda.BulkUpload_RecordAction_PROCESSING {
+			continue
+		}
+
+		studentIDUint, err := strconv.ParseUint(studentID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error parsing student ID %s: %w", studentID, err)
+		}
+
+		if err := d.services.StudentService.RemoveHealthAssessment(ctx, studentIDUint, aggregate.GetID()); err != nil {
+			return fmt.Errorf("error deleting health assessment for student ID %d: %w", studentIDUint, err)
+		}
+
+		recordsUpdated = append(recordsUpdated, studentID)
+	}
+
+	return nil
+}

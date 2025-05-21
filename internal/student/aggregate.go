@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"slices"
 	"time"
 
 	"geevly/gen/go/eda"
@@ -19,6 +20,8 @@ var ErrApplyingEvent = fmt.Errorf("error applying event")
 var ErrMarshallingEvent = fmt.Errorf("error marshalling event")
 var ErrVersionMismatch = fmt.Errorf("version mismatch")
 var ErrStudentNotFound = fmt.Errorf("student not found")
+var ErrHealthAssessmentNotFound = fmt.Errorf("health assessment not found")
+var ErrGradeReportNotFound = fmt.Errorf("grade report not found")
 
 const EVENT_ADD_STUDENT = "AddStudent"
 const EVENT_SET_STUDENT_STATUS = "SetStudentStatus"
@@ -32,6 +35,8 @@ const EVENT_SET_ELIGIBILITY = "SetEligibility"
 const EVENT_UPDATE_SPONSORSHIP = "UpdateSponsorship"
 const EVENT_ADD_GRADE_REPORT = "AddGradeReport"
 const EVENT_ADD_HEALTH_ASSESSMENT = "AddHealthAssessment"
+const EVENT_REMOVE_HEALTH_ASSESSMENT = "RemoveHealthAssessment"
+const EVENT_REMOVE_GRADE_REPORT = "RemoveGradeReport"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -145,6 +150,12 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_ADD_HEALTH_ASSESSMENT:
 		eventData = &eda.Student_HealthAssessment_Event{}
 		handler = sd.handleAddHealthAssessment
+	case EVENT_REMOVE_HEALTH_ASSESSMENT:
+		eventData = &eda.Student_HealthAssessment_UndoEvent{}
+		handler = sd.handleRemoveHealthAssessment
+	case EVENT_REMOVE_GRADE_REPORT:
+		eventData = &eda.Student_GradeReport_UndoEvent{}
+		handler = sd.handleRemoveGradeReport
 
 	default:
 		return ErrEventNotFound
@@ -203,6 +214,20 @@ func (sd *Aggregate) AddHealthAssessment(cmd *eda.Student_HealthAssessment) (*go
 	})
 }
 
+func (sd *Aggregate) RemoveHealthAssessment(bulkUploadID string) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_REMOVE_HEALTH_ASSESSMENT,
+		data: &eda.Student_HealthAssessment_UndoEvent{
+			AssociatedBulkUploadId: bulkUploadID,
+		},
+		version: sd.Version,
+	})
+}
+
 func (sd *Aggregate) handleAddHealthAssessment(evt wrappedEvent) error {
 	event := evt.data.(*eda.Student_HealthAssessment_Event)
 	sd.data.HealthAssessments = append(sd.data.HealthAssessments, &eda.Student_HealthAssessment{
@@ -212,6 +237,17 @@ func (sd *Aggregate) handleAddHealthAssessment(evt wrappedEvent) error {
 		WeightKg:               event.WeightKg,
 	})
 	return nil
+}
+
+func (sd *Aggregate) handleRemoveHealthAssessment(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_HealthAssessment_UndoEvent)
+	for i, assessment := range sd.data.HealthAssessments {
+		if assessment.AssociatedBulkUploadId == event.AssociatedBulkUploadId {
+			sd.data.HealthAssessments = slices.Delete(sd.data.HealthAssessments, i, i+1)
+			return nil
+		}
+	}
+	return ErrHealthAssessmentNotFound
 }
 
 func (sd *Aggregate) AddGradeReport(cmd *eda.Student_GradeReport) (*gosignal.Event, error) {
@@ -232,6 +268,31 @@ func (sd *Aggregate) AddGradeReport(cmd *eda.Student_GradeReport) (*gosignal.Eve
 		},
 		version: sd.Version,
 	})
+}
+
+func (sd *Aggregate) RemoveGradeReport(bulkUploadID string) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_REMOVE_GRADE_REPORT,
+		data: &eda.Student_GradeReport_UndoEvent{
+			AssociatedBulkUploadId: bulkUploadID,
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) handleRemoveGradeReport(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_GradeReport_UndoEvent)
+	for i, gradeReport := range sd.data.GradeHistory {
+		if gradeReport.AssociatedBulkUploadId == event.AssociatedBulkUploadId {
+			sd.data.GradeHistory = slices.Delete(sd.data.GradeHistory, i, i+1)
+			return nil
+		}
+	}
+	return ErrGradeReportNotFound
 }
 
 func (sd *Aggregate) handleAddGradeReport(evt wrappedEvent) error {

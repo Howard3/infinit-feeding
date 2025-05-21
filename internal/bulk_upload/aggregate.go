@@ -25,7 +25,7 @@ var permittedStatusChanges = map[eda.BulkUpload_Status][]eda.BulkUpload_Status{
 	eda.BulkUpload_UNKNOWN:           {eda.BulkUpload_PENDING},
 	eda.BulkUpload_PENDING:           {eda.BulkUpload_VALIDATING, eda.BulkUpload_LOCKED},
 	eda.BulkUpload_VALIDATING:        {eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
-	eda.BulkUpload_VALIDATED:         {eda.BulkUpload_PROCESSING, eda.BulkUpload_VALIDATING, eda.BulkUpload_LOCKED},
+	eda.BulkUpload_VALIDATED:         {eda.BulkUpload_VALIDATING, eda.BulkUpload_LOCKED},
 	eda.BulkUpload_PROCESSING:        {eda.BulkUpload_COMPLETED, eda.BulkUpload_ERROR},
 	eda.BulkUpload_COMPLETED:         {eda.BulkUpload_INVALIDATING, eda.BulkUpload_LOCKED},
 	eda.BulkUpload_INVALIDATING:      {eda.BulkUpload_INVALIDATED, eda.BulkUpload_INVALIDATION_FAILED},
@@ -153,6 +153,24 @@ func (a *Aggregate) markRecordsAsUpdated(recordActions RecordActions) (*gosignal
 	})
 }
 
+func (a *Aggregate) markRecordsAsUndone(ra RecordActions) (*gosignal.Event, error) {
+	if a.data == nil {
+		return nil, fmt.Errorf("bulk upload aggregate is not initialized")
+	}
+
+	return a.ApplyEvent(BulkUploadEvent{
+		eventType: EventRecordActions,
+		data: &eda.BulkUpload_RecordAction_RecordActionsEvent{
+			RecordIds:  ra.RecordIds,
+			RecordType: ra.RecordType,
+			Timestamp:  timestamppb.Now(),
+			Action:     eda.BulkUpload_RecordAction_UNDONE,
+			Reason:     ra.Reason,
+		},
+		version: a.Version,
+	})
+}
+
 func (a *Aggregate) GetFileID() string {
 	return a.data.FileId
 }
@@ -230,6 +248,7 @@ func (a *Aggregate) handleRecordActions(event proto.Message) error {
 			Action:     evt.Action,
 			RecordType: evt.RecordType,
 			Timestamp:  evt.Timestamp,
+			Reason:     evt.Reason,
 		})
 	}
 

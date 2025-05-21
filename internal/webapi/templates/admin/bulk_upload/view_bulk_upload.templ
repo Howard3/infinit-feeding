@@ -50,7 +50,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 				}
 				if canLock(getStatus(agg)) {
 					@components.SecondaryButton("Lock Upload", templ.Attributes{
-						"hx-get":     fmt.Sprintf("/admin/bulk-upload/%s/confirm-lock", agg.ID),
+						"hx-get":    fmt.Sprintf("/admin/bulk-upload/%s/confirm-lock", agg.ID),
 						"hx-target": "#content",
 					})
 				}
@@ -663,7 +663,7 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 
 			// Consider a record processed if it was created or updated
 			processed = lastAction.Action == eda.BulkUpload_RecordAction_CREATED ||
-				lastAction.Action == eda.BulkUpload_RecordAction_UPDATED
+				lastAction.Action == eda.BulkUpload_RecordAction_UPDATED || lastAction.Action == eda.BulkUpload_RecordAction_UNDONE
 
 			// Get the action string and timestamp
 			actionStr = lastAction.Action.String()

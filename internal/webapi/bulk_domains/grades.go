@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -402,6 +403,40 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 		}
 
 		recentlyProcessed = append(recentlyProcessed, student.GetID())
+	}
+
+	return nil
+}
+
+func (d *GradesDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
+	recordsUpdated := make([]string, 0)
+	defer func() {
+		actions := bulk_upload.RecordActions{
+			RecordIds:  recordsUpdated,
+			RecordType: eda.BulkUpload_STUDENT,
+			Reason:     eda.BulkUpload_RecordAction_INVALIDATED,
+		}
+
+		svc.MarkRecordsAsUndone(context.Background(), aggregate.GetID(), actions)
+	}()
+
+	for studentID, states := range aggregate.GetRecordStates() {
+		finalState := states.RecordActions[len(states.RecordActions)-1]
+		if finalState.Reason != eda.BulkUpload_RecordAction_PROCESSING {
+			slog.Info("skipping student id", "student_id", studentID, "final_state", finalState)
+			continue
+		}
+
+		studentIDUint, err := strconv.ParseUint(studentID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse student ID %s: %w", studentID, err)
+		}
+
+		if err := d.services.StudentService.RemoveGradeReport(ctx, studentIDUint, aggregate.GetID()); err != nil {
+			return fmt.Errorf("failed to remove grade report for student %s: %w", studentID, err)
+		}
+
+		recordsUpdated = append(recordsUpdated, studentID)
 	}
 
 	return nil

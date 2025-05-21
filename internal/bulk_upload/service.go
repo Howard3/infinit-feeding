@@ -163,6 +163,26 @@ func (s *Service) MarkRecordsAsUpdated(ctx context.Context, id string, actions R
 	return nil
 }
 
+func (s *Service) MarkRecordsAsUndone(ctx context.Context, id string, actions RecordActions) error {
+	agg, err := s.repo.loadBulkUpload(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load bulk upload: %w", err)
+	}
+
+	event, err := agg.markRecordsAsUndone(actions)
+	if err != nil {
+		return fmt.Errorf("failed to mark records as undone: %w", err)
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*event}); err != nil {
+		return fmt.Errorf("failed to save bulk upload event: %w", err)
+	}
+
+	s.eventHandlers.HandleBulkUploadEvent(ctx, event)
+
+	return nil
+}
+
 func (s *Service) AddRecordsToProcess(ctx context.Context, id string, actions RecordActions) error {
 	agg, err := s.repo.loadBulkUpload(ctx, id)
 	if err != nil {

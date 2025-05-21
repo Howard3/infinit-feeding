@@ -52,7 +52,10 @@ message Student {
       float weight_kg = 2;
       google.protobuf.Timestamp assessment_date = 3;
       string associated_bulk_upload_id = 4;
+    }
 
+    message UndoEvent {
+      string associated_bulk_upload_id = 1;
     }
   }
 
@@ -70,6 +73,10 @@ message Student {
       string associated_bulk_upload_id = 3;
       string school_year = 4;
       string grading_period = 5;
+    }
+
+    message UndoEvent {
+      string associated_bulk_upload_id = 1;
     }
   }
 

@@ -386,15 +386,29 @@ func (s *Server) bulkUploadAdminInvalidateUpload(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if true {
-		// placeholder for actual implementation
-		http.Error(w, "not implemented", http.StatusNotImplemented)
-	}
-
 	// First set status to invalidating
 	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_INVALIDATING); err != nil {
 		slog.Error("error setting status to invalidating", "err", err)
 		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		slog.Error("error getting bulk upload for invalidate confirmation", "err", err)
+		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	domain, exists := s.bulkDomainRegistry.GetDomain(agg.GetDomain())
+	if !exists {
+		http.Error(w, "Domain not found", http.StatusNotFound)
+		return
+	}
+
+	if err = domain.UndoUpload(r.Context(), agg, s.Services.BulkUploadSvc); err != nil {
+		slog.Error("error undoing upload", "err", err)
+		http.Error(w, "Error undoing upload: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
