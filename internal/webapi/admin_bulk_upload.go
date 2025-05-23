@@ -259,29 +259,40 @@ func (s *Server) bulkUploadAdminProcessUpload(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_PROCESSING); err != nil {
-		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
+	// get domain
 	domain, exists := s.bulkDomainRegistry.GetDomain(agg.GetDomain())
 	if !exists {
 		http.Error(w, "Domain not found", http.StatusNotFound)
 		return
 	}
 
+	// get data
 	data, err := s.getFile(r.Context(), agg.GetFileID())
 	if err != nil {
 		http.Error(w, "Error getting file", http.StatusInternalServerError)
 		return
 	}
 
-	if err := domain.ProcessUpload(r.Context(), agg, s.Services.BulkUploadSvc, data); err != nil {
+	// validate prior to processing, again
+	res := domain.ValidateUpload(r.Context(), agg, data)
+	if len(res.Errors) > 0 {
+		http.Error(w, "Validation failed", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_PROCESSING); err != nil {
+		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: move to a goroutine
+	// use background context for processing, because we don't want to stop processing if the request is canceled
+	if err := domain.ProcessUpload(context.Background(), agg, s.Services.BulkUploadSvc, data); err != nil {
 		http.Error(w, "Error processing upload: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_COMPLETED); err != nil {
+	if err := s.Services.BulkUploadSvc.SetStatus(context.Background(), id, eda.BulkUpload_COMPLETED); err != nil {
 		http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
