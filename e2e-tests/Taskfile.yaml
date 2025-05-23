@@ -1,0 +1,110 @@
+version: '3'
+
+vars:
+  DEFAULT_BROWSER: chromium
+  HEADLESS: "true"
+  SLOW_MO: "0"
+  RECORD_VIDEO: "false"
+  RECORD_TRACES: "false"
+
+tasks:
+  install:
+    desc: Install Playwright and dependencies
+    cmds:
+      - chmod +x ./install-playwright.sh
+      - ./install-playwright.sh
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./tests/... -v
+
+  test:specific:
+    desc: Run specific test file
+    cmds:
+      - go test ./tests/{{.TEST_FILE}} -v
+    requires:
+      vars: [TEST_FILE]
+
+  test:headless:
+    desc: Run tests in headless mode
+    env:
+      HEADLESS: "true"
+    cmds:
+      - go test ./tests/... -v -env=headless=true
+
+  test:headed:
+    desc: Run tests in non-headless mode
+    env:
+      HEADLESS: "false"
+      SLOW_MO: "200"
+    cmds:
+      - go test ./tests/... -v -env=headless=false -env=slowmo=200
+
+  test:record:
+    desc: Run tests with video and trace recording
+    env:
+      RECORD_VIDEO: "true"
+      RECORD_TRACES: "true"
+    cmds:
+      - go test ./tests/... -v -env=recordVideo=true -env=recordTraces=true
+
+  trace:view:
+    desc: View a recorded trace
+    cmds:
+      - npx playwright show-trace {{.TRACE_FILE}}
+    requires:
+      vars: [TRACE_FILE]
+
+  camera:create-test-video:
+    desc: Create a test video for camera testing using ffmpeg
+    cmds:
+      - mkdir -p test-assets
+      - |
+        if [ "{{.IMAGE}}" != "" ]; then
+          echo "Creating Y4M video from static image {{.IMAGE}}"
+          ffmpeg -loop 1 -i {{.IMAGE}} -c:v libx264 -t 5 -pix_fmt yuv420p test-assets/temp.mp4
+          ffmpeg -i test-assets/temp.mp4 -pix_fmt yuv420p test-assets/static_image.y4m
+          rm test-assets/temp.mp4
+        elif [ "{{.VIDEO}}" != "" ]; then
+          echo "Converting video {{.VIDEO}} to Y4M format"
+          ffmpeg -i {{.VIDEO}} -pix_fmt yuv420p test-assets/sample-video.y4m
+        else
+          echo "Creating a default color test pattern video"
+          ffmpeg -f lavfi -i testsrc=duration=5:size=640x480:rate=30 -pix_fmt yuv420p test-assets/test-pattern.y4m
+        fi
+    requires:
+      cmds:
+        - which ffmpeg
+
+  clean:
+    desc: Clean up test artifacts
+    cmds:
+      - rm -rf test-results/videos/*
+      - rm -rf test-results/traces/*
+      - rm -rf test-results/screenshots/*
+
+  clean:all:
+    desc: Clean up all test artifacts including test-assets
+    cmds:
+      - task: clean
+      - rm -rf test-assets/*.y4m
+
+  help:
+    desc: Show help message
+    cmds:
+      - |
+        echo "Playwright E2E Testing Tasks"
+        echo "----------------------------"
+        echo "task install                - Install Playwright and dependencies"
+        echo "task test                   - Run all tests"
+        echo "task test:specific TEST_FILE=file_name.go - Run specific test file"
+        echo "task test:headless          - Run tests in headless mode"
+        echo "task test:headed            - Run tests with browser visible"
+        echo "task test:record            - Run tests with video and trace recording"
+        echo "task trace:view TRACE_FILE=path/to/trace.zip - View a recorded trace"
+        echo "task camera:create-test-video - Create a test video for camera testing"
+        echo "task camera:create-test-video IMAGE=path/to/image.jpg - Create Y4M from static image"
+        echo "task camera:create-test-video VIDEO=path/to/video.mp4 - Convert video to Y4M"
+        echo "task clean                  - Clean up test artifacts"
+        echo "task clean:all              - Clean up all test artifacts including test-assets"

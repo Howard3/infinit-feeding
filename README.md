@@ -13,6 +13,7 @@ Before you begin, ensure you have the following installed:
 - [Tailwind CLI](https://tailwindcss.com/docs/installation): Used for generating CSS.
 - [Templ CLI](https://templ.dev/docs/getting-started/installation): Used for template generation.
 - [Taskfile](https://taskfile.dev/#/installation): A task runner / simpler Make alternative written in Go.
+- [Playwright](https://playwright.dev/) (optional): For running end-to-end tests. Installation script provided in the e2e-tests directory.
 
 ## Setup
 
@@ -71,6 +72,57 @@ The project uses Swagger/OpenAPI for API documentation. To generate or update th
 
 Note: The Swagger UI is only available when GO_ENV is set to "development". The Swagger UI provides an interactive interface to explore and test the API endpoints.
 
+### End-to-End Testing with Playwright
+
+The project includes end-to-end testing using Playwright with Go bindings to test the application's functionality, including HTMX interactions.
+
+1. **Install Playwright with Go Bindings**
+   
+   Using the installation script:
+   ```bash
+   cd e2e-tests
+   ./install-playwright.sh
+   ```
+   
+   Or using the Taskfile:
+   ```bash
+   cd e2e-tests
+   task install
+   ```
+   
+   This will:
+   - Install the `playwright-go` package
+   - Install required browsers
+   - Set up test directories
+
+2. **Run the Tests**
+
+   Using the Taskfile (recommended):
+   ```bash
+   cd e2e-tests
+   task test                   # Run all tests
+   task test:headed            # Run with browser visible
+   task test:record            # Run with video and trace recording
+   task test:specific TEST_FILE=navigation_test.go  # Run specific test
+   ```
+
+   Or using Go directly:
+   ```bash
+   cd e2e-tests
+   go test ./tests/... -v
+   ```
+
+3. **Camera Testing Utilities**
+
+   The Taskfile includes utilities for camera testing:
+   ```bash
+   cd e2e-tests
+   task camera:create-test-video         # Create a test pattern video
+   task camera:create-test-video VIDEO=path/to/video.mp4  # Convert video to Y4M
+   ```
+
+The test suite includes special utilities for handling HTMX-driven UI updates and camera interactions. For detailed information about the testing framework, test organization, and camera testing setup, refer to the documentation in the `e2e-tests` directory.
+
 ### Build Dependencies
 
 - **Build All Dependencies**  
@@ -111,6 +163,8 @@ For more detailed information about each tool used in this project, please refer
 - Tailwind CSS: [https://tailwindcss.com/docs](https://tailwindcss.com/docs)
 - Templ: [https://templ.dev/docs](https://templ.dev/docs)
 - Taskfile: [https://taskfile.dev/#/](https://taskfile.dev/#/)
+- Playwright: [https://playwright.dev/](https://playwright.dev/)
+- Playwright Go: [https://github.com/playwright-community/playwright-go](https://github.com/playwright-community/playwright-go)
 
 ## Contributing
 
