@@ -1,11 +1,16 @@
 package bulk_domains
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
+	"io/fs"
+	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 
 	"geevly/gen/go/eda"
@@ -83,11 +88,32 @@ func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_
 		Errors:  []*eda.BulkUpload_ValidationError{},
 	}
 
-	// Parse the CSV data
-	reader := csv.NewReader(strings.NewReader(string(fileBytes)))
+	// Get the file system from the zip archive
+	zipReader, err := d.getFSFromZip(fileBytes)
+	if err != nil {
+		result.IsValid = false
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+			Field:   "file",
+			Message: fmt.Sprintf("Failed to extract file system from zip: %v", err),
+		})
+		return result
+	}
+
+	// Get the CSV file from the file system
+	csvReader, err := d.getCSVFromFS(zipReader)
+	if err != nil {
+		result.IsValid = false
+		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+			Field:   "file",
+			Message: fmt.Sprintf("Failed to open CSV file: %v", err),
+		})
+		return result
+	}
 
 	// Read header row
-	header, err := reader.Read()
+	header, err := csvReader.Read()
 	if err != nil {
 		result.IsValid = false
 		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
@@ -124,6 +150,17 @@ func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_
 		// Note: This validation already happens in the aggregate, so this is just a placeholder
 	}
 
+	if errs := d.validateRows(ctx, csvReader, zipReader, header, schoolIDStr); len(errs) > 0 {
+		result.IsValid = false
+		for _, err := range errs {
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+				Context: eda.BulkUpload_ValidationError_CSV_DATA,
+				Field:   "rows",
+				Message: err.Error(),
+			})
+		}
+	}
+
 	// Read and validate each row
 	// In a real implementation, we would:
 	// 1. Validate required fields
@@ -153,4 +190,77 @@ func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_u
 
 func (d *NewStudentsDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
 	panic("not implemented")
+}
+
+func (d *NewStudentsDomain) getFSFromZip(data []byte) (fs.FS, error) {
+	reader := bytes.NewReader(data)
+	return zip.NewReader(reader, int64(len(data)))
+}
+
+func (d *NewStudentsDomain) getCSVFromFS(zipFS fs.FS) (*csv.Reader, error) {
+	file, err := zipFS.Open("students.csv")
+	if err != nil {
+		if os.IsNotExist(err) {
+			fileList, err := fs.ReadDir(zipFS, ".")
+			if err != nil {
+				return nil, fmt.Errorf("error when listing file, error when reading students.csv")
+			}
+			foundFiles := ""
+			for _, file := range fileList {
+				foundFiles += file.Name() + ", "
+			}
+			return nil, fmt.Errorf("file not found: %w. Found: %s", err, foundFiles)
+		}
+		return nil, err
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return csv.NewReader(bytes.NewReader(data)), nil
+}
+
+func (d *NewStudentsDomain) validateRows(ctx context.Context, csvReader *csv.Reader, zipReader fs.FS, headers []string, schoolID string) []error {
+	var LRNIndex int
+	errors := make([]error, 0)
+
+	for i, header := range headers {
+		switch header {
+		case "LRN":
+			LRNIndex = i
+		}
+	}
+
+	for {
+		record, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error reading csv file: %w", err))
+			continue
+		}
+
+		slog.Info("validating student w/ lrn", "lrn", record[LRNIndex])
+		// Check for duplicate LRNs
+		if _, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, record[LRNIndex], schoolID); err == nil {
+			errors = append(errors, fmt.Errorf("duplicate LRN: %s", record[LRNIndex]))
+			continue
+		}
+
+		// TODO: right now we validate a student by the school+student ID, are student id's universally unique?
+
+		photoFileName := fmt.Sprintf("photos/%s.jpg", record[LRNIndex])
+		photoStat, err := fs.Stat(zipReader, photoFileName)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error checking photo file: %w", err))
+			continue
+		}
+
+		slog.Info("bulk upload: found photo for new student", "lrn", record[LRNIndex], "photo", photoStat.Name(), "size", photoStat.Size())
+	}
+
+	return errors
 }
