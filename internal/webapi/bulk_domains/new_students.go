@@ -386,6 +386,18 @@ func (d *NewStudentsDomain) processingMarkRecordsCreated(bulkUploadID string, st
 	svc.MarkRecordsAsUpdated(context.Background(), bulkUploadID, fileActions)
 }
 
+func (d *NewStudentsDomain) markStudentsInvalidated(bulkUploadID string, students []string, svc *bulk_upload.Service, logger *slog.Logger) {
+	studentActions := bulk_upload.RecordActions{
+		RecordIds:  students,
+		RecordType: eda.BulkUpload_STUDENT,
+		Reason:     eda.BulkUpload_RecordAction_INVALIDATED,
+	}
+
+	logger.Info("marking students as invalidated", slog.Int("student count", len(students)))
+
+	svc.MarkRecordsAsUndone(context.Background(), bulkUploadID, studentActions)
+}
+
 func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error {
 	nsr, results := createNewStudentReader(fileBytes)
 	if !results.IsValid {
@@ -506,8 +518,42 @@ func (d *NewStudentsDomain) errorHandler(logger *slog.Logger, err error, context
 	return err
 }
 
+// TODO: handle errors and log in the aggregate
+// TODO: delete uploaded photos as well
 func (d *NewStudentsDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
-	panic("not implemented")
+	recordsUpdated := make([]string, 0)
+	processLogger := slog.With(slog.String("domain", "bulk_upload"), slog.String("subdomain", "new_students:undoUpload"))
+
+	defer func() { d.markStudentsInvalidated(aggregate.GetID(), recordsUpdated, svc, processLogger) }()
+
+	for studentID, states := range aggregate.GetRecordStates() {
+		logger := processLogger.With(slog.String("student_id", studentID))
+		finalState := states.RecordActions[len(states.RecordActions)-1]
+
+		if finalState.RecordType != eda.BulkUpload_STUDENT {
+			continue
+		}
+
+		if finalState.Reason != eda.BulkUpload_RecordAction_PROCESSING {
+			logger.Error("invalid state", "state", finalState)
+			continue
+		}
+
+		studentIDUint, err := strconv.ParseUint(studentID, 10, 64)
+		if err != nil {
+			d.errorHandler(logger, err, "failed to parse student ID")
+			continue
+		}
+
+		if err := d.services.StudentService.DeleteStudent(ctx, studentIDUint, aggregate.GetID()); err != nil {
+			d.errorHandler(logger, err, "failed to delete student")
+			continue
+		}
+
+		recordsUpdated = append(recordsUpdated, studentID)
+	}
+
+	return nil
 }
 
 func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *newStudentReader, schoolID string) []error {

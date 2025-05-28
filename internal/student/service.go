@@ -72,6 +72,20 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 	})
 }
 
+func (s *StudentService) DeleteStudent(ctx context.Context, id uint64, associatedBulkUploadID string) error {
+	agg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	evt, err := agg.undoCreate(associatedBulkUploadID)
+	if err != nil {
+		return err
+	}
+
+	return s.saveEvent(ctx, evt)
+}
+
 // withUser is a helper function that loads an user aggregate from the repository and executes a function on it
 func (s *StudentService) withAgg(ctx context.Context, id uint64, fn func(*Aggregate) (*gosignal.Event, error)) (*Aggregate, error) {
 	agg, err := s.repo.loadStudent(ctx, id)

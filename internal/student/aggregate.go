@@ -37,6 +37,7 @@ const EVENT_ADD_GRADE_REPORT = "AddGradeReport"
 const EVENT_ADD_HEALTH_ASSESSMENT = "AddHealthAssessment"
 const EVENT_REMOVE_HEALTH_ASSESSMENT = "RemoveHealthAssessment"
 const EVENT_REMOVE_GRADE_REPORT = "RemoveGradeReport"
+const EVENT_UNDO_CREATE_STUDENT = "UndoCreateStudent"
 
 type wrappedEvent struct {
 	event gosignal.Event
@@ -156,7 +157,9 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_REMOVE_GRADE_REPORT:
 		eventData = &eda.Student_GradeReport_UndoEvent{}
 		handler = sd.handleRemoveGradeReport
-
+	case EVENT_UNDO_CREATE_STUDENT:
+		eventData = &eda.Student_Create_UndoEvent{}
+		handler = sd.handleUndoCreateStudent
 	default:
 		return ErrEventNotFound
 	}
@@ -354,6 +357,16 @@ func (sd *Aggregate) handleFeedStudent(evt wrappedEvent) error {
 	return nil
 }
 
+func (sd *Aggregate) undoCreate(associatedBulkUploadId string) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_UNDO_CREATE_STUDENT,
+		data: &eda.Student_Create_UndoEvent{
+			AssociatedBulkUploadId: associatedBulkUploadId,
+		},
+		version: sd.Version,
+	})
+}
+
 func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ADD_STUDENT,
@@ -491,6 +504,11 @@ func (sd *Aggregate) handleSetLookupCode(evt wrappedEvent) error {
 
 	sd.data.CodeUniqueId = data.CodeUniqueId
 
+	return nil
+}
+
+func (sd *Aggregate) handleUndoCreateStudent(evt wrappedEvent) error {
+	sd.data.IsDeleted = true
 	return nil
 }
 
