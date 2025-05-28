@@ -74,27 +74,6 @@ templ InstructionsComingSoon() {
 					</p>
 				</div>
 			</div>
-			<div class="border-b pb-6">
-				<h2 class="text-xl font-semibold mb-4">Attendance Records Data</h2>
-				<p class="mb-4 text-gray-700">Required fields:</p>
-				<ul class="list-disc pl-6 space-y-2 text-gray-700">
-					<li><strong>student_id</strong>: The student's unique identifier (LRN)</li>
-					<li><strong>date</strong>: Date in YYYY-MM-DD format</li>
-					<li><strong>status</strong>: One of: PRESENT, ABSENT, LATE, EXCUSED</li>
-					<li><strong>reason</strong>: Optional reason for absence or late arrival</li>
-				</ul>
-				<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
-					<p class="text-sm text-blue-700">
-						<strong>Example:</strong> Your CSV should look like this:
-						<div class="mt-2 bg-gray-100 p-2 rounded overflow-x-auto font-mono">
-							student_id,date,status,reason<br>
-							"ST001","2023-10-01","PRESENT",""<br>
-							"ST001","2023-10-02","ABSENT","Sick"<br>
-							"ST001","2023-10-03","PRESENT",""
-						</div>
-					</p>
-				</div>
-			</div>
 			<div>
 				<h2 class="text-xl font-semibold mb-4">New Students Data</h2>
 				<p class="mb-4 text-gray-700">Required fields in the CSV:</p>
@@ -102,11 +81,11 @@ templ InstructionsComingSoon() {
 					<li><strong>First Name</strong>: Student's first name</li>
 					<li><strong>Last Name</strong>: Student's last name</li>
 					<li><strong>LRN</strong>: Learner Reference Number (must be unique)</li>
-					<li><strong>Grade Level</strong>: Current grade level</li>
-					<li><strong>Date of Birth</strong>: In YYYY-MM-DD format</li>
-					<li><strong>Gender</strong>: Student's gender</li>
-					<li><strong>Status</strong>: Enrollment status</li>
-					<li><strong>Sponsorship</strong>: Sponsorship information if applicable</li>
+					<li><strong>Grade Level</strong>: Current grade level, numeric</li>
+					<li><strong>Date of Birth</strong>: In YYYYMMDD format</li>
+					<li><strong>Gender</strong>: Student's gender: Valid values are "M" or "F"</li>
+					<li><strong>Status</strong>: Active status: Valid values are "Active" or "Inactive"</li>
+					<li><strong>Sponsorship</strong>: Eligible status, valid values are "Eligible" or "Not Eligible"</li>
 				</ul>
 
 				<div class="bg-indigo-50 border-l-4 border-indigo-400 p-4 mb-4 mt-4">
@@ -147,8 +126,8 @@ templ InstructionsComingSoon() {
 					<strong>Photo Requirements:</strong>
 				</p>
 				<ul class="list-disc pl-6 space-y-1 text-gray-700">
-					<li>Each photo must be named using the student's LRN (e.g., 12345678.jpg)</li>
-					<li>Photos should be in JPG/JPEG format</li>
+					<li>Each photo must be named using the student's LRN (e.g., 12345678.jpg) in the photos directory</li>
+					<li>Photos should be in JPG format</li>
 					<li>Recommended size: passport photo dimensions</li>
 					<li>Maximum file size: 2MB per photo</li>
 				</ul>
@@ -230,7 +209,7 @@ templ InstructionsComingSoon() {
 					<li>Click "Lock Upload" to confirm and permanently lock the upload</li>
 				</ol>
 			</div>
-			
+
 			<div class="mb-6 border-t pt-6">
 				<h3 class="text-lg font-medium mb-3">Invalidating Uploads</h3>
 				<p class="text-gray-700 mb-3">
@@ -278,7 +257,7 @@ templ InstructionsComingSoon() {
 					<li>Enter the confirmation code in the format <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATE-XXXXXX</span> where XXXXXX is the first 6 characters of the upload ID</li>
 					<li>Click "Invalidate Upload" to confirm and begin the invalidation process</li>
 				</ol>
-				
+
 				<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
 					<p class="text-sm text-blue-700">
 						<strong>Note:</strong> The invalidation process may take some time for large uploads. The system will first change the status to <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATING</span> while it attempts to revert changes, and then to <span class="font-mono bg-gray-100 px-1 py-0.5 rounded">INVALIDATED</span> once complete.
@@ -286,7 +265,7 @@ templ InstructionsComingSoon() {
 				</div>
 			</div>
 		</div>
-		
+
 		<div class="mt-8 text-center">
 			<button
 				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
