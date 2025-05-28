@@ -358,13 +358,14 @@ func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, er
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ADD_STUDENT,
 		data: &eda.Student_Create_Event{
-			FirstName:       cmd.FirstName,
-			LastName:        cmd.LastName,
-			DateOfBirth:     cmd.DateOfBirth,
-			Status:          eda.Student_INACTIVE,
-			Sex:             cmd.Sex,
-			GradeLevel:      cmd.GradeLevel,
-			StudentSchoolId: cmd.StudentSchoolId,
+			FirstName:              cmd.FirstName,
+			LastName:               cmd.LastName,
+			DateOfBirth:            cmd.DateOfBirth,
+			Status:                 eda.Student_INACTIVE,
+			Sex:                    cmd.Sex,
+			GradeLevel:             cmd.GradeLevel,
+			StudentSchoolId:        cmd.StudentSchoolId,
+			AssociatedBulkUploadId: cmd.AssociatedBulkUploadId,
 		},
 		version: 0,
 	})
@@ -441,14 +442,15 @@ func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 	}
 
 	sd.data = &eda.Student{
-		FirstName:       data.FirstName,
-		LastName:        data.LastName,
-		DateOfBirth:     data.DateOfBirth,
-		Sex:             data.Sex,
-		Status:          eda.Student_INACTIVE,
-		StudentSchoolId: data.StudentSchoolId,
-		GradeLevel:      data.GradeLevel,
-		FeedingReport:   make([]*eda.Student_Feeding_Event, 0),
+		FirstName:              data.FirstName,
+		LastName:               data.LastName,
+		DateOfBirth:            data.DateOfBirth,
+		Sex:                    data.Sex,
+		Status:                 eda.Student_INACTIVE,
+		StudentSchoolId:        data.StudentSchoolId,
+		GradeLevel:             data.GradeLevel,
+		FeedingReport:          make([]*eda.Student_Feeding_Event, 0),
+		AssociatedBulkUploadId: data.AssociatedBulkUploadId,
 	}
 
 	return nil

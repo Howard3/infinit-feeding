@@ -47,11 +47,11 @@ func NewServiceRegistry(
 }
 
 type Server struct {
-	ctx               context.Context
-	ListenAddress     string
-	StaticFS          fs.FS
-	Services          *ServiceRegistry
-	Clerk             clerk.Client
+	ctx                context.Context
+	ListenAddress      string
+	StaticFS           fs.FS
+	Services           *ServiceRegistry
+	Clerk              clerk.Client
 	bulkDomainRegistry *bulk_domains.DomainRegistry
 }
 
@@ -103,12 +103,13 @@ func (s *Server) verifyConfig() {
 	if s.Services.BulkUploadSvc == nil {
 		panic("BulkUploadSvc is required")
 	}
-	
+
 	// Initialize the bulk domain registry if not already set
 	if s.bulkDomainRegistry == nil {
 		serviceRegistry := &bulk_domains.ServiceRegistry{
 			SchoolService:  s.Services.SchoolSvc,
 			StudentService: s.Services.StudentSvc,
+			FileService:    s.Services.FileSvc,
 		}
 		s.bulkDomainRegistry = bulk_domains.NewDomainRegistry(serviceRegistry)
 	}

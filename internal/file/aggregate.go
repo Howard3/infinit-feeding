@@ -55,13 +55,14 @@ func (a *Aggregate) onFileCreated(evt gosignal.Event) error {
 		return err
 	}
 	a.data = &eda.File{
-		Name:            eventData.Name,
-		DomainReference: eventData.DomainReference,
-		MimeType:        eventData.MimeType,
-		Size:            eventData.Size,
-		Extension:       eventData.Extension,
-		Metadata:        eventData.Metadata,
-		Deleted:         false,
+		Name:                   eventData.Name,
+		DomainReference:        eventData.DomainReference,
+		MimeType:               eventData.MimeType,
+		Size:                   eventData.Size,
+		Extension:              eventData.Extension,
+		Metadata:               eventData.Metadata,
+		Deleted:                false,
+		AssociatedBulkUploadId: eventData.AssociatedBulkUploadId,
 	}
 	return nil
 }
@@ -99,12 +100,13 @@ func (a *Aggregate) CreateFile(cmd *eda.File_Create) (*gosignal.Event, error) {
 	return a.ApplyEvent(FileEvent{
 		eventType: EventFileCreated,
 		data: &eda.File_Create_Event{
-			Name:            cmd.Name,
-			DomainReference: cmd.DomainReference,
-			MimeType:        cmd.MimeType,
-			Size:            cmd.Size,
-			Extension:       cmd.Extension,
-			Metadata:        cmd.Metadata,
+			Name:                   cmd.Name,
+			DomainReference:        cmd.DomainReference,
+			MimeType:               cmd.MimeType,
+			Size:                   cmd.Size,
+			Extension:              cmd.Extension,
+			Metadata:               cmd.Metadata,
+			AssociatedBulkUploadId: cmd.AssociatedBulkUploadId,
 		},
 		version: 0,
 	})

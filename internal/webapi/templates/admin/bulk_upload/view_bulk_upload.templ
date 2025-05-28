@@ -299,7 +299,9 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 											}
 										</td>
 										<td class="px-6 py-4">
-											if isStudentRelatedDomain(getTargetDomain(agg)) {
+											if record.Type == "FILE" {
+												<span class="text-indigo-600">File Saved</span>
+											} else if isStudentRelatedDomain(getTargetDomain(agg)) {
 												<a
 													href={ templ.URL(fmt.Sprintf("/admin/student/%s", record.ID)) }
 													class="text-indigo-600 hover:text-indigo-900 inline-flex items-center"
@@ -618,6 +620,7 @@ type RecordStatus struct {
 	Processed bool
 	Action    string
 	Timestamp time.Time
+	Type      string // Record type (FILE, STUDENT, etc.)
 }
 
 // Helper function to get record processing statuses in a deterministic order
@@ -655,6 +658,7 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 		processed := false
 		actionStr := "UNKNOWN"
 		var timestamp time.Time
+		recordType := "UNKNOWN"
 
 		// If we have actions, use the most recent one
 		if len(actions) > 0 {
@@ -670,6 +674,9 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 			if lastAction.Timestamp != nil {
 				timestamp = lastAction.Timestamp.AsTime()
 			}
+			
+			// Get the record type
+			recordType = lastAction.RecordType.String()
 		}
 
 		result = append(result, RecordStatus{
@@ -677,6 +684,7 @@ func getRecordProcessingStatuses(agg *bulk_upload.Aggregate) []RecordStatus {
 			Processed: processed,
 			Action:    actionStr,
 			Timestamp: timestamp,
+			Type:      recordType,
 		})
 	}
 

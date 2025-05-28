@@ -24,6 +24,7 @@ message Student {
   repeated HealthAssessment health_assessments = 10;
   repeated Feeding.Event feeding_report = 11;
   uint64 feeding_next_id = 15;
+  string associated_bulk_upload_id = 21;
 
   enum Status {
     UNKNOWN_STATUS = 0;
@@ -103,6 +104,7 @@ message Student {
     Sex sex = 5;
     events.metadata.Metadata metadata = 7;
     uint64 grade_level = 8;
+    string associated_bulk_upload_id = 9;
 
     message Event {
       string first_name = 1;
@@ -113,6 +115,7 @@ message Student {
       Sex sex = 6;
       string student_school_id = 7;
       uint64 grade_level = 8;
+      string associated_bulk_upload_id = 9;
     }
   }
   // Update a student's information

@@ -36,6 +36,7 @@ message BulkUpload {
   enum RecordType {
     UNKNOWN_TYPE = 0;
     STUDENT = 1;
+    FILE = 2;
   }
 
   // Domain represents the domain of the bulk upload.

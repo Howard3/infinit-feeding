@@ -133,13 +133,14 @@ func createNewStudentReader(data []byte) (*newStudentReader, *ValidationResult) 
 }
 
 type newStudentHeaderIndexes struct {
-	firstName  int
-	lastName   int
-	lrn        int
-	gradeLevel int
-	dob        int
-	gender     int
-	status     int
+	firstName   int
+	lastName    int
+	lrn         int
+	gradeLevel  int
+	dob         int
+	gender      int
+	status      int
+	sponsorship int
 }
 
 func (h *newStudentHeaderIndexes) ValidateHeaders(headers []string) []string {
@@ -152,6 +153,7 @@ func (h *newStudentHeaderIndexes) ValidateHeaders(headers []string) []string {
 		"Date of Birth",
 		"Gender",
 		"Status",
+		"Sponsorship",
 	}
 
 	for _, validHeader := range requiredHeaders {
@@ -175,6 +177,8 @@ func (h *newStudentHeaderIndexes) ValidateHeaders(headers []string) []string {
 			h.gender = headerIndex
 		case "Status":
 			h.status = headerIndex
+		case "Sponsorship":
+			h.sponsorship = headerIndex
 		}
 	}
 
@@ -229,8 +233,19 @@ func (h *newStudentHeaderIndexes) getGender(row []string) eda.Student_Sex {
 	}
 }
 
-func (h *newStudentHeaderIndexes) getStatus(row []string) string {
-	return row[h.status]
+func (h *newStudentHeaderIndexes) getStatus(row []string) eda.Student_Status {
+	switch row[h.status] {
+	case "Active":
+		return eda.Student_ACTIVE
+	case "Inactive":
+		return eda.Student_INACTIVE
+	default:
+		return eda.Student_UNKNOWN_STATUS
+	}
+}
+
+func (h *newStudentHeaderIndexes) isEligibleForSponsorship(row []string) bool {
+	return row[h.sponsorship] == "Eligible"
 }
 
 // NewStudentsDomain implements BulkUploadDomain for new students uploads
@@ -309,8 +324,23 @@ func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_
 			Message: "School ID is required",
 		})
 	} else if d.services != nil && d.services.SchoolService != nil {
-		// Convert schoolID to uint64 and validate it exists
-		// Note: This validation already happens in the aggregate, so this is just a placeholder
+		schoolIDUint, err := strconv.ParseUint(schoolIDStr, 10, 64)
+		if err != nil {
+			result.IsValid = false
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+				Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+				Field:   "school_id",
+				Message: "Invalid school ID",
+			})
+		}
+		if err := d.services.SchoolService.ValidateSchoolID(ctx, schoolIDUint); err != nil {
+			result.IsValid = false
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+				Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+				Field:   "school_id",
+				Message: "Invalid school ID",
+			})
+		}
 	}
 
 	if errs := d.validateRows(ctx, newStudentReader, schoolIDStr); len(errs) > 0 {
@@ -337,11 +367,41 @@ func (d *NewStudentsDomain) GetMaxFileSize() int64 {
 	return 50 << 20 // 50MB
 }
 
+func (d *NewStudentsDomain) processingMarkRecordsCreated(bulkUploadID string, students, files []string, svc *bulk_upload.Service, logger *slog.Logger) {
+	studentActions := bulk_upload.RecordActions{
+		RecordIds:  students,
+		RecordType: eda.BulkUpload_STUDENT,
+		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+	}
+
+	fileActions := bulk_upload.RecordActions{
+		RecordIds:  files,
+		RecordType: eda.BulkUpload_FILE,
+		Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+	}
+
+	logger.Info("marking records as created", slog.Int("student count", len(students)), slog.Int("file count", len(files)))
+
+	svc.MarkRecordsAsUpdated(context.Background(), bulkUploadID, studentActions)
+	svc.MarkRecordsAsUpdated(context.Background(), bulkUploadID, fileActions)
+}
+
 func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service, fileBytes []byte) error {
 	nsr, results := createNewStudentReader(fileBytes)
 	if !results.IsValid {
 		return fmt.Errorf("invalid file")
 	}
+
+	// track records created
+	studentsCreated := []string{}
+	filesCreated := []string{}
+
+	schoolID := aggregate.GetUploadMetadataField("school_id")
+	processLogger := slog.With(slog.String("domain", "bulk_upload"), slog.String("subdomain", "new_students:processUpload"))
+
+	defer func() {
+		d.processingMarkRecordsCreated(aggregate.GetID(), studentsCreated, filesCreated, svc, processLogger)
+	}()
 
 	for {
 		record, err := nsr.csvReader.Read()
@@ -349,24 +409,101 @@ func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_u
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("error reading csv file: %w", err)
+			return d.errorHandler(processLogger, err, "when reading csv file")
+		}
+		logger := processLogger.With(slog.String("student_lrn", nsr.headerIndexes.getLRN(record)))
+
+		logger.Info("bulk upload: creating student")
+		newStudent, err := d.services.StudentService.CreateStudent(ctx, &eda.Student_Create{
+			FirstName:              nsr.headerIndexes.getFirstName(record),
+			LastName:               nsr.headerIndexes.getLastName(record),
+			DateOfBirth:            nsr.headerIndexes.getDOB(record),
+			StudentSchoolId:        nsr.headerIndexes.getLRN(record),
+			Sex:                    nsr.headerIndexes.getGender(record),
+			GradeLevel:             nsr.headerIndexes.getGradeLevel(record),
+			AssociatedBulkUploadId: aggregate.GetID(),
+		})
+
+		studentsCreated = append(studentsCreated, newStudent.GetID())
+
+		if err != nil {
+			return d.errorHandler(logger, err, "when creating a new student")
 		}
 
-		newStudent, err := d.services.StudentService.CreateStudent(ctx, &eda.Student_Create{
-			FirstName:       nsr.headerIndexes.getFirstName(record),
-			LastName:        nsr.headerIndexes.getLastName(record),
-			DateOfBirth:     nsr.headerIndexes.getDOB(record),
-			StudentSchoolId: nsr.headerIndexes.getLRN(record),
-			Sex:             nsr.headerIndexes.getGender(record),
-			GradeLevel:      nsr.headerIndexes.getGradeLevel(record),
+		logger.Info("getting student's photo")
+		photo, err := nsr.getStudentPhoto(nsr.headerIndexes.getLRN(record))
+		if err != nil {
+			return d.errorHandler(logger, err, "when getting student's photo")
+		}
+
+		logger.Info("saving photo")
+
+		fileID, err := d.services.FileService.CreateFile(ctx, photo, &eda.File_Create{
+			Name:                   "profile_photo",
+			DomainReference:        eda.File_STUDENT_PROFILE_PHOTO,
+			AssociatedBulkUploadId: aggregate.GetID(),
 		})
 
 		if err != nil {
-			return fmt.Errorf("bulk upload, creating a new student: %w", err)
+			return d.errorHandler(logger, err, "when saving profile photo")
+		}
+
+		filesCreated = append(filesCreated, fileID)
+
+		newStudent, err = d.services.StudentService.RunCommand(ctx, newStudent.GetIDUint64(), &eda.Student_SetProfilePhoto{
+			FileId:  fileID,
+			Version: newStudent.GetVersion(),
+		})
+
+		if err != nil {
+			return d.errorHandler(logger, err, "when applying photo to student")
+		}
+
+		// enroll the student in the school w/ today's date
+		now := time.Now()
+		newStudent, err = d.services.StudentService.RunCommand(ctx, newStudent.GetIDUint64(), &eda.Student_Enroll{
+			SchoolId: schoolID,
+			DateOfEnrollment: &eda.Date{
+				Year:  int32(now.Year()),
+				Month: int32(now.Month()),
+				Day:   int32(now.Day()),
+			},
+			Version: newStudent.GetVersion(),
+		})
+
+		if err != nil {
+			return d.errorHandler(logger, err, "when enrolling student")
+		}
+
+		// set active status
+		newStudent, err = d.services.StudentService.RunCommand(ctx, newStudent.GetIDUint64(), &eda.Student_SetStatus{
+			Version: newStudent.GetVersion(),
+			Status:  nsr.headerIndexes.getStatus(record),
+		})
+
+		if err != nil {
+			return d.errorHandler(logger, err, "when setting active status")
+		}
+
+		// set sponsorship status
+		if nsr.headerIndexes.isEligibleForSponsorship(record) {
+			newStudent, err = d.services.StudentService.RunCommand(ctx, newStudent.GetIDUint64(), &eda.Student_SetEligibility{
+				Version:  newStudent.GetVersion(),
+				Eligible: nsr.headerIndexes.isEligibleForSponsorship(record),
+			})
+			if err != nil {
+				return d.errorHandler(logger, err, "when setting sponsorship status")
+			}
 		}
 	}
 
 	return nil
+}
+
+func (d *NewStudentsDomain) errorHandler(logger *slog.Logger, err error, contextMessage string) error {
+	err = fmt.Errorf("%s:%w", contextMessage, err)
+	logger.Error(err.Error())
+	return err
 }
 
 func (d *NewStudentsDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
