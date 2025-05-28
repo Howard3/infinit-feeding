@@ -14,8 +14,8 @@ var ErrSchoolIDInvalid = fmt.Errorf("error validating school")
 
 // AclStudents is a service that validates student data. It's an anti-corruption layer
 type AclStudents struct {
-	schoolSvc *school.Service
-	fileSvc   *file.Service
+	schoolService *school.Service
+	fileService   *file.Service
 }
 
 // ValidateSchoolID validates a school ID, returns an error if the school ID is invalid
@@ -25,18 +25,18 @@ func (as AclStudents) ValidateSchoolID(ctx context.Context, schoolID string) err
 		return errors.Join(ErrSchoolIDInvalid, err)
 	}
 
-	return as.schoolSvc.ValidateSchoolID(ctx, id)
+	return as.schoolService.ValidateSchoolID(ctx, id)
 }
 
 // ValidatePhotoID validates a photo from the file domain
 func (as AclStudents) ValidatePhotoID(ctx context.Context, photoID string) error {
-	return as.fileSvc.ValidateFileID(ctx, photoID)
+	return as.fileService.ValidateFileID(ctx, photoID)
 }
 
 // NewAclStudents creates a new AclStudents instance
-func NewAclStudents(schoolSvc *school.Service, fileSvc *file.Service) AclStudents {
+func NewAclStudents(schoolService *school.Service, fileService *file.Service) AclStudents {
 	return AclStudents{
-		schoolSvc: schoolSvc,
-		fileSvc:   fileSvc,
+		schoolService: schoolService,
+		fileService:   fileService,
 	}
 }

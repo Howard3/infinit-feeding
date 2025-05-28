@@ -68,6 +68,7 @@ type Repository interface {
 	GetFeedingEventsForSponsorships(ctx context.Context, sponsorships []*SponsorshipProjection, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
 	GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error)
 	GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
+	getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error)
 }
 
 type ProjectedStudent struct {
@@ -544,12 +545,26 @@ func (r *sqlRepository) parseDate(datestr string) time.Time {
 	return t
 }
 
+func (r *sqlRepository) deleteStudentProjection(id string) error {
+	query := `DELETE FROM student_projections WHERE id = :id`
+	_, err := r.db.Exec(query, sql.Named("id", id))
+	if err != nil {
+		return fmt.Errorf("when deleting student projection: %w", err)
+	}
+	return nil
+}
+
 // upsertStudent - persists the student projection to the database
 func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
+	if agg.data.IsDeleted {
+		// ensure these projections are deleted
+		return r.deleteStudentProjection(agg.GetID())
+	}
+
 	query := `INSERT INTO student_projections
 		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade, eligible_for_sponsorship, max_sponsorship_date)
 		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade, :eligible_for_sponsorship, :max_sponsorship_date)
-		ON CONFLICT (id) DO UPDATE SET 
+		ON CONFLICT (id) DO UPDATE SET
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
 			school_id = excluded.school_id,
@@ -672,6 +687,26 @@ func (r *sqlRepository) getStudentIDByCode(ctx context.Context, code []byte) (ui
 
 	if err := r.db.QueryRow(query, code).Scan(&id); err != nil {
 		return 0, fmt.Errorf("failed to get student ID by code: %w", err)
+	}
+
+	return id, nil
+}
+
+// getStudentByStudentAndSchoolID - returns the student aggregate ID by student school ID and school ID
+func (r *sqlRepository) getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error) {
+	if studentSchoolID == "" {
+		return 0, fmt.Errorf("student school ID is required")
+	}
+
+	if schoolID == "" {
+		return 0, fmt.Errorf("school ID is required")
+	}
+
+	query := `SELECT id FROM student_projections WHERE student_id = ? AND school_id = ?`
+	var id uint64
+
+	if err := r.db.QueryRowContext(ctx, query, studentSchoolID, schoolID).Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to get student ID by student school ID and school ID: %w", err)
 	}
 
 	return id, nil
@@ -886,10 +921,10 @@ func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHi
 // GetCurrentSponsorships - returns the current sponsorships for a student
 func (r *sqlRepository) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
 	query := `
-		SELECT student_id, sponsor_id, start_date, end_date 
-		FROM student_sponsorship_projections 
-		WHERE sponsor_id = ? 
-		AND start_date <= CURRENT_TIMESTAMP 
+		SELECT student_id, sponsor_id, start_date, end_date
+		FROM student_sponsorship_projections
+		WHERE sponsor_id = ?
+		AND start_date <= CURRENT_TIMESTAMP
 		AND end_date >= CURRENT_TIMESTAMP
 	`
 
@@ -953,7 +988,7 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 		)
 
 		_, err = tx.Exec(`
-			INSERT INTO student_sponsorship_projections 
+			INSERT INTO student_sponsorship_projections
 			(student_id, sponsor_id, start_date, end_date)
 			VALUES (?, ?, ?, ?)
 		`, student.GetID(), sponsorship.SponsorId, startDate, endDate)
@@ -976,7 +1011,7 @@ func (r *sqlRepository) upsertSponsorshipProjections(student *Aggregate) error {
 func (r *sqlRepository) GetAllSponsorshipsByID(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
 	query := `
 		SELECT student_id, sponsor_id, start_date, end_date
-		FROM student_sponsorship_projections 
+		FROM student_sponsorship_projections
 		WHERE sponsor_id = ?
 	`
 
@@ -1009,7 +1044,7 @@ func (r *sqlRepository) GetAllSponsorshipsByID(ctx context.Context, sponsorID st
 
 func (r *sqlRepository) CountFeedingEventsInPeriod(ctx context.Context, studentID string, startDate, endDate time.Time) (int64, error) {
 	query := `
-		SELECT COUNT(*) 
+		SELECT COUNT(*)
 		FROM student_feeding_projections
 		WHERE student_id = ?
 		AND feeding_timestamp >= ?
@@ -1028,7 +1063,7 @@ func (r *sqlRepository) CountFeedingEventsInPeriod(ctx context.Context, studentI
 func (r *sqlRepository) GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error) {
 	// Get total count first
 	countQuery := `
-		SELECT COUNT(*) 
+		SELECT COUNT(*)
 		FROM student_feeding_projections sfp
 		JOIN student_projections sp ON sp.id = sfp.student_id
 	`
@@ -1165,10 +1200,10 @@ func (r *sqlRepository) GetFeedingEventsForSponsorships(ctx context.Context, spo
 
 func (r *sqlRepository) GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error) {
 	query := `
-		SELECT sp.student_id, sp.sponsor_id, sp.start_date, sp.end_date, 
+		SELECT sp.student_id, sp.sponsor_id, sp.start_date, sp.end_date,
 			   sp.payment_id, sp.payment_amount
 		FROM student_sponsorship_projections sp
-		WHERE sp.start_date <= CURRENT_DATE 
+		WHERE sp.start_date <= CURRENT_DATE
 		AND sp.end_date >= CURRENT_DATE
 		ORDER BY sp.start_date DESC
 	`

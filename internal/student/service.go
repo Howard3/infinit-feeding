@@ -72,6 +72,20 @@ func (s *StudentService) RunCommand(ctx context.Context, aggID uint64, cmd proto
 	})
 }
 
+func (s *StudentService) DeleteStudent(ctx context.Context, id uint64, associatedBulkUploadID string) error {
+	agg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	evt, err := agg.undoCreate(associatedBulkUploadID)
+	if err != nil {
+		return err
+	}
+
+	return s.saveEvent(ctx, evt)
+}
+
 // withUser is a helper function that loads an user aggregate from the repository and executes a function on it
 func (s *StudentService) withAgg(ctx context.Context, id uint64, fn func(*Aggregate) (*gosignal.Event, error)) (*Aggregate, error) {
 	agg, err := s.repo.loadStudent(ctx, id)
@@ -228,6 +242,16 @@ func (s *StudentService) GetStudentByStudentSchoolID(ctx context.Context, studen
 	return s.GetStudent(ctx, id)
 }
 
+// GetStudentByStudentAndSchoolID returns a student by their student school ID and school ID combination
+func (s *StudentService) GetStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (*Aggregate, error) {
+	id, err := s.repo.getStudentByStudentAndSchoolID(ctx, studentSchoolID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get student ID by student school ID and school ID: %w", err)
+	}
+
+	return s.GetStudent(ctx, id)
+}
+
 type StudentFeedingHistory struct {
 	Student *ProjectedStudent
 	Events  []*ProjectedFeedingEvent
@@ -319,4 +343,88 @@ func (s *StudentService) GetRecentFeedingEvents(ctx context.Context, page, limit
 	}
 
 	return events, total, nil
+}
+
+func (s *StudentService) AddGradeReport(ctx context.Context, id uint64, report *eda.Student_GradeReport) error {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load student: %w", err)
+	}
+
+	// Add the grade report to the student aggregate
+	event, err := studentAgg.AddGradeReport(report)
+	if err != nil {
+		return fmt.Errorf("failed to add grade report: %w", err)
+	}
+
+	// Save the updated student aggregate
+	err = s.saveEvent(ctx, event)
+	if err != nil {
+		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	return nil
+}
+
+func (s *StudentService) RemoveGradeReport(ctx context.Context, id uint64, bulkUploadID string) error {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load student: %w", err)
+	}
+
+	// Remove the grade report from the student aggregate
+	event, err := studentAgg.RemoveGradeReport(bulkUploadID)
+	if err != nil {
+		return fmt.Errorf("failed to remove grade report: %w", err)
+	}
+
+	// Save the updated student aggregate
+	err = s.saveEvent(ctx, event)
+	if err != nil {
+		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	return nil
+}
+
+func (s *StudentService) AddHealthAssessment(ctx context.Context, id uint64, report *eda.Student_HealthAssessment) error {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load student: %w", err)
+	}
+
+	// Add the health assessment to the student aggregate
+	event, err := studentAgg.AddHealthAssessment(report)
+	if err != nil {
+		return fmt.Errorf("failed to add health assessment: %w", err)
+	}
+
+	// Save the updated student aggregate
+	err = s.saveEvent(ctx, event)
+	if err != nil {
+		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	return nil
+}
+
+func (s *StudentService) RemoveHealthAssessment(ctx context.Context, id uint64, bulkUploadID string) error {
+	studentAgg, err := s.repo.loadStudent(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load student: %w", err)
+	}
+
+	// Remove the health assessment from the student aggregate
+	event, err := studentAgg.RemoveHealthAssessment(bulkUploadID)
+	if err != nil {
+		return fmt.Errorf("failed to remove health assessment: %w", err)
+	}
+
+	// Save the updated student aggregate
+	err = s.saveEvent(ctx, event)
+	if err != nil {
+		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	return nil
 }

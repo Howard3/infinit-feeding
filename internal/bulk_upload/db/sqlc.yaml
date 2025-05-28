@@ -1,0 +1,15 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "query/"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "sqlc"
+        out: "sqlc"
+        sql_package: "database/sql"
+        emit_empty_slices: true
+        emit_json_tags: true
+        json_tags_case_style: "camel"
+        output_db_file_name: "db.go"
+        output_models_file_name: "models.go"

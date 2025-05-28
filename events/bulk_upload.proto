@@ -1,0 +1,134 @@
+syntax = "proto3";
+package events.bulk_upload;
+option go_package = "geevly/eda";
+
+import "metadata.proto";
+import "google/protobuf/timestamp.proto";
+
+message BulkUpload {
+  string id = 1;
+  Status status = 2;
+  Domain target_domain = 3; // remember, we're in a DDD setup and this is the aggregate root
+  events.metadata.Metadata metadata = 4;
+  repeated StatusTimestamp status_timestamps = 5;
+  string file_id = 9; // Reference to the uploaded file
+  repeated ValidationError validation_errors = 10;
+  uint64 total_records = 11;
+  uint64 processed_records = 12;
+  map<string, string> upload_metadata = 14; // Additional data like reporting period, school year etc.
+  map<string, RecordActions> record_actions = 15;
+
+  enum Status {
+    UNKNOWN = 0;
+    PENDING = 1;
+    VALIDATING = 2;
+    VALIDATED = 3;
+    PROCESSING = 4;
+    COMPLETED = 5;
+    VALIDATION_FAILED = 6; // end status
+    INVALIDATING = 7;
+    INVALIDATED = 8; // end status
+    ERROR = 9;
+    INVALIDATION_FAILED = 10;
+    LOCKED = 11; // Prevent further changes to the upload
+  }
+
+  enum RecordType {
+    UNKNOWN_TYPE = 0;
+    STUDENT = 1;
+    FILE = 2;
+  }
+
+  // Domain represents the domain of the bulk upload.
+  enum Domain {
+    UNKNOWN_DOMAIN = 0;
+    NEW_STUDENTS = 1;
+    UPDATE_STUDENTS = 2;
+    GRADES = 3;
+    HEALTH_ASSESSMENT = 4;
+  }
+
+  message RecordActions {
+    repeated RecordAction record_actions = 1;
+  }
+
+  // RecordAction represents an action taken on a record during the bulk upload process.
+  message RecordAction {
+    string record_id = 1;
+    RecordType record_type = 2;
+    Action action = 3;
+    google.protobuf.Timestamp timestamp = 4;
+    Reason reason = 5;
+
+    enum Action {
+      UNKNOWN_ACTION = 0;
+      MARKED_FOR_PROCESSING = 1;
+      CREATED = 2;
+      UPDATED = 3;
+      DELETED = 4;
+      UNDONE = 5;
+    }
+
+    message RecordActionsEvent{
+      repeated string record_ids = 1;
+      RecordType record_type = 2;
+      google.protobuf.Timestamp timestamp = 3;
+      Action action = 4;
+      Reason reason = 5;
+    }
+
+    enum Reason {
+   		UNKNOWN_REASON = 0;
+     	PROCESSING = 1;
+      	INVALIDATED = 2;
+    }
+  }
+
+  message StatusTimestamp {
+    Status status = 1;
+    google.protobuf.Timestamp timestamp = 2;
+  }
+
+  message ValidationError {
+    Context context = 1; // This could be a row number, metadata field, or any other context
+    uint64 row_number = 2; // if context is ROW_NUMBER
+    string field = 3; // This could be a specific field within the context
+    string message = 4;
+
+    message Event {
+      repeated ValidationError errors = 1;
+      google.protobuf.Timestamp timestamp = 2;
+    }
+
+    enum Context {
+      UNKNOWN = 0;
+      ROW_NUMBER = 1;
+      METADATA_FIELD = 2;
+      OTHER = 3;
+      CSV_HEADER = 4;
+      CSV_DATA = 5;
+    }
+  }
+
+  // Commands
+  message Create {
+    Domain target_domain = 1;
+    string file_id = 2;
+    events.metadata.Metadata metadata = 3;
+    map<string, string> upload_metadata = 4; // Additional data passed at creation
+
+    message Event {
+      Domain target_domain = 1;
+      string file_id = 2;
+      google.protobuf.Timestamp initiated_at = 3;
+      events.metadata.Metadata metadata = 4;
+      map<string, string> upload_metadata = 5;
+    }
+  }
+
+  message SetStatusEvent {
+  	Status status = 1;
+    events.metadata.Metadata metadata = 2;
+    google.protobuf.Timestamp status_timestamp = 3;
+  }
+}

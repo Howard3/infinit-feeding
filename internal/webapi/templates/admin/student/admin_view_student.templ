@@ -1,12 +1,12 @@
-package studenttempl 
+package studenttempl
 
 import (
-	"geevly/gen/go/eda"
+	"encoding/base64"
 	"fmt"
-	"github.com/Howard3/gosignal"
+	"geevly/gen/go/eda"
 	"geevly/internal/student"
 	"geevly/internal/webapi/templates/components"
-	"encoding/base64"
+	"github.com/Howard3/gosignal"
 )
 
 type ViewParams struct {
@@ -14,16 +14,90 @@ type ViewParams struct {
 	Student   *eda.Student
 	Version   uint64
 	SchoolMap map[string]string
+	Aggregate *student.Aggregate
 }
 
 func base64Encode(b []byte) string {
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
 }
 
+templ healthAssessmentsSection(healthAssessments []*student.HealthReport) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full mt-4" data-v0-t="card">
+		<div class="flex flex-col space-y-1.5 p-6">
+			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
+				Health Assessments
+			</h3>
+		</div>
+		<div class="p-6 pt-0">
+			if len(healthAssessments) == 0 {
+				<div class="text-sm text-gray-500 p-2">No health assessments available</div>
+			} else {
+				<div class="border rounded-md overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="bg-gray-100 border-b">
+								<th class="py-3 px-4 text-left font-medium">Date</th>
+								<th class="py-3 px-4 text-left font-medium">Height (cm)</th>
+								<th class="py-3 px-4 text-left font-medium">Weight (kg)</th>
+								<th class="py-3 px-4 text-left font-medium bg-blue-50">BMI *</th>
+								<th class="py-3 px-4 text-left font-medium bg-blue-50">Age *</th>
+								<th class="py-3 px-4 text-left font-medium bg-blue-50">Status *</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, assessment := range healthAssessments {
+								<tr class="border-b hover:bg-gray-50">
+									<td class="py-2 px-4">{ assessment.AssessmentDate.Format("2006-01-02") }</td>
+									<td class="py-2 px-4">{ fmt.Sprintf("%.1f", assessment.HeightCm) }</td>
+									<td class="py-2 px-4">{ fmt.Sprintf("%.1f", assessment.WeightKg) }</td>
+									<td class="py-2 px-4 bg-blue-50 font-medium">{ fmt.Sprintf("%.1f", assessment.BMI()) }</td>
+									<td class="py-2 px-4 bg-blue-50 font-medium">{ fmt.Sprintf("%.1f", assessment.AgeYears()) }</td>
+									<td class="py-2 px-4 bg-blue-50 font-medium">
+										if assessment.NutritionalStatus() == student.SeverelyWasted {
+											<span class="px-2 py-1 text-white bg-red-600 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										} else if assessment.NutritionalStatus() == student.Wasted {
+											<span class="px-2 py-1 text-white bg-amber-600 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										} else if assessment.NutritionalStatus() == student.Normal {
+											<span class="px-2 py-1 text-white bg-green-600 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										} else {
+											<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+					<div class="text-xs text-gray-500 mt-2 pl-4 flex items-center gap-2">
+						* Calculated fields
+						<span class="ml-2 px-2 py-1 text-white bg-green-600 rounded-md text-xs font-semibold">Normal</span>
+						<span class="px-2 py-1 text-white bg-amber-600 rounded-md text-xs font-semibold">Wasted</span>
+						<span class="px-2 py-1 text-white bg-red-600 rounded-md text-xs font-semibold">Severely Wasted</span>
+						<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold">Error</span>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+}
+
 templ AdminViewStudent(params ViewParams) {
-	@backToList()
+	@backToList(params)
+	if params.Student.IsDeleted {
+		<div class="w-full p-3 mb-4 bg-red-50 border border-red-200 rounded-lg">
+			<div class="flex items-center justify-center">
+				<span class="text-lg font-bold text-red-600">⚠️ DELETED STUDENT RECORD</span>
+			</div>
+			<div class="text-center text-sm text-red-600 mt-1">
+				This student record has been deleted. Some features may be disabled.
+			</div>
+		</div>
+	}
 	<div class="w-full p-3 flex justify-center items-center flex-col">
-		<h3>Student Feeding Report</h3>
+		if params.Student.IsDeleted {
+			<h3 class="text-gray-500">Student Feeding Report (Historical Data Only)</h3>
+		} else {
+			<h3>Student Feeding Report</h3>
+		}
 		<div class="w-full p-3 flex justify-center items-center" id="calheatmap"></div>
 	</div>
 	@studentCalendarHeatmap(convertStudentFeedingToHeatmap(params.Student.GetFeedingReport()), "calheatmap")
@@ -31,18 +105,22 @@ templ AdminViewStudent(params ViewParams) {
 		<div class="space-y-4">
 			<form>
 				// Embed Personal Info Section
-				@StudentPersonalInfoSection(params.Student, params.Version)
+				@StudentPersonalInfoSection(params.Student, params.Version, params.Student.IsDeleted)
 				// Embed Action Buttons Section
-				@actionButtonsSection(params.ID, params.Student.Status, params.Student.EligibleForSponsorship, params.Version)
+				@actionButtonsSection(params.ID, params.Student.Status, params.Student.EligibleForSponsorship, params.Version, params.Student.IsDeleted)
 			</form>
 			// Embed School Enrollment Section
-			@schoolEnrollmentSection(params)
+			@schoolEnrollmentSection(params, params.Student.IsDeleted)
 		</div>
 		<div class="flex flex-col">
 			<div class="flex flex-row gap-3">
-				@profilePhoto(params)
-				@codeSection(params)
+				@profilePhoto(params, params.Student.IsDeleted)
+				@codeSection(params, params.Student.IsDeleted)
 			</div>
+			// Embed Grade Reports Section
+			@gradeReportsSection(params.Student.GradeHistory)
+			// Embed Health Assessments Section
+			@healthAssessmentsSection(params.Aggregate.GetHealthAssessments())
 			// Embed History Section
 			<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/student/%d/history", params.ID) } hx-target="this">
 				Loading...
@@ -56,98 +134,160 @@ func toggleStatusURL(id uint64, ver uint64, status eda.Student_Status) string {
 	return fmt.Sprintf("/admin/student/%d/toggleStatus?ver=%d&active=%s", id, ver, fmt.Sprintf("%t", !active))
 }
 
-templ StudentPersonalInfoSection(student *eda.Student, ver uint64) {
+templ StudentPersonalInfoSection(student *eda.Student, ver uint64, isDeleted bool) {
 	<div class="space-y-4" id="personal-info">
-		@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
-		@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
-		@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
-		@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
-		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
-		@components.TomSelect(components.SelectConfig{
-			Options: map[string]string{
-				eda.Student_MALE.String():   "Male",
-				eda.Student_FEMALE.String(): "Female",
-			},
-			MaxItems:    1,
-			Name:        "sex",
-			Placeholder: "Select a sex",
-			Value:       student.Sex.Enum().String(),
-		})
-		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Grade Level</label>
-        @components.TomSelect(components.SelectConfig{
-            Options: map[string]string{
-                "1": "1",
-                "2": "2",
-                "3": "3",
-                "4": "4",
-                "5": "5",
-                "6": "6",
-            },
-            MaxItems:    1,
-            Name:        "grade_level",
-            Placeholder: "Select a grade level",
-            Value:       fmt.Sprintf("%d", student.GradeLevel),
-        })
-			@components.HiddenField("version", fmt.Sprintf("%d", ver))
+		if isDeleted {
+			<div class="opacity-60 pointer-events-none">
+				@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
+				@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
+				@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+				@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
+				<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
+				@components.TomSelect(components.SelectConfig{
+					Options: map[string]string{
+						eda.Student_MALE.String():   "Male",
+						eda.Student_FEMALE.String(): "Female",
+					},
+					MaxItems:    1,
+					Name:        "sex",
+					Placeholder: "Select a sex",
+					Value:       student.Sex.Enum().String(),
+				})
+				<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Grade Level</label>
+				@components.TomSelect(components.SelectConfig{
+					Options: map[string]string{
+						"1": "1",
+						"2": "2",
+						"3": "3",
+						"4": "4",
+						"5": "5",
+						"6": "6",
+					},
+					MaxItems:    1,
+					Name:        "grade_level",
+					Placeholder: "Select a grade level",
+					Value:       fmt.Sprintf("%d", student.GradeLevel),
+				})
+			</div>
+		} else {
+			@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
+			@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
+			@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+			@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
+			<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
+			@components.TomSelect(components.SelectConfig{
+				Options: map[string]string{
+					eda.Student_MALE.String():   "Male",
+					eda.Student_FEMALE.String(): "Female",
+				},
+				MaxItems:    1,
+				Name:        "sex",
+				Placeholder: "Select a sex",
+				Value:       student.Sex.Enum().String(),
+			})
+			<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Grade Level</label>
+			@components.TomSelect(components.SelectConfig{
+				Options: map[string]string{
+					"1": "1",
+					"2": "2",
+					"3": "3",
+					"4": "4",
+					"5": "5",
+					"6": "6",
+				},
+				MaxItems:    1,
+				Name:        "grade_level",
+				Placeholder: "Select a grade level",
+				Value:       fmt.Sprintf("%d", student.GradeLevel),
+			})
+		}
+
+		@components.HiddenField("version", fmt.Sprintf("%d", ver))
 	</div>
 }
 
-templ actionButtonsSection(id uint64, status eda.Student_Status, eligibleForSponsorship bool, ver uint64) {
+templ actionButtonsSection(id uint64, status eda.Student_Status, eligibleForSponsorship bool, ver uint64, isDeleted bool) {
 	<div class="flex items-center justify-between mt-4 gap-4">
 		<div class="flex items-center space-x-4 bg-gray-100 p-4 rounded-lg border" hx-params="none">
-			<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
-				if status == eda.Student_ACTIVE {
-					<span class="text-sm font-medium text-green-500">Active</span>
-				} else {
-					<span class="text-sm font-medium text-red-500">Inactive</span>
-				}
-				<a
-					hx-put={ toggleStatusURL(id, ver, status) }
-					class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-				>Toggle status</a>
-			</div>
-			<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
-				if eligibleForSponsorship {
-					<span class="text-sm font-medium text-green-500">Eligible for Sponsorship</span>
-				} else {
-					<span class="text-sm font-medium text-red-500">Not Eligible for Sponsorship</span>
-				}
-				<a
-					hx-put={ fmt.Sprintf("/admin/student/%d/eligibility?ver=%d&eligible=%t", id, ver, !eligibleForSponsorship) }
-					class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-				>Toggle</a>
-			</div>
+			if isDeleted {
+				<div class="flex items-center space-x-2 bg-red-50 p-4 rounded-lg border border-red-200">
+					<span class="text-sm font-bold text-red-600">DELETED</span>
+					<span class="text-xs text-red-500">This student record has been deleted</span>
+				</div>
+			} else {
+				<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
+					if status == eda.Student_ACTIVE {
+						<span class="text-sm font-medium text-green-500">Active</span>
+					} else {
+						<span class="text-sm font-medium text-red-500">Inactive</span>
+					}
+					<a
+						hx-put={ toggleStatusURL(id, ver, status) }
+						class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+					>Toggle status</a>
+				</div>
+				<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
+					if eligibleForSponsorship {
+						<span class="text-sm font-medium text-green-500">Eligible for Sponsorship</span>
+					} else {
+						<span class="text-sm font-medium text-red-500">Not Eligible for Sponsorship</span>
+					}
+					<a
+						hx-put={ fmt.Sprintf("/admin/student/%d/eligibility?ver=%d&eligible=%t", id, ver, !eligibleForSponsorship) }
+						class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+					>Toggle</a>
+				</div>
+			}
 			@components.HiddenField("version", fmt.Sprintf("%d", ver))
 		</div>
-		@components.PrimaryButton("Update", templ.Attributes{
-			"hx-post": fmt.Sprintf("/admin/student/%d", id),
-		})
+		if !isDeleted {
+			@components.PrimaryButton("Update", templ.Attributes{
+				"hx-post": fmt.Sprintf("/admin/student/%d", id),
+			})
+		}
 	</div>
 }
 
-templ schoolEnrollmentSection(params ViewParams) {
+templ schoolEnrollmentSection(params ViewParams, isDeleted bool) {
 	<div class="grid gap-2">
 		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
-		<form class="grid gap-2" hx-push-url="false">
-			@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
-			@components.TomSelect(components.SelectConfig{
-				Options:     params.SchoolMap,
-				MaxItems:    1,
-				Name:        "school_id",
-				Placeholder: "Select a school",
-				Value:       params.Student.SchoolId,
-			})
-			@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
-			<div class="grid gap-2">
-				@components.PrimaryButton("Enroll", templ.Attributes{
-					"hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
+		if isDeleted {
+			<div class="grid gap-2 opacity-60 pointer-events-none">
+				@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
+				@components.TomSelect(components.SelectConfig{
+					Options:     params.SchoolMap,
+					MaxItems:    1,
+					Name:        "school_id",
+					Placeholder: "Select a school",
+					Value:       params.Student.SchoolId,
 				})
-				@components.Button("Unenroll", templ.Attributes{
-					"hx-delete":  fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
-					"hx-confirm": "Are you sure you want to unenroll this student?",
-				})
+				@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
+				<div class="grid gap-2">
+					<span class="text-sm text-gray-500">Enrollment actions disabled for deleted student</span>
+				</div>
 			</div>
-		</form>
+		} else {
+			<form class="grid gap-2" hx-push-url="false">
+				@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
+				@components.TomSelect(components.SelectConfig{
+					Options:     params.SchoolMap,
+					MaxItems:    1,
+					Name:        "school_id",
+					Placeholder: "Select a school",
+					Value:       params.Student.SchoolId,
+				})
+				@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
+				<div class="grid gap-2">
+					@components.PrimaryButton("Enroll", templ.Attributes{
+						"hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
+					})
+					@components.Button("Unenroll", templ.Attributes{
+						"hx-delete":  fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
+						"hx-confirm": "Are you sure you want to unenroll this student?",
+					})
+				</div>
+			</form>
+		}
 	</div>
 }
 
@@ -168,13 +308,13 @@ templ StudentHistorySection(evts []gosignal.Event) {
 				</h3>
 			</div>
 			<div class="p-0">
-				<div class="grid min-w-[400px] w-full divide-y">
+				<div id="history-events-container" class="grid min-w-[400px] w-full divide-y">
 					for _, evt := range evts {
-						<div class="grid grid-cols-3 items-center p-3 bg-gray-100">
+						<div class="grid grid-cols-3 items-center p-3 bg-gray-100 history-event">
 							<div class="text-sm text-gray-500" hx-target="#content" hx-push-url="true">
 								switch evt.Type {
 									case student.EVENT_ADD_STUDENT:
-										Student created 
+										Student created
 									case student.EVENT_UPDATE_STUDENT:
 										Student updated
 									case student.EVENT_SET_STUDENT_STATUS:
@@ -184,18 +324,28 @@ templ StudentHistorySection(evts []gosignal.Event) {
 									case student.EVENT_UNENROLL_STUDENT:
 										Student unenrolled
 									case student.EVENT_SET_LOOKUP_CODE:
-										QR Lookup code updated 
+										QR Lookup code updated
 									case student.EVENT_SET_PROFILE_PHOTO:
 										Profile photo updated
 									case student.EVENT_FEED_STUDENT:
-										Student fed 
-                                        @components.Button("View", templ.Attributes{
-                                            "hx-get": fmt.Sprintf("/admin/student/%s/feedingReport/%d", evt.AggregateID, evt.Version),
-                                        })
+										Student fed
+										@components.Button("View", templ.Attributes{
+											"hx-get": fmt.Sprintf("/admin/student/%s/feedingReport/%d", evt.AggregateID, evt.Version),
+										})
 									case student.EVENT_UPDATE_SPONSORSHIP:
 										Sponsorship updated
 									case student.EVENT_SET_ELIGIBILITY:
 										Eligibility updated
+									case student.EVENT_ADD_GRADE_REPORT:
+										Grade report added
+									case student.EVENT_ADD_HEALTH_ASSESSMENT:
+										Health assessment added
+									case student.EVENT_REMOVE_GRADE_REPORT:
+										Grade report removed
+									case student.EVENT_REMOVE_HEALTH_ASSESSMENT:
+										Health assessment removed
+									case student.EVENT_UNDO_CREATE_STUDENT:
+										Student deleted
 									default:
 										Unknown event: { evt.Type }
 								}
@@ -204,13 +354,49 @@ templ StudentHistorySection(evts []gosignal.Event) {
 						</div>
 					}
 				</div>
+				<div class="p-4 text-center" id="view-more-container" style="display: none;">
+					<button id="view-all-history-btn" class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">
+						View All History
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
+	<script>
+		// History collapsing functionality
+		(function() {
+			const MAX_VISIBLE_EVENTS = 5;
+			const eventsContainer = document.getElementById('history-events-container');
+			const viewMoreContainer = document.getElementById('view-more-container');
+			const viewAllBtn = document.getElementById('view-all-history-btn');
+			const events = Array.from(eventsContainer.querySelectorAll('.history-event'));
+
+			// If we have more events than the maximum to show
+			if (events.length > MAX_VISIBLE_EVENTS) {
+				// Hide all events except the last MAX_VISIBLE_EVENTS
+				events.slice(0, events.length - MAX_VISIBLE_EVENTS).forEach(event => {
+					event.style.display = 'none';
+				});
+
+				// Show the view more button
+				viewMoreContainer.style.display = 'block';
+
+				// Add click handler to view all button
+				viewAllBtn.addEventListener('click', function() {
+					// Show all events
+					events.forEach(event => {
+						event.style.display = 'grid';
+					});
+					// Hide the view more button
+					viewMoreContainer.style.display = 'none';
+				});
+			}
+		})();
+	</script>
 }
 
-templ backToList() {
-	<div class="border-b px-4 py-2 flex items-center gap-4 bg-gray-100">
+templ backToList(params ViewParams) {
+	<div class="border-b px-4 py-2 flex items-center justify-between bg-gray-100">
 		<a
 			class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
 			hx-get="/admin/student"
@@ -232,10 +418,23 @@ templ backToList() {
 			</svg>
 			Back to Students
 		</a>
+
+		if params.Student.AssociatedBulkUploadId != "" {
+			<a
+				href={templ.SafeURL(fmt.Sprintf("/admin/bulk-upload/%s/view", params.Student.AssociatedBulkUploadId))}
+				class="flex items-center text-xs text-gray-500 hover:text-blue-600 transition-colors"
+				hx-boost="true"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+				</svg>
+				Bulk Upload Source
+			</a>
+		}
 	</div>
 }
 
-templ codeSection(p ViewParams) {
+templ codeSection(p ViewParams, isDeleted bool) {
 	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" data-v0-t="card">
 		<div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
 			<div class="grid gap-1.5 w-1/2">
@@ -260,47 +459,115 @@ templ codeSection(p ViewParams) {
 				}
 			</div>
 		</div>
-		<form class="flex items-center justify-center gap-2 w-full" hx-push-url="false">
-			@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
-			<button
-				class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-				hx-post={ fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID) }
-				hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
-			>
-				Regenerate
-			</button>
-		</form>
+		if isDeleted {
+			<div class="flex items-center justify-center gap-2 w-full p-3">
+				<span class="text-sm text-gray-500">Code actions disabled for deleted student</span>
+			</div>
+		} else {
+			<form class="flex items-center justify-center gap-2 w-full" hx-push-url="false">
+				@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
+				<button
+					class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+					hx-post={ fmt.Sprintf("/admin/student/%d/regenerateCode", p.ID) }
+					hx-confirm="Are you sure you want to regenerate the code? Previous code will be invalidated and cannot be used anymore."
+				>
+					Regenerate
+				</button>
+			</form>
+		}
 	</div>
 }
 
-templ profilePhoto(p ViewParams) {
-	<form class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" hx-encoding="multipart/form-data" hx-push-url="false">
-		@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
-		<div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
-			<div class="grid gap-1.5 w-1/2">
-				<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">Profile Photo</h3>
+templ profilePhoto(p ViewParams, isDeleted bool) {
+	if isDeleted {
+		<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm opacity-60">
+			<div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
+				<div class="grid gap-1.5 w-1/2">
+					<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">Profile Photo</h3>
+				</div>
+			</div>
+			<div class="p-6 flex items-center justify-center">
+				<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+					if p.Student.ProfilePhotoId == "" {
+						<div class="items-center justify-center p-3">
+							No photo
+						</div>
+					} else {
+						<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-max-full h-max-full my-auto align-middle"/>
+					}
+				</div>
+			</div>
+			<div class="flex justify-center items-center mb-3">
+				<span class="text-sm text-gray-500">Photo upload disabled for deleted student</span>
 			</div>
 		</div>
-		<div class="p-6 flex items-center justify-center">
-			<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
-				if p.Student.ProfilePhotoId == "" {
-					<div class="items-center justify-center p-3">
-						No photo
-					</div>
-				} else {
-					<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-max-full h-max-full my-auto align-middle"/>
-				}
+	} else {
+		<form class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm" hx-encoding="multipart/form-data" hx-push-url="false">
+			@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
+			<div class="space-y-1.5 flex flex-row bg-gray-100 p-4 rounded-t-lg w-full">
+				<div class="grid gap-1.5 w-1/2">
+					<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">Profile Photo</h3>
+				</div>
 			</div>
+			<div class="p-6 flex items-center justify-center">
+				<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+					if p.Student.ProfilePhotoId == "" {
+						<div class="items-center justify-center p-3">
+							No photo
+						</div>
+					} else {
+						<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-max-full h-max-full my-auto align-middle"/>
+					}
+				</div>
+			</div>
+			<div class="flex justify-center items-center mb-3">
+				<label class="cursor-pointer flex justify-center items-center border border-gray-300 rounded-md py-2 px-4 text-sm transition-colors hover:bg-gray-50 ">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-2">
+						<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+						<circle cx="12" cy="13" r="3"></circle>
+					</svg>
+					Choose File
+					<input class="sr-only" id="photo" type="file" name="file" hx-post={ fmt.Sprintf(`/admin/student/%d/profilePhoto`, p.ID) } hx-trigger="change"/>
+				</label>
+			</div>
+		</form>
+	}
+}
+
+templ gradeReportsSection(gradeReports []*eda.Student_GradeReport) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full mt-4" data-v0-t="card">
+		<div class="flex flex-col space-y-1.5 p-6">
+			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
+				Grade Reports
+			</h3>
 		</div>
-		<div class="flex justify-center items-center mb-3">
-			<label class="cursor-pointer flex justify-center items-center border border-gray-300 rounded-md py-2 px-4 text-sm transition-colors hover:bg-gray-50 ">
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-2">
-					<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-					<circle cx="12" cy="13" r="3"></circle>
-				</svg>
-				Choose File
-				<input class="sr-only" id="photo" type="file" name="file" hx-post={ fmt.Sprintf(`/admin/student/%d/profilePhoto`, p.ID) } hx-trigger="change"/>
-			</label>
+		<div class="p-6 pt-0">
+			if len(gradeReports) == 0 {
+				<div class="text-sm text-gray-500 p-2">No grade reports available</div>
+			} else {
+				<div class="border rounded-md overflow-hidden">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="bg-gray-100 border-b">
+								<th class="py-3 px-4 text-left font-medium">Grade</th>
+								<th class="py-3 px-4 text-left font-medium">Test Date</th>
+								<th class="py-3 px-4 text-left font-medium">School Year</th>
+								<th class="py-3 px-4 text-left font-medium">Grading Period</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, report := range gradeReports {
+								<tr class="border-b hover:bg-gray-50">
+									<td class="py-2 px-4">{ fmt.Sprintf("%d", report.Grade) }</td>
+									<td class="py-2 px-4">{ dateToFormDate(report.TestDate) }</td>
+									<td class="py-2 px-4">{ report.SchoolYear }</td>
+									<td class="py-2 px-4">{ report.GradingPeriod }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
 		</div>
-	</form>
+	</div>
 }

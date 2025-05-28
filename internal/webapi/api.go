@@ -13,22 +13,69 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"geevly/internal/bulk_upload"
 	"geevly/internal/file"
 	"geevly/internal/school"
 	"geevly/internal/student"
+	"geevly/internal/webapi/bulk_domains"
 	"geevly/internal/webapi/templates"
 	"geevly/internal/webapi/templates/admin"
 	"geevly/internal/webapi/templates/layouts"
 )
 
-type Server struct {
-	ctx           context.Context
-	ListenAddress string
-	StaticFS      fs.FS
+// ServiceRegistry provides centralized access to all application services
+type ServiceRegistry struct {
 	StudentSvc    *student.StudentService
 	SchoolSvc     *school.Service
 	FileSvc       *file.Service
-	Clerk         clerk.Client
+	BulkUploadSvc *bulk_upload.Service
+}
+
+// NewServiceRegistry creates a new service registry with the provided services
+func NewServiceRegistry(
+	studentSvc *student.StudentService,
+	schoolSvc *school.Service,
+	fileSvc *file.Service,
+	bulkUploadSvc *bulk_upload.Service,
+) *ServiceRegistry {
+	return &ServiceRegistry{
+		StudentSvc:    studentSvc,
+		SchoolSvc:     schoolSvc,
+		FileSvc:       fileSvc,
+		BulkUploadSvc: bulkUploadSvc,
+	}
+}
+
+type Server struct {
+	ctx                context.Context
+	ListenAddress      string
+	StaticFS           fs.FS
+	Services           *ServiceRegistry
+	Clerk              clerk.Client
+	bulkDomainRegistry *bulk_domains.DomainRegistry
+}
+
+// NewServer creates a new Server instance with the provided services
+func NewServer(
+	listenAddress string,
+	staticFS fs.FS,
+	studentSvc *student.StudentService,
+	schoolSvc *school.Service,
+	fileSvc *file.Service,
+	bulkUploadSvc *bulk_upload.Service,
+	clerk clerk.Client,
+) *Server {
+	return &Server{
+		ListenAddress: listenAddress,
+		StaticFS:      staticFS,
+		Services: NewServiceRegistry(
+			studentSvc,
+			schoolSvc,
+			fileSvc,
+			bulkUploadSvc,
+		),
+		Clerk: clerk,
+	}
 }
 
 type Roles struct {
@@ -41,8 +88,30 @@ func (s *Server) verifyConfig() {
 	if s.StaticFS == nil {
 		panic("StaticFS is required")
 	}
-	if s.StudentSvc == nil {
+	if s.Services == nil {
+		panic("Services is required")
+	}
+	if s.Services.StudentSvc == nil {
 		panic("StudentSvc is required")
+	}
+	if s.Services.SchoolSvc == nil {
+		panic("SchoolSvc is required")
+	}
+	if s.Services.FileSvc == nil {
+		panic("FileSvc is required")
+	}
+	if s.Services.BulkUploadSvc == nil {
+		panic("BulkUploadSvc is required")
+	}
+
+	// Initialize the bulk domain registry if not already set
+	if s.bulkDomainRegistry == nil {
+		serviceRegistry := &bulk_domains.ServiceRegistry{
+			SchoolService:  s.Services.SchoolSvc,
+			StudentService: s.Services.StudentSvc,
+			FileService:    s.Services.FileSvc,
+		}
+		s.bulkDomainRegistry = bulk_domains.NewDomainRegistry(serviceRegistry)
 	}
 }
 
@@ -145,6 +214,7 @@ func (s *Server) Start(ctx context.Context) {
 		r.Route("/school", s.schoolAdminRoutes)
 		r.Route("/user", s.userAdminRouter)
 		r.Route("/reports", s.adminReports)
+		r.Route("/bulk-upload", s.bulkUploadAdminRoutes)
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			s.renderTempl(w, r, admin.AdminHome())
 		})

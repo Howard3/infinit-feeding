@@ -3,6 +3,9 @@ package student
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"slices"
 	"time"
 
 	"geevly/gen/go/eda"
@@ -17,6 +20,8 @@ var ErrApplyingEvent = fmt.Errorf("error applying event")
 var ErrMarshallingEvent = fmt.Errorf("error marshalling event")
 var ErrVersionMismatch = fmt.Errorf("version mismatch")
 var ErrStudentNotFound = fmt.Errorf("student not found")
+var ErrHealthAssessmentNotFound = fmt.Errorf("health assessment not found")
+var ErrGradeReportNotFound = fmt.Errorf("grade report not found")
 
 const EVENT_ADD_STUDENT = "AddStudent"
 const EVENT_SET_STUDENT_STATUS = "SetStudentStatus"
@@ -28,10 +33,58 @@ const EVENT_SET_PROFILE_PHOTO = "SetProfilePhoto"
 const EVENT_FEED_STUDENT = "FeedStudent"
 const EVENT_SET_ELIGIBILITY = "SetEligibility"
 const EVENT_UPDATE_SPONSORSHIP = "UpdateSponsorship"
+const EVENT_ADD_GRADE_REPORT = "AddGradeReport"
+const EVENT_ADD_HEALTH_ASSESSMENT = "AddHealthAssessment"
+const EVENT_REMOVE_HEALTH_ASSESSMENT = "RemoveHealthAssessment"
+const EVENT_REMOVE_GRADE_REPORT = "RemoveGradeReport"
+const EVENT_UNDO_CREATE_STUDENT = "UndoCreateStudent"
 
 type wrappedEvent struct {
 	event gosignal.Event
 	data  proto.Message
+}
+
+type HealthReport struct {
+	AssessmentDate         time.Time
+	AssociatedBulkUploadId string
+	HeightCm               float32
+	WeightKg               float32
+	sex                    *eda.Student_Sex
+	dob                    *time.Time
+}
+
+func (h *HealthReport) BMI() float32 {
+	heightMeters := h.HeightCm / 100
+	return h.WeightKg / (heightMeters * heightMeters)
+}
+
+func (h *HealthReport) AgeYears() float64 {
+	if h.dob == nil {
+		return 0
+	}
+
+	return time.Since(*h.dob).Hours() / 24 / 365
+}
+
+func (h *HealthReport) NutritionalStatus() NutritionalStatus {
+	var gender Gender
+	switch *h.sex {
+	case eda.Student_MALE:
+		gender = Male
+	case eda.Student_FEMALE:
+		gender = Female
+	default:
+		return NutritionalStatusGenderError
+	}
+
+	age := int(math.Round(h.AgeYears()))
+
+	status, err := CalculateNutritionalStatus(gender, age, h.BMI())
+	if err != nil {
+		slog.Error("error calculating nutritional status", "error", err)
+		return NutritionalStatusError
+	}
+	return status
 }
 
 type Aggregate struct {
@@ -92,6 +145,21 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EVENT_UPDATE_SPONSORSHIP:
 		eventData = &eda.Student_UpdateSponsorship_Event{}
 		handler = sd.handleUpdateSponsorship
+	case EVENT_ADD_GRADE_REPORT:
+		eventData = &eda.Student_GradeReport_Event{}
+		handler = sd.handleAddGradeReport
+	case EVENT_ADD_HEALTH_ASSESSMENT:
+		eventData = &eda.Student_HealthAssessment_Event{}
+		handler = sd.handleAddHealthAssessment
+	case EVENT_REMOVE_HEALTH_ASSESSMENT:
+		eventData = &eda.Student_HealthAssessment_UndoEvent{}
+		handler = sd.handleRemoveHealthAssessment
+	case EVENT_REMOVE_GRADE_REPORT:
+		eventData = &eda.Student_GradeReport_UndoEvent{}
+		handler = sd.handleRemoveGradeReport
+	case EVENT_UNDO_CREATE_STUDENT:
+		eventData = &eda.Student_Create_UndoEvent{}
+		handler = sd.handleUndoCreateStudent
 	default:
 		return ErrEventNotFound
 	}
@@ -108,6 +176,138 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	wevt := wrappedEvent{event: evt, data: eventData}
 
 	return handler(wevt)
+}
+
+func (sd *Aggregate) GetHealthAssessments() []*HealthReport {
+	hr := make([]*HealthReport, len(sd.data.HealthAssessments))
+	dob := time.Date(
+		int(sd.data.DateOfBirth.Year),
+		time.Month(sd.data.DateOfBirth.Month),
+		int(sd.data.DateOfBirth.Day), 0, 0, 0, 0, time.UTC)
+
+	for i, h := range sd.data.HealthAssessments {
+		hr[i] = &HealthReport{
+			AssessmentDate:         h.AssessmentDate.AsTime(),
+			AssociatedBulkUploadId: h.AssociatedBulkUploadId,
+			HeightCm:               h.HeightCm,
+			WeightKg:               h.WeightKg,
+			sex:                    &sd.data.Sex,
+			dob:                    &dob,
+		}
+	}
+	return hr
+}
+
+func (sd *Aggregate) AddHealthAssessment(cmd *eda.Student_HealthAssessment) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	// TODO: error on conflict
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_ADD_HEALTH_ASSESSMENT,
+		data: &eda.Student_HealthAssessment_Event{
+			AssessmentDate:         cmd.GetAssessmentDate(),
+			AssociatedBulkUploadId: cmd.GetAssociatedBulkUploadId(),
+			HeightCm:               cmd.GetHeightCm(),
+			WeightKg:               cmd.GetWeightKg(),
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) RemoveHealthAssessment(bulkUploadID string) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_REMOVE_HEALTH_ASSESSMENT,
+		data: &eda.Student_HealthAssessment_UndoEvent{
+			AssociatedBulkUploadId: bulkUploadID,
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) handleAddHealthAssessment(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_HealthAssessment_Event)
+	sd.data.HealthAssessments = append(sd.data.HealthAssessments, &eda.Student_HealthAssessment{
+		AssessmentDate:         event.AssessmentDate,
+		AssociatedBulkUploadId: event.AssociatedBulkUploadId,
+		HeightCm:               event.HeightCm,
+		WeightKg:               event.WeightKg,
+	})
+	return nil
+}
+
+func (sd *Aggregate) handleRemoveHealthAssessment(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_HealthAssessment_UndoEvent)
+	for i, assessment := range sd.data.HealthAssessments {
+		if assessment.AssociatedBulkUploadId == event.AssociatedBulkUploadId {
+			sd.data.HealthAssessments = slices.Delete(sd.data.HealthAssessments, i, i+1)
+			return nil
+		}
+	}
+	return ErrHealthAssessmentNotFound
+}
+
+func (sd *Aggregate) AddGradeReport(cmd *eda.Student_GradeReport) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	// TODO: error on conflict
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_ADD_GRADE_REPORT,
+		data: &eda.Student_GradeReport_Event{
+			Grade:                  cmd.GetGrade(),
+			TestDate:               cmd.GetTestDate(),
+			AssociatedBulkUploadId: cmd.GetAssociatedBulkUploadId(),
+			SchoolYear:             cmd.GetSchoolYear(),
+			GradingPeriod:          cmd.GetGradingPeriod(),
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) RemoveGradeReport(bulkUploadID string) (*gosignal.Event, error) {
+	if sd.data == nil {
+		return nil, ErrStudentNotFound
+	}
+
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_REMOVE_GRADE_REPORT,
+		data: &eda.Student_GradeReport_UndoEvent{
+			AssociatedBulkUploadId: bulkUploadID,
+		},
+		version: sd.Version,
+	})
+}
+
+func (sd *Aggregate) handleRemoveGradeReport(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_GradeReport_UndoEvent)
+	for i, gradeReport := range sd.data.GradeHistory {
+		if gradeReport.AssociatedBulkUploadId == event.AssociatedBulkUploadId {
+			sd.data.GradeHistory = slices.Delete(sd.data.GradeHistory, i, i+1)
+			return nil
+		}
+	}
+	return ErrGradeReportNotFound
+}
+
+func (sd *Aggregate) handleAddGradeReport(evt wrappedEvent) error {
+	event := evt.data.(*eda.Student_GradeReport_Event)
+	sd.data.GradeHistory = append(sd.data.GradeHistory, &eda.Student_GradeReport{
+		Grade:                  event.Grade,
+		TestDate:               event.TestDate,
+		AssociatedBulkUploadId: event.AssociatedBulkUploadId,
+		SchoolYear:             event.SchoolYear,
+		GradingPeriod:          event.GradingPeriod,
+	})
+	return nil
 }
 
 // feed - handles the feeding of a student
@@ -157,17 +357,28 @@ func (sd *Aggregate) handleFeedStudent(evt wrappedEvent) error {
 	return nil
 }
 
+func (sd *Aggregate) undoCreate(associatedBulkUploadId string) (*gosignal.Event, error) {
+	return sd.ApplyEvent(StudentEvent{
+		eventType: EVENT_UNDO_CREATE_STUDENT,
+		data: &eda.Student_Create_UndoEvent{
+			AssociatedBulkUploadId: associatedBulkUploadId,
+		},
+		version: sd.Version,
+	})
+}
+
 func (sd *Aggregate) CreateStudent(cmd *eda.Student_Create) (*gosignal.Event, error) {
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_ADD_STUDENT,
 		data: &eda.Student_Create_Event{
-			FirstName:       cmd.FirstName,
-			LastName:        cmd.LastName,
-			DateOfBirth:     cmd.DateOfBirth,
-			Status:          eda.Student_INACTIVE,
-			Sex:             cmd.Sex,
-			GradeLevel:      cmd.GradeLevel,
-			StudentSchoolId: cmd.StudentSchoolId,
+			FirstName:              cmd.FirstName,
+			LastName:               cmd.LastName,
+			DateOfBirth:            cmd.DateOfBirth,
+			Status:                 eda.Student_INACTIVE,
+			Sex:                    cmd.Sex,
+			GradeLevel:             cmd.GradeLevel,
+			StudentSchoolId:        cmd.StudentSchoolId,
+			AssociatedBulkUploadId: cmd.AssociatedBulkUploadId,
 		},
 		version: 0,
 	})
@@ -244,14 +455,15 @@ func (sd *Aggregate) HandleCreateStudent(evt wrappedEvent) error {
 	}
 
 	sd.data = &eda.Student{
-		FirstName:       data.FirstName,
-		LastName:        data.LastName,
-		DateOfBirth:     data.DateOfBirth,
-		Sex:             data.Sex,
-		Status:          eda.Student_INACTIVE,
-		StudentSchoolId: data.StudentSchoolId,
-		GradeLevel:      data.GradeLevel,
-		FeedingReport:   make([]*eda.Student_Feeding_Event, 0),
+		FirstName:              data.FirstName,
+		LastName:               data.LastName,
+		DateOfBirth:            data.DateOfBirth,
+		Sex:                    data.Sex,
+		Status:                 eda.Student_INACTIVE,
+		StudentSchoolId:        data.StudentSchoolId,
+		GradeLevel:             data.GradeLevel,
+		FeedingReport:          make([]*eda.Student_Feeding_Event, 0),
+		AssociatedBulkUploadId: data.AssociatedBulkUploadId,
 	}
 
 	return nil
@@ -292,6 +504,11 @@ func (sd *Aggregate) handleSetLookupCode(evt wrappedEvent) error {
 
 	sd.data.CodeUniqueId = data.CodeUniqueId
 
+	return nil
+}
+
+func (sd *Aggregate) handleUndoCreateStudent(evt wrappedEvent) error {
+	sd.data.IsDeleted = true
 	return nil
 }
 

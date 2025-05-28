@@ -216,7 +216,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 	country := r.URL.Query().Get("country")
 	city := r.URL.Query().Get("city")
 	if country != "" {
-		schoolIDs, err := s.SchoolSvc.GetSchoolIDsByLocation(r.Context(), school.Location{
+		schoolIDs, err := s.Services.SchoolSvc.GetSchoolIDsByLocation(r.Context(), school.Location{
 			Country: country,
 			City:    city,
 		})
@@ -262,7 +262,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 		opts = append(opts, student.MaxAge(maxAge))
 	}
 
-	students, err := s.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
+	students, err := s.Services.StudentSvc.ListStudents(r.Context(), limit, page, opts...)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Error fetching students")
 		return
@@ -303,7 +303,7 @@ func (s *Server) apiListStudents(w http.ResponseWriter, r *http.Request) {
 // @Router      /locations [get]
 // @Security    ApiKeyAuth
 func (s *Server) apiListLocations(w http.ResponseWriter, r *http.Request) {
-	locations, err := s.SchoolSvc.ListLocations(r.Context())
+	locations, err := s.Services.SchoolSvc.ListLocations(r.Context())
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Error fetching locations")
 		return
@@ -367,7 +367,7 @@ func (s *Server) apiListSchools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the schools from the service
-	schools, err := s.SchoolSvc.GetSchoolsByIDs(r.Context(), schoolIDsUint64)
+	schools, err := s.Services.SchoolSvc.GetSchoolsByIDs(r.Context(), schoolIDsUint64)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Error fetching schools")
 		return
@@ -412,7 +412,7 @@ func (s *Server) apiGetStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get student from service
-	student, err := s.StudentSvc.GetStudent(r.Context(), id)
+	student, err := s.Services.StudentSvc.GetStudent(r.Context(), id)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Error fetching student")
 		return
@@ -465,7 +465,7 @@ func (s *Server) apiSponsorStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get student from service
-	student, err := s.StudentSvc.GetStudent(r.Context(), id)
+	student, err := s.Services.StudentSvc.GetStudent(r.Context(), id)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Error fetching student")
 		return
@@ -539,7 +539,7 @@ func (s *Server) apiSponsorStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Run the command
-	_, err = s.StudentSvc.RunCommand(r.Context(), id, cmd)
+	_, err = s.Services.StudentSvc.RunCommand(r.Context(), id, cmd)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to sponsor student: %v", err))
 		return
@@ -567,7 +567,7 @@ func (s *Server) apiListSponsoredStudents(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	sponsorships, err := s.StudentSvc.GetCurrentSponsorships(r.Context(), sponsorID)
+	sponsorships, err := s.Services.StudentSvc.GetCurrentSponsorships(r.Context(), sponsorID)
 	if err != nil {
 		log.Printf("Error fetching sponsorships: %v", err)
 		s.respondWithError(w, http.StatusInternalServerError, "Failed to fetch sponsorships")
@@ -604,7 +604,7 @@ func (s *Server) apiGetSponsorImpact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mealCount, err := s.StudentSvc.GetSponsorImpactMetrics(r.Context(), sponsorID)
+	mealCount, err := s.Services.StudentSvc.GetSponsorImpactMetrics(r.Context(), sponsorID)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get impact metrics: %v", err))
 		return
@@ -638,7 +638,7 @@ func (s *Server) apiListSponsorFeedingEvents(w http.ResponseWriter, r *http.Requ
 	}
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
-	events, total, err := s.StudentSvc.ListSponsorFeedingEvents(r.Context(), sponsorID, limit, page)
+	events, total, err := s.Services.StudentSvc.ListSponsorFeedingEvents(r.Context(), sponsorID, limit, page)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list feeding events: %v", err))
 		return

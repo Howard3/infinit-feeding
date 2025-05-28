@@ -58,7 +58,7 @@ func (s *Server) staffHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get schools by feeder enrollments
-	schools, err := s.SchoolSvc.GetSchoolsByIDs(r.Context(), feederEnrollments)
+	schools, err := s.Services.SchoolSvc.GetSchoolsByIDs(r.Context(), feederEnrollments)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
 		return
@@ -82,20 +82,20 @@ func (s *Server) staffSchoolStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get the school name
-	school, err := s.SchoolSvc.Get(r.Context(), schoolIDUint)
+	school, err := s.Services.SchoolSvc.Get(r.Context(), schoolIDUint)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching school", err)
 		return
 	}
 
-	students, err := s.StudentSvc.ListForSchool(r.Context(), schoolID)
+	students, err := s.Services.StudentSvc.ListForSchool(r.Context(), schoolID)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching students", err)
 		return
 	}
 
 	// get feeding events for the school
-	feedingEvents, err := s.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, time.Now().Add(time.Hour*-12), time.Now())
+	feedingEvents, err := s.Services.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, time.Now().Add(time.Hour*-12), time.Now())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding events", err)
 		return

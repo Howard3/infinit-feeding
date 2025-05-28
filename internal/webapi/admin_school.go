@@ -28,7 +28,7 @@ func (s *Server) adminListSchools(w http.ResponseWriter, r *http.Request) {
 	page := s.pageQuery(r)
 	limit := s.limitQuery(r)
 
-	schools, err := s.SchoolSvc.List(r.Context(), limit, page)
+	schools, err := s.Services.SchoolSvc.List(r.Context(), limit, page)
 	if err != nil {
 		s.errorPage(w, r, "Error listing schools", err)
 		return
@@ -56,7 +56,7 @@ func (s *Server) adminCreateSchool(w http.ResponseWriter, r *http.Request) {
 		City:      r.FormValue("city"),
 	}
 
-	res, err := s.SchoolSvc.Create(r.Context(), &cmd)
+	res, err := s.Services.SchoolSvc.Create(r.Context(), &cmd)
 	if err != nil {
 		// TODO: handle error on-form
 		s.errorPage(w, r, "Error creating student", err)
@@ -73,7 +73,7 @@ func (s *Server) adminViewSchool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agg, err := s.SchoolSvc.Get(r.Context(), id)
+	agg, err := s.Services.SchoolSvc.Get(r.Context(), id)
 	if err != nil {
 		s.errorPage(w, r, "Error getting school", err)
 		return
@@ -121,7 +121,7 @@ func (s *Server) adminUpdateSchool(w http.ResponseWriter, r *http.Request) {
 		City:      city,
 	}
 
-	if _, err = s.SchoolSvc.Update(r.Context(), &cmd); err != nil {
+	if _, err = s.Services.SchoolSvc.Update(r.Context(), &cmd); err != nil {
 		s.errorPage(w, r, "Error updating school", err)
 		return
 	}
@@ -135,7 +135,7 @@ func (s *Server) adminSchoolHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	history, err := s.SchoolSvc.GetHistory(r.Context(), id)
+	history, err := s.Services.SchoolSvc.GetHistory(r.Context(), id)
 	if err != nil {
 		s.errorPage(w, r, "Error getting history", err)
 		return
@@ -149,7 +149,7 @@ func (s *Server) toggleSchoolStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSchoolLocations(w http.ResponseWriter, r *http.Request) {
-	locations, err := s.SchoolSvc.ListLocations(r.Context())
+	locations, err := s.Services.SchoolSvc.ListLocations(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error getting locations", err)
 		return
