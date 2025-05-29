@@ -2,6 +2,7 @@ package layouts
 
 import (
 	"os"
+	"geevly/internal/buildinfo"
 )
 
 func getClerkPublishableKey() string {
@@ -9,21 +10,25 @@ func getClerkPublishableKey() string {
 	return clerkPublishableKey
 }
 
+func getCacheVersion() string {
+	return buildinfo.CacheVersion()
+}
+
 templ FullLayout(main templ.Component, params Params) {
 	<!DOCTYPE html>
 	<html>
 		<head>
 			<title>Infinit Feeding</title>
-			<link rel="stylesheet" href="/static/output.css"/>
-			<link rel="stylesheet" href="/static/tom-select.css"/>
-			<script type="module" src="/static/htmx.min.js"></script>
-			<script type="module" src="/static/compressor.min.js"></script>
-			<script type="module" src="/static/tom-select.complete.min.js"></script>
-            <script src="/static/jslib-html5-camera-photo.min.js"></script>
-			<script src="/static/d3.v7.min.js"></script>
-			<script src="/static/cal-heatmap.min.js"></script>
-            <script src="/static/html5-qrcode.min.js"></script>
-            <link rel="stylesheet" href="/static/cal-heatmap.css"/>
+			<link rel="stylesheet" href={ "/static/output.css?v=" + getCacheVersion() }/>
+			<link rel="stylesheet" href={ "/static/tom-select.css?v=" + getCacheVersion() }/>
+			<script type="module" src={ "/static/htmx.min.js?v=" + getCacheVersion() }></script>
+			<script type="module" src={ "/static/compressor.min.js?v=" + getCacheVersion() }></script>
+			<script type="module" src={ "/static/tom-select.complete.min.js?v=" + getCacheVersion() }></script>
+            <script src={ "/static/jslib-html5-camera-photo.min.js?v=" + getCacheVersion() }></script>
+			<script src={ "/static/d3.v7.min.js?v=" + getCacheVersion() }></script>
+			<script src={ "/static/cal-heatmap.min.js?v=" + getCacheVersion() }></script>
+            <script src={ "/static/html5-qrcode.min.js?v=" + getCacheVersion() }></script>
+            <link rel="stylesheet" href={ "/static/cal-heatmap.css?v=" + getCacheVersion() }/>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			@templ.JSONScript("params", params.export())
 			// TODO: embed clerk in the project, don't load from CDN
@@ -85,7 +90,7 @@ templ FullLayout(main templ.Component, params Params) {
                 posthog.init('phc_J5LWIbUbSoCcHYGOAblDIALizP6o0dKIu46vyDgLYmg',{api_host:'https://us.i.posthog.com', person_profiles: 'identified_only' // or 'always' to create profiles for anonymous users as well
                     })
             </script>
-			<script src="/static/posthog.js"></script> // Posthog hooks & configuration
+			<script src={ "/static/posthog.js?v=" + getCacheVersion() }></script> // Posthog hooks & configuration
 		</head>
 		<body>
 			<div class="flex flex-col min-h-screen bg-gray-100">
@@ -107,8 +112,8 @@ templ HTMXLayout(main templ.Component, params Params) {
 templ header(params Params) {
 	<header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 		<div class="flex items-center h-14 px-4 border-b gap-4">
-			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/">
-				<img src="/static/img/infinity.svg" class="h-6 inline-block"/> Feeding
+			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/admin">
+				<img src={ "/static/img/infinity.svg?v=" + getCacheVersion() } class="h-6 inline-block"/> Feeding
 			</a>
 			<nav class="flex-1 flex justify-between items-center">
 				<div class="flex space-x-4">
@@ -124,12 +129,6 @@ templ header(params Params) {
 					}
 					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
 						Feeding
-					</a>
-					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer text-nowrap" hx-get="/how-it-works">
-						How it works 
-					</a>
-					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/about">
-						About Us
 					</a>
 				</div>
 				if (params.IsSignedIn) {

@@ -48,21 +48,7 @@ fi
 echo "Node.js version:"
 node --version
 
-# Install standalone Tailwind CSS binary
-echo "Installing Tailwind CSS standalone binary..."
-if ! curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.9/tailwindcss-linux-x64; then
-    echo "Failed to download Tailwind CSS binary"
-    exit 1
-fi
-
-if ! chmod +x tailwindcss-linux-x64; then
-    echo "Failed to make Tailwind CSS binary executable"
-    exit 1
-fi
-
-if ! mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss; then
-    echo "Failed to move Tailwind CSS binary to /usr/local/bin"
-    exit 1
-fi
+# Tailwind CSS will be installed via npm in the main Dockerfile
+echo "Tailwind CSS will be available via npm package..."
 
 echo "Build environment setup completed successfully!"
