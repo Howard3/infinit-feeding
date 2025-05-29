@@ -14,6 +14,18 @@ func getCacheVersion() string {
 	return buildinfo.CacheVersion()
 }
 
+func getBuildInfo() map[string]string {
+	return buildinfo.GetBuildInfo()
+}
+
+func getDisplayVersion() string {
+	return buildinfo.GetDisplayVersion()
+}
+
+func getBuildDate() string {
+	return buildinfo.GetBuildDate()
+}
+
 templ FullLayout(main templ.Component, params Params) {
 	<!DOCTYPE html>
 	<html>
@@ -100,6 +112,7 @@ templ FullLayout(main templ.Component, params Params) {
 						@main
 					</div>
 				</div>
+				@footer()
 			</div>
 		</body>
 	</html>
@@ -141,4 +154,27 @@ templ header(params Params) {
 			</nav>
 		</div>
 	</header>
+}
+
+templ footer() {
+	<footer class="bg-gray-50 border-t border-gray-200 py-4 mt-auto">
+		<div class="container mx-auto px-4">
+			<div class="flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
+				<div class="flex items-center space-x-4">
+					<span>{ getDisplayVersion() }</span>
+					<span class="hidden md:inline">•</span>
+					<span class="hidden md:inline">Built { getBuildDate() }</span>
+				</div>
+				<div class="flex items-center space-x-2 mt-2 md:mt-0">
+					<span 
+						class="text-xs cursor-help hover:text-gray-700 transition-colors" 
+						title={ "Version: " + getDisplayVersion() + " | Build: " + getBuildDate() + " | Cache: " + getCacheVersion() }
+					>
+						ⓘ
+					</span>
+				</div>
+			</div>
+		</div>
+
+	</footer>
 }
