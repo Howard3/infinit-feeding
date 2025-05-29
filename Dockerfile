@@ -7,8 +7,9 @@ RUN chmod +x /tmp/setup_build_env.sh && /tmp/setup_build_env.sh
 WORKDIR /usr/src/app
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
-COPY . .
+COPY package*.json ./
 RUN npm i
+COPY . .
 RUN task build:dependencies 
 RUN go build -v -o /run-app .
 

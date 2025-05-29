@@ -190,16 +190,9 @@ func (s *Server) Start(ctx context.Context) {
 	// serve static files
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
 
+	// Redirect root to admin since this is an admin-only system
 	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		s.renderTempl(w, r, templates.Home())
-	})
-
-	c.Get("/about", func(w http.ResponseWriter, r *http.Request) {
-		s.renderTempl(w, r, templates.About())
-	})
-
-	c.Get("/how-it-works", func(w http.ResponseWriter, r *http.Request) {
-		s.renderTempl(w, r, templates.HowItWorks())
+		http.Redirect(w, r, "/admin", http.StatusTemporaryRedirect)
 	})
 
 	c.Route("/student", func(r chi.Router) {
