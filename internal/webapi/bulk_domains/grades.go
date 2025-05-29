@@ -96,7 +96,7 @@ func (row *GradeRow) Validate() error {
 	if err != nil {
 		return errors.New("Grade must be a number")
 	}
-	if grade < 0 || grade > 100 {
+	if grade < 0 || grade >= 100 {
 		return errors.New("Grade must be between 0 and 100")
 	}
 	return nil
