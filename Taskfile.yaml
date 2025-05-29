@@ -2,34 +2,34 @@ version: "3"
 
 tasks:
     dev:
-      desc: "run development server"
-      deps:
-        - dev:setup
-      cmds:
-        - task watch:tailwind & air main.go
+        desc: "run development server"
+        deps:
+            - dev:setup
+        cmds:
+            - task watch:tailwind & air main.go
     dev:setup:
-      desc: "setup development environment"
-      cmds:
-        - |
-          # Generate development build info
-          mkdir -p ./internal/buildinfo
-          cat > ./internal/buildinfo/build_vars.go << EOF
-          package buildinfo
-          
-          // Development build information
-          func init() {
-              BuildTime = ""
-              BuildHash = ""
-              BuildVersion = "dev"
-          }
-          EOF
-          echo "Development build info created"
+        desc: "setup development environment"
+        cmds:
+            - |
+                # Generate development build info
+                mkdir -p ./internal/buildinfo
+                cat > ./internal/buildinfo/build_vars.go << EOF
+                package buildinfo
+
+                // Development build information
+                func init() {
+                    BuildTime = ""
+                    BuildHash = ""
+                    BuildVersion = "dev"
+                }
+                EOF
+                echo "Development build info created"
     build:dependencies:
-      desc: "run dependency builds"
-      deps:
-        - build:templates
-        - build:buf
-        - build:tailwind
+        desc: "run dependency builds"
+        deps:
+            - build:templates
+            - build:buf
+            - build:tailwind
     build:sqlc:
         desc: "build sqlc code"
         cmds:
@@ -40,12 +40,12 @@ tasks:
         cmds:
             - sqlc generate
     build:templates:
-      desc: "build templ files"
-      deps:
-        - build:info
-      cmds:
-        #      - templ fmt ./internal/webapi/templates/
-        - templ generate
+        desc: "build templ files"
+        deps:
+            - build:info
+        cmds:
+            #      - templ fmt ./internal/webapi/templates/
+            - templ generate
     build:info:
         desc: "generate build information"
         cmds:
@@ -55,7 +55,7 @@ tasks:
                     echo "Development mode detected, skipping build info generation"
                     exit 0
                 fi
-                
+
                 BUILD_TIME=$(date -u +"%Y%m%d%H%M%S")
                 BUILD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
                 echo "Build time: $BUILD_TIME"
@@ -64,7 +64,7 @@ tasks:
                 mkdir -p ./internal/buildinfo
                 cat > ./internal/buildinfo/build_vars.go << EOF
                 package buildinfo
-                
+
                 // Auto-generated build information
                 func init() {
                     BuildTime = "$BUILD_TIME"

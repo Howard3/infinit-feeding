@@ -10,7 +10,8 @@ RUN go mod download && go mod verify
 COPY package*.json ./
 RUN npm i
 COPY . .
-RUN task build:dependencies 
+RUN task build:info
+RUN task build:dependencies
 RUN go build -v -o /run-app .
 
 

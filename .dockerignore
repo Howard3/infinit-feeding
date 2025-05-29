@@ -9,3 +9,6 @@
 **/.env
 **/bin
 fly.toml
+internal/buildinfo/build_vars.go
+dump*.sql
+.envrc
