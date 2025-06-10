@@ -67,12 +67,17 @@ templ healthAssessmentsSection(healthAssessments []*student.HealthReport) {
 							}
 						</tbody>
 					</table>
-					<div class="text-xs text-gray-500 mt-2 pl-4 flex items-center gap-2">
-						* Calculated fields
-						<span class="ml-2 px-2 py-1 text-white bg-green-600 rounded-md text-xs font-semibold">Normal</span>
-						<span class="px-2 py-1 text-white bg-amber-600 rounded-md text-xs font-semibold">Wasted</span>
-						<span class="px-2 py-1 text-white bg-red-600 rounded-md text-xs font-semibold">Severely Wasted</span>
-						<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold">Error</span>
+					<div class="text-xs text-gray-500 mt-2 pl-4 border-t pt-2">
+						<div class="font-medium mb-2">Legend:</div>
+						<div class="flex items-center gap-2 flex-wrap">
+							<span>* Calculated fields</span>
+							<span class="mx-2">|</span>
+							<span>Status colors:</span>
+							<span class="px-2 py-1 text-white bg-green-600 rounded-md text-xs font-semibold">Normal</span>
+							<span class="px-2 py-1 text-white bg-amber-600 rounded-md text-xs font-semibold">Wasted</span>
+							<span class="px-2 py-1 text-white bg-red-600 rounded-md text-xs font-semibold">Severely Wasted</span>
+							<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold">Error</span>
+						</div>
 					</div>
 				</div>
 			}
