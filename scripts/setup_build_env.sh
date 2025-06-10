@@ -13,7 +13,7 @@ fi
 
 # Install templ
 echo "Installing templ..."
-if ! go install github.com/a-h/templ/cmd/templ@latest; then
+if ! go install github.com/a-h/templ/cmd/templ@v0.3.865; then
     echo "Failed to install templ"
     exit 1
 fi
