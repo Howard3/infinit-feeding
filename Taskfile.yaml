@@ -44,8 +44,8 @@ tasks:
         deps:
             - build:info
         cmds:
-            #      - templ fmt ./internal/webapi/templates/
-            - templ generate
+            - go tool templ generate
+
     build:info:
         desc: "generate build information"
         cmds:

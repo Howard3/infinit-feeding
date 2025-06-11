@@ -11,13 +11,6 @@ if ! GO111MODULE=on GOBIN=/usr/local/bin go install github.com/bufbuild/buf/cmd/
     exit 1
 fi
 
-# Install templ
-echo "Installing templ..."
-if ! go install github.com/a-h/templ/cmd/templ@v0.3.865; then
-    echo "Failed to install templ"
-    exit 1
-fi
-
 # Install Task
 echo "Installing Task..."
 if ! sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d; then
