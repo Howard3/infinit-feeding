@@ -558,6 +558,16 @@ func (d *NewStudentsDomain) UndoUpload(ctx context.Context, aggregate *bulk_uplo
 
 func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *newStudentReader, schoolID string) []error {
 	errors := make([]error, 0)
+
+	switch {
+	case newStudentReader == nil:
+		errors = append(errors, fmt.Errorf("newStudentReader is nil"))
+		return errors
+	case newStudentReader.csvReader == nil:
+		errors = append(errors, fmt.Errorf("newStudentReader.csvReader is nil"))
+		return errors
+	}
+
 	for {
 		record, err := newStudentReader.csvReader.Read()
 		if err == io.EOF {
