@@ -9,7 +9,7 @@ require google.golang.org/protobuf v1.36.6
 require (
 	github.com/Howard3/gosignal v0.2.3
 	github.com/Howard3/valueextractor v1.2.3
-	github.com/a-h/templ v0.3.865
+	github.com/a-h/templ v0.3.898
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/clerkinc/clerk-sdk-go v1.49.1
 	github.com/go-chi/chi/v5 v5.2.1

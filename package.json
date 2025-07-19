@@ -1,19 +1,19 @@
 {
-  "name": "infinit-feeding",
-  "version": "0.1.0",
-  "description": "",
-  "scripts": {},
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Howard3/infinit-feeding.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Howard3/infinit-feeding/issues"
-  },
-  "homepage": "https://github.com/Howard3/infinit-feeding#readme",
-  "devDependencies": {
-    "tailwindcss": "^3.4.3"
-  }
+	"name": "infinit-feeding",
+	"version": "0.1.0",
+	"description": "",
+	"scripts": {},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Howard3/infinit-feeding.git"
+	},
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/Howard3/infinit-feeding/issues"
+	},
+	"homepage": "https://github.com/Howard3/infinit-feeding#readme",
+	"devDependencies": {
+		"tailwindcss": "^4.1.0"
+	}
 }

@@ -1,103 +1,103 @@
 version: "3"
 
 tasks:
-    dev:
-        desc: "run development server"
-        deps:
-            - dev:setup
-        cmds:
-            - task watch:tailwind & air main.go
-    dev:setup:
-        desc: "setup development environment"
-        cmds:
-            - |
-                # Generate development build info
-                mkdir -p ./internal/buildinfo
-                cat > ./internal/buildinfo/build_vars.go << EOF
-                package buildinfo
+  dev:
+    desc: "run development server"
+    deps:
+      - dev:setup
+    cmds:
+      - task watch:tailwind & air main.go
+  dev:setup:
+    desc: "setup development environment"
+    cmds:
+      - |
+        # Generate development build info
+        mkdir -p ./internal/buildinfo
+        cat > ./internal/buildinfo/build_vars.go << EOF
+        package buildinfo
 
-                // Development build information
-                func init() {
-                    BuildTime = ""
-                    BuildHash = ""
-                    BuildVersion = "dev"
-                }
-                EOF
-                echo "Development build info created"
-    build:dependencies:
-        desc: "run dependency builds"
-        deps:
-            - build:templates
-            - build:buf
-            - build:tailwind
-    build:sqlc:
-        desc: "build sqlc code"
-        cmds:
-            - task: build:sqlc:bulk_uploads
-    build:sqlc:bulk_uploads:
-        desc: "build sqlc code for bulk uploads"
-        dir: internal/bulk_upload/db
-        cmds:
-            - sqlc generate
-    build:templates:
-        desc: "build templ files"
-        deps:
-            - build:info
-        cmds:
-            #      - templ fmt ./internal/webapi/templates/
-            - templ generate
-    build:info:
-        desc: "generate build information"
-        cmds:
-            - |
-                # Check if we're in development mode (if dev build_vars.go exists with dev version)
-                if [ -f "./internal/buildinfo/build_vars.go" ] && grep -q 'BuildVersion = "dev"' "./internal/buildinfo/build_vars.go"; then
-                    echo "Development mode detected, skipping build info generation"
-                    exit 0
-                fi
+        // Development build information
+        func init() {
+            BuildTime = ""
+            BuildHash = ""
+            BuildVersion = "dev"
+        }
+        EOF
+        echo "Development build info created"
+  build:dependencies:
+    desc: "run dependency builds"
+    deps:
+      - build:templates
+      - build:buf
+      - build:tailwind
+  build:sqlc:
+    desc: "build sqlc code"
+    cmds:
+      - task: build:sqlc:bulk_uploads
+  build:sqlc:bulk_uploads:
+    desc: "build sqlc code for bulk uploads"
+    dir: internal/bulk_upload/db
+    cmds:
+      - sqlc generate
+  build:templates:
+    desc: "build templ files"
+    deps:
+      - build:info
+    cmds:
+      #      - templ fmt ./internal/webapi/templates/
+      - templ generate
+  build:info:
+    desc: "generate build information"
+    cmds:
+      - |
+        # Check if we're in development mode (if dev build_vars.go exists with dev version)
+        if [ -f "./internal/buildinfo/build_vars.go" ] && grep -q 'BuildVersion = "dev"' "./internal/buildinfo/build_vars.go"; then
+            echo "Development mode detected, skipping build info generation"
+            exit 0
+        fi
 
-                BUILD_TIME=$(date -u +"%Y%m%d%H%M%S")
-                BUILD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-                echo "Build time: $BUILD_TIME"
-                echo "Build hash: $BUILD_HASH"
-                # Write build info to a file that can be embedded
-                mkdir -p ./internal/buildinfo
-                cat > ./internal/buildinfo/build_vars.go << EOF
-                package buildinfo
+        BUILD_TIME=$(date -u +"%Y%m%d%H%M%S")
+        BUILD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        echo "Build time: $BUILD_TIME"
+        echo "Build hash: $BUILD_HASH"
+        # Write build info to a file that can be embedded
+        mkdir -p ./internal/buildinfo
+        cat > ./internal/buildinfo/build_vars.go << EOF
+        package buildinfo
 
-                // Auto-generated build information
-                func init() {
-                    BuildTime = "$BUILD_TIME"
-                    BuildHash = "$BUILD_HASH"
-                    BuildVersion = "production"
-                }
-                EOF
-    build:tailwind:
-        desc: "build tailwind css"
-        cmds:
-            - npx tailwindcss -i ./static/input.css -o ./static/output.css
-    watch:tailwind:
-        desc: "watch tailwind css"
-        cmds:
-            - npx tailwindcss -i ./static/input.css -o ./static/output.css --watch
-    build:buf:
-        desc: "Generate event go code from proto files if proto files are newer"
-        dir: "events"
-        cmds:
-            - buf generate
-    deploy:production:
-        desc: "deploy to production"
-        cmds:
-            - fly deploy -a infinit-feeding
-    deploy:staging:
-        desc: "deploy to staging"
-        cmds:
-            - fly deploy -a infinit-feeding-staging
-    swagger:
-        desc: "generate swagger docs"
-        cmds:
-            - ./scripts/swagger.sh
-    build:docker:
-        desc: "build docker image"
-        cmds:
-            - docker build -t infinit-feeding .
+        // Auto-generated build information
+        func init() {
+            BuildTime = "$BUILD_TIME"
+            BuildHash = "$BUILD_HASH"
+            BuildVersion = "production"
+        }
+        EOF
+  build:tailwind:
+    desc: "build tailwind css"
+    cmds:
+      - npx tailwindcss -i ./static/input.css -o ./static/output.css
+  watch:tailwind:
+    desc: "watch tailwind css"
+    cmds:
+      - npx @tailwindcss/cli -i ./static/input.css -o ./static/output.css --watch
+  build:buf:
+    desc: "Generate event go code from proto files if proto files are newer"
+    dir: "events"
+    cmds:
+      - buf generate
+  deploy:production:
+    desc: "deploy to production"
+    cmds:
+      - fly deploy -a infinit-feeding
+  deploy:staging:
+    desc: "deploy to staging"
+    cmds:
+      - fly deploy -a infinit-feeding-staging
+  swagger:
+    desc: "generate swagger docs"
+    cmds:
+      - ./scripts/swagger.sh
+  build:docker:
+    desc: "build docker image"
+    cmds:
+      - docker build -t infinit-feeding .
