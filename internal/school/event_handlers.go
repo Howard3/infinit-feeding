@@ -50,3 +50,9 @@ func (eh *eventHandlers) HandleUpdateSchoolEvent(ctx context.Context, evt *gosig
 func (eh *eventHandlers) HandleSetStatusEvent(ctx context.Context, evt *gosignal.Event) {
 	eh.HandleNewSchoolEvent(ctx, evt)
 }
+
+// HandleSetSchoolPeriodEvent is a method that handles the SetSchoolPeriodEvent
+// functionally the same as HandleNewSchoolEvent, thus it just aliases it
+func (eh *eventHandlers) HandleSetSchoolPeriodEvent(ctx context.Context, evt *gosignal.Event) {
+	eh.HandleNewSchoolEvent(ctx, evt)
+}

@@ -76,6 +76,30 @@ func (s *Service) Update(ctx context.Context, cmd *eda.School_Update) (*eda.Scho
 	}, nil
 }
 
+// SetSchoolPeriod sets the school period for a school
+func (s *Service) SetSchoolPeriod(ctx context.Context, cmd *eda.School_SetSchoolPeriod) (*eda.School_SetSchoolPeriod_Response, error) {
+	agg, err := s.repo.loadSchool(ctx, cmd.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	evt, err := agg.SetSchoolPeriod(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.saveEvents(ctx, []gosignal.Event{*evt}); err != nil {
+		return nil, err
+	}
+
+	s.eventHandlers.HandleSetSchoolPeriodEvent(ctx, evt)
+
+	return &eda.School_SetSchoolPeriod_Response{
+		Id:     agg.GetIDUint64(),
+		School: agg.data,
+	}, nil
+}
+
 // List returns a list of schools from the projection
 func (s *Service) List(ctx context.Context, limit, page uint) (*ListResponse, error) {
 	schools, err := s.repo.listSchools(ctx, limit, page)

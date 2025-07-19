@@ -29,6 +29,9 @@ templ List(schools *school.ListResponse, pagination components.Pagination) {
 									Active
 								</th>
 								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
+									School Period
+								</th>
+								<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
 									Actions
 								</th>
 							</tr>
@@ -44,6 +47,15 @@ templ List(schools *school.ListResponse, pagination components.Pagination) {
 											<span class="text-green-500">Active</span>
 										} else {
 											<span class="text-red-500">Inactive</span>
+										}
+									</td>
+									<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
+										if school.SchoolStartMonth != nil && school.SchoolStartDay != nil && school.SchoolEndMonth != nil && school.SchoolEndDay != nil {
+											<span class="text-sm text-gray-600">
+												{ fmt.Sprintf("%d/%d - %d/%d", *school.SchoolStartMonth, *school.SchoolStartDay, *school.SchoolEndMonth, *school.SchoolEndDay) }
+											</span>
+										} else {
+											<span class="text-sm text-gray-400">Not set</span>
 										}
 									</td>
 									<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">

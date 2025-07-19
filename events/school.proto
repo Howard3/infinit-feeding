@@ -11,6 +11,13 @@ message School {
   bool disabled = 4;
   string country = 5;
   string city = 6;
+  MonthDay school_end = 7;
+  MonthDay school_start = 8;
+
+  message MonthDay {
+    uint32 month = 1;
+    uint32 day = 2;
+  }
 
   message Create {
     string name = 1;
@@ -57,5 +64,23 @@ message School {
       uint64 id = 1;
       School school = 2;
     }
+  }
+
+  message SetSchoolPeriod {
+  	uint64 id = 1;
+  	MonthDay school_end = 2;
+  	MonthDay school_start = 3;
+  	uint64 version = 4;
+
+  	message Event {
+  		uint64 id = 1;
+  		MonthDay school_end = 2;
+  		MonthDay school_start = 3;
+  	}
+
+  	message Response {
+  		uint64 id = 1;
+  		School school = 2;
+  	}
   }
 }

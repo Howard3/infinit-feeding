@@ -1,0 +1,50 @@
+package schooltempl
+
+import (
+	"geevly/gen/go/eda"
+	"fmt"
+	"geevly/internal/webapi/templates/components"
+)
+
+templ SetPeriod(id uint64, school *eda.School, ver uint64) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm" data-v0-t="card">
+		<div class="flex flex-col space-y-1.5 p-6">
+			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">School Period</h3>
+			<p class="text-sm text-muted-foreground">Set the academic year start and end dates for this school</p>
+		</div>
+		<div class="p-6 pt-0">
+			<form hx-post={ fmt.Sprintf("/admin/school/%d/period", id) } hx-push-url="false">
+				<div class="grid grid-cols-2 gap-4">
+					<div class="space-y-2">
+						<h4 class="text-sm font-medium">School Start Date</h4>
+						<div class="grid grid-cols-2 gap-2">
+							if school.SchoolStart != nil {
+								@components.TextField("Month", "school_start_month", "1-12", fmt.Sprintf("%d", school.SchoolStart.Month))
+								@components.TextField("Day", "school_start_day", "1-31", fmt.Sprintf("%d", school.SchoolStart.Day))
+							} else {
+								@components.TextField("Month", "school_start_month", "1-12", "")
+								@components.TextField("Day", "school_start_day", "1-31", "")
+							}
+						</div>
+					</div>
+					<div class="space-y-2">
+						<h4 class="text-sm font-medium">School End Date</h4>
+						<div class="grid grid-cols-2 gap-2">
+							if school.SchoolEnd != nil {
+								@components.TextField("Month", "school_end_month", "1-12", fmt.Sprintf("%d", school.SchoolEnd.Month))
+								@components.TextField("Day", "school_end_day", "1-31", fmt.Sprintf("%d", school.SchoolEnd.Day))
+							} else {
+								@components.TextField("Month", "school_end_month", "1-12", "")
+								@components.TextField("Day", "school_end_day", "1-31", "")
+							}
+						</div>
+					</div>
+				</div>
+				@components.HiddenField("version", fmt.Sprintf("%d", ver))
+				<div class="pt-4 text-right">
+					@components.SubmitButton("Update School Period")
+				</div>
+			</form>
+		</div>
+	</div>
+}

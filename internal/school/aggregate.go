@@ -16,6 +16,7 @@ var ErrMustHaveName = fmt.Errorf("school must have a name")
 
 const EventCreateSchool = "CreateSchool"
 const EventUpdateSchool = "UpdateSchool"
+const EventSetSchoolPeriod = "SetSchoolPeriod"
 
 var ErrEventNotFound = fmt.Errorf("event not found")
 
@@ -54,6 +55,9 @@ func (agg *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	case EventUpdateSchool:
 		eventData = &eda.School_Update_Event{}
 		handler = agg.handleUpdateSchool
+	case EventSetSchoolPeriod:
+		eventData = &eda.School_SetSchoolPeriod_Event{}
+		handler = agg.handleSetSchoolPeriod
 	default:
 		return ErrEventNotFound
 	}
@@ -108,6 +112,18 @@ func (agg *Aggregate) CreateSchool(cmd *eda.School_Create) (*gosignal.Event, err
 	})
 }
 
+func (agg *Aggregate) SetSchoolPeriod(cmd *eda.School_SetSchoolPeriod) (*gosignal.Event, error) {
+	return agg.ApplyEvent(SchoolEvent{
+		eventType: EventSetSchoolPeriod,
+		data: &eda.School_SetSchoolPeriod_Event{
+			Id:          cmd.Id,
+			SchoolEnd:   cmd.SchoolEnd,
+			SchoolStart: cmd.SchoolStart,
+		},
+		version: cmd.Version,
+	})
+}
+
 func (agg *Aggregate) UpdateSchool(cmd *eda.School_Update) (*gosignal.Event, error) {
 	return agg.ApplyEvent(SchoolEvent{
 		eventType: EventUpdateSchool,
@@ -136,6 +152,15 @@ func (agg *Aggregate) handleAddSchool(we wrappedEvent) error {
 		Country:   data.Country,
 		City:      data.City,
 	}
+
+	return nil
+}
+
+func (agg *Aggregate) handleSetSchoolPeriod(we wrappedEvent) error {
+	data := we.data.(*eda.School_SetSchoolPeriod_Event)
+
+	agg.data.SchoolEnd = data.SchoolEnd
+	agg.data.SchoolStart = data.SchoolStart
 
 	return nil
 }

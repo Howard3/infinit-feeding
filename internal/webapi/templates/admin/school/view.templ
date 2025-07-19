@@ -6,8 +6,35 @@ import (
 	"geevly/internal/webapi/templates/components"
 )
 
+templ backToSchoolList() {
+	<div class="border-b px-4 py-2 flex items-center justify-between bg-gray-100">
+		<a
+			class="flex cursor-pointer items-center gap-2 text-gray-900 hover:text-gray-700 transition-colors"
+			hx-get="/admin/school"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="h-4 w-4"
+			>
+				<path d="m12 19-7-7 7-7"></path>
+				<path d="M19 12H5"></path>
+			</svg>
+			Back to Schools
+		</a>
+	</div>
+}
+
 templ View(id uint64, school *eda.School, ver uint64) {
-	<div class="grid gap-6 md:grid-cols-2 m-3">
+	@backToSchoolList()
+	<div class="grid gap-6 lg:grid-cols-3 md:grid-cols-2 m-3">
 		<div class="space-y-4">
 			<form hx-post={ fmt.Sprintf("/admin/school/%d", id) } hx-push-url="false">
 				@components.TextField("Name", "name", "Enter name", school.Name)
@@ -21,9 +48,13 @@ templ View(id uint64, school *eda.School, ver uint64) {
 				</div>
 			</form>
 		</div>
+		// School Period Management Section
+		<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/school/%d/period", id) } hx-target="this">
+			Loading period management...
+		</div>
 		// Embed History Section
 		<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/school/%d/history", id) } hx-target="this">
-			Loading...
+			Loading history...
 		</div>
 	</div>
 }

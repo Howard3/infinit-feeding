@@ -21,6 +21,8 @@ templ EventHistory(evts []gosignal.Event) {
 										School created
 									case school.EventUpdateSchool:
 										School updated
+									case school.EventSetSchoolPeriod:
+										School period updated
 									default:
 										Unknown
 								}

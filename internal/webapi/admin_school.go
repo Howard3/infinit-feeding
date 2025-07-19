@@ -21,6 +21,8 @@ func (s *Server) schoolAdminRoutes(r chi.Router) {
 	r.Get("/{ID}", s.adminViewSchool)
 	r.Post("/{ID}", s.adminUpdateSchool)
 	r.Get("/{ID}/history", s.adminSchoolHistory)
+	r.Get("/{ID}/period", s.adminSchoolPeriodForm)
+	r.Post("/{ID}/period", s.adminSetSchoolPeriod)
 	r.Get("/locations", s.getSchoolLocations)
 }
 
@@ -176,4 +178,58 @@ func (s *Server) getSchoolLocations(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Return the data in appropriate format (JSON/Template)
 	// You can now use countries and locationMap[country] in your templates
+}
+
+func (s *Server) adminSchoolPeriodForm(w http.ResponseWriter, r *http.Request) {
+	id, err := s.readSchoolIDFromURL(w, r)
+	if err != nil {
+		return
+	}
+
+	agg, err := s.Services.SchoolSvc.Get(r.Context(), id)
+	if err != nil {
+		s.errorPage(w, r, "Error getting school", err)
+		return
+	}
+
+	s.renderTempl(w, r, schooltempl.SetPeriod(id, agg.GetData(), agg.GetVersion()))
+}
+
+func (s *Server) adminSetSchoolPeriod(w http.ResponseWriter, r *http.Request) {
+	id, err := s.readSchoolIDFromURL(w, r)
+	if err != nil {
+		return
+	}
+
+	ex := vex.Using(&vex.FormExtractor{Request: r})
+	version := vex.Result(ex, "version", vex.AsUint64)
+	startMonth := uint32(vex.Result(ex, "school_start_month", vex.AsUint64))
+	startDay := uint32(vex.Result(ex, "school_start_day", vex.AsUint64))
+	endMonth := uint32(vex.Result(ex, "school_end_month", vex.AsUint64))
+	endDay := uint32(vex.Result(ex, "school_end_day", vex.AsUint64))
+
+	if err := ex.Errors(); err != nil {
+		s.errorPage(w, r, "Error parsing form", ex.JoinedErrors())
+		return
+	}
+
+	cmd := eda.School_SetSchoolPeriod{
+		Id:      id,
+		Version: version,
+		SchoolStart: &eda.School_MonthDay{
+			Month: startMonth,
+			Day:   startDay,
+		},
+		SchoolEnd: &eda.School_MonthDay{
+			Month: endMonth,
+			Day:   endDay,
+		},
+	}
+
+	if _, err = s.Services.SchoolSvc.SetSchoolPeriod(r.Context(), &cmd); err != nil {
+		s.errorPage(w, r, "Error setting school period", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/school/%d", id), "School period updated"))
 }

@@ -41,13 +41,17 @@ type Repository interface {
 
 // ProjectedSchool is a struct that represents a school projection
 type ProjectedSchool struct {
-	ID        uint
-	Name      string // name of the school
-	Active    bool   // is this scool currently active
-	Version   int    // version of the school
-	UpdatedAt time.Time
-	Country   string // Add these fields to match the projection
-	City      string
+	ID               uint
+	Name             string // name of the school
+	Active           bool   // is this scool currently active
+	Version          int    // version of the school
+	UpdatedAt        time.Time
+	Country          string // Add these fields to match the projection
+	City             string
+	SchoolStartMonth *uint32 // school start month
+	SchoolStartDay   *uint32 // school start day
+	SchoolEndMonth   *uint32 // school end month
+	SchoolEndDay     *uint32 // school end day
 }
 
 type sqlRepository struct {
@@ -73,20 +77,34 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		return fmt.Errorf("cannot upsert nil aggregate")
 	}
 
-	query := `INSERT INTO schools 
-		(id, name, active, version, updated_at, country, city)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
-		ON CONFLICT (id) DO UPDATE SET 
+	query := `INSERT INTO schools
+		(id, name, active, version, updated_at, country, city, school_start_month, school_start_day, school_end_month, school_end_day)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			active = EXCLUDED.active,
 			version = EXCLUDED.version,
 			updated_at = CURRENT_TIMESTAMP,
 			country = EXCLUDED.country,
-			city = EXCLUDED.city
+			city = EXCLUDED.city,
+			school_start_month = EXCLUDED.school_start_month,
+			school_start_day = EXCLUDED.school_start_day,
+			school_end_month = EXCLUDED.school_end_month,
+			school_end_day = EXCLUDED.school_end_day
 		RETURNING id;
 	`
 
 	active := !agg.data.Disabled
+
+	var schoolStartMonth, schoolStartDay, schoolEndMonth, schoolEndDay interface{}
+	if agg.data.SchoolStart != nil {
+		schoolStartMonth = agg.data.SchoolStart.Month
+		schoolStartDay = agg.data.SchoolStart.Day
+	}
+	if agg.data.SchoolEnd != nil {
+		schoolEndMonth = agg.data.SchoolEnd.Month
+		schoolEndDay = agg.data.SchoolEnd.Day
+	}
 
 	_, err := r.db.Exec(
 		query,
@@ -96,6 +114,10 @@ func (r *sqlRepository) upsertProjection(agg *Aggregate) error {
 		agg.Version,
 		agg.data.Country,
 		agg.data.City,
+		schoolStartMonth,
+		schoolStartDay,
+		schoolEndMonth,
+		schoolEndDay,
 	)
 
 	if err != nil {
@@ -109,8 +131,9 @@ func (r *sqlRepository) saveEvents(ctx context.Context, evts []gosignal.Event) (
 }
 func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) ([]*ProjectedSchool, error) {
 	query := `
-		SELECT id, name, active, version, updated_at, country, city 
-		FROM schools 
+		SELECT id, name, active, version, updated_at, country, city,
+		       school_start_month, school_start_day, school_end_month, school_end_day
+		FROM schools
 		LIMIT ? OFFSET ?;
 	`
 
@@ -134,6 +157,7 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 	for rows.Next() {
 		school := &ProjectedSchool{}
 		var country, city sql.NullString
+		var schoolStartMonth, schoolStartDay, schoolEndMonth, schoolEndDay sql.NullInt32
 		if err := rows.Scan(
 			&school.ID,
 			&school.Name,
@@ -142,12 +166,34 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 			&school.UpdatedAt,
 			&country,
 			&city,
+			&schoolStartMonth,
+			&schoolStartDay,
+			&schoolEndMonth,
+			&schoolEndDay,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan school: %w", err)
 		}
 
 		school.Country = country.String
 		school.City = city.String
+
+		if schoolStartMonth.Valid {
+			month := uint32(schoolStartMonth.Int32)
+			school.SchoolStartMonth = &month
+		}
+		if schoolStartDay.Valid {
+			day := uint32(schoolStartDay.Int32)
+			school.SchoolStartDay = &day
+		}
+		if schoolEndMonth.Valid {
+			month := uint32(schoolEndMonth.Int32)
+			school.SchoolEndMonth = &month
+		}
+		if schoolEndDay.Valid {
+			day := uint32(schoolEndDay.Int32)
+			school.SchoolEndDay = &day
+		}
+
 		schools = append(schools, school)
 	}
 
@@ -258,11 +304,11 @@ func (r *sqlRepository) validateSchoolID(ctx context.Context, id uint64) error {
 
 func (r *sqlRepository) listLocations(ctx context.Context) ([]Location, error) {
 	query := `
-		SELECT DISTINCT country, city 
-		FROM schools 
-		WHERE country IS NOT NULL 
-		  AND country != '' 
-		  AND city IS NOT NULL 
+		SELECT DISTINCT country, city
+		FROM schools
+		WHERE country IS NOT NULL
+		  AND country != ''
+		  AND city IS NOT NULL
 		  AND city != ''
 		ORDER BY country, city;
 	`
