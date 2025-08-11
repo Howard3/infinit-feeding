@@ -436,6 +436,10 @@ func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_u
 			AssociatedBulkUploadId: aggregate.GetID(),
 		})
 
+		if err != nil {
+			return d.errorHandler(logger, err, "when creating a new student")
+		}
+
 		studentsCreated = append(studentsCreated, newStudent.GetID())
 
 		if err != nil {
