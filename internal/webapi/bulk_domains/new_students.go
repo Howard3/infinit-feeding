@@ -442,10 +442,6 @@ func (d *NewStudentsDomain) ProcessUpload(ctx context.Context, aggregate *bulk_u
 
 		studentsCreated = append(studentsCreated, newStudent.GetID())
 
-		if err != nil {
-			return d.errorHandler(logger, err, "when creating a new student")
-		}
-
 		logger.Info("getting student's photo")
 		photo, err := nsr.getStudentPhoto(nsr.headerIndexes.getLRN(record))
 		if err != nil {
