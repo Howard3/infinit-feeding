@@ -468,7 +468,7 @@ templ codeSection(p ViewParams, isDeleted bool) {
 			<div class="flex items-center justify-center gap-2 w-full p-3">
 				<span class="text-sm text-gray-500">Code actions disabled for deleted student</span>
 			</div>
-		} else {
+		} else if len(p.Student.CodeUniqueId) == 0 {
 			<form class="flex items-center justify-center gap-2 w-full" hx-push-url="false">
 				@components.HiddenField("version", fmt.Sprintf("%d", p.Version))
 				<button
