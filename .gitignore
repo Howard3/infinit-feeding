@@ -15,3 +15,4 @@ dump*.sql
 .envrc
 internal/buildinfo/build_vars.go
 .DS_Store
+.idea

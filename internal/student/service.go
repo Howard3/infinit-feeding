@@ -204,6 +204,8 @@ func (s *StudentService) CreateStudent(ctx context.Context, req *eda.Student_Cre
 		return nil, err
 	}
 
+	// TODO: generate the lookup code w/ the student
+
 	return studentAgg, s.saveEvent(ctx, evt)
 }
 

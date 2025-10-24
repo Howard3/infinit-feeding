@@ -24,6 +24,23 @@ const MaxPageSize = 100
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// ProjectedStudent - what information should be returned from a projected student
+type ProjectedStudent struct {
+	ID                     uint
+	FirstName              string
+	LastName               string
+	SchoolID               string
+	DateOfBirth            time.Time
+	StudentID              string
+	Grade                  uint
+	Version                uint
+	Active                 bool
+	Age                    uint
+	ProfilePhotoID         string
+	EligibleForSponsorship bool
+	QRCode                 string
+}
+
 // Add this new struct for filter options
 type StudentListFilters struct {
 	ActiveOnly                 bool
@@ -69,21 +86,6 @@ type Repository interface {
 	GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error)
 	GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
 	getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error)
-}
-
-type ProjectedStudent struct {
-	ID                     uint
-	FirstName              string
-	LastName               string
-	SchoolID               string
-	DateOfBirth            time.Time
-	StudentID              string
-	Grade                  uint
-	Version                uint
-	Active                 bool
-	Age                    uint
-	ProfilePhotoID         string
-	EligibleForSponsorship bool
 }
 
 // source schema:
@@ -440,9 +442,10 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filters StudentListFilters) ([]*ProjectedStudent, error) {
 	baseQuery := `SELECT
 		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
-		spp.file_id as profile_photo_id, sp.eligible_for_sponsorship
+		spp.file_id as profile_photo_id, sp.eligible_for_sponsorship, spl.code
 		FROM student_projections sp
-		LEFT JOIN student_profile_photos spp ON sp.id = spp.id`
+		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
+        LEFT JOIN student_code_lookup spl on sp.id = spl.id`
 
 	where := []string{}
 	args := []interface{}{}
@@ -498,7 +501,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 	students := []*ProjectedStudent{}
 	for rows.Next() {
 		student := &ProjectedStudent{}
-		var dateOfBirth, studentID, profilePhotoID sql.NullString
+		var dateOfBirth, studentID, profilePhotoID, qrCode sql.NullString
 		var grade, age sql.NullInt64
 
 		if err := rows.Scan(
@@ -514,6 +517,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 			&student.Active,
 			&profilePhotoID,
 			&student.EligibleForSponsorship,
+			&qrCode,
 		); err != nil {
 			return nil, fmt.Errorf("scan student: %w", err)
 		}
@@ -523,6 +527,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 		student.Grade = uint(grade.Int64)
 		student.Age = uint(age.Int64)
 		student.ProfilePhotoID = profilePhotoID.String
+		student.QRCode = qrCode.String
 
 		students = append(students, student)
 	}

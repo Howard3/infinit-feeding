@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"strings"
 )
 
 // NewPagination creates a new Pagination struct for templates to render
@@ -35,7 +36,11 @@ func (p *Pagination) to() uint {
 }
 
 func (p *Pagination) genURLForPage(page uint) string {
-	return fmt.Sprintf("%s?page=%d&limit=%d", p.URL, page, p.limit)
+	sep := "?"
+	if strings.Contains(p.URL, "?") {
+		sep = "&"
+	}
+	return fmt.Sprintf("%s%spage=%d&limit=%d", p.URL, sep, page, p.limit)
 }
 
 // Add new helper method

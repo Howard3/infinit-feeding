@@ -1,4 +1,4 @@
-package usertempl 
+package usertempl
 
 import (
 	"geevly/internal/webapi/templates/components"
@@ -8,6 +8,7 @@ templ Create() {
 	@components.FormWrapper("Create User", "/admin/user/create", "/admin/user") {
 		@components.TextField("First Name", "first_name", "Enter first name", "")
 		@components.TextField("Last Name", "last_name", "Enter last name", "")
+		@components.EmailField("Email", "email", "Enter email address", "")
 		@components.TextField("Username", "username", "Enter username", "")
 		@components.PasswordField("Password", "password", "Enter password", "")
 		@components.SubmitButton("Create User")

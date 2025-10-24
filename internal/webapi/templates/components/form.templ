@@ -1,4 +1,4 @@
-package components 
+package components
 
 templ FormWrapper(title, postURL, returnURL string) {
 	<div class="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg space-y-6">
@@ -63,6 +63,27 @@ templ PasswordField(label, fieldName, placeholder, value string) {
 			value={ value }
             autocomplete="off"
             type="password"
+		/>
+	</div>
+}
+
+templ EmailField(label, fieldName, placeholder, value string) {
+	<div class="space-y-2">
+		<label
+			class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+			for={ fieldName }
+		>
+			{ label }
+		</label>
+		<input
+			class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+			id={ fieldName }
+			name={ fieldName }
+			placeholder={ placeholder }
+			required=""
+			value={ value }
+            autocomplete="email"
+            type="email"
 		/>
 	</div>
 }
@@ -149,7 +170,7 @@ templ TomSelect(cfg SelectConfig) {
 script tomSelectConfig(cfg SelectConfig) {
     document.addEventListener("htmx:load", function() {
         const options = Object.keys(cfg.Options).map(function(value) {
-            return { value, text: cfg.Options[value] } 
+            return { value, text: cfg.Options[value] }
         });
         var settings = {options, maxItems: cfg.MaxItems, placeholder: cfg.Placeholder};
         new TomSelect('#'+cfg.Name, settings);

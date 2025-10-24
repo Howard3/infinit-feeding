@@ -1,0 +1,130 @@
+package reportstempl
+
+import (
+    "encoding/base64"
+    "fmt"
+    "geevly/internal/student"
+    components "geevly/internal/webapi/templates/components"
+)
+
+// base64Encode encodes the provided bytes using URL-safe base64 without padding
+func base64Encode(b []byte) string {
+    return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
+}
+
+templ StudentQRBulk(students []*student.ProjectedStudent, schoolName string, pagination components.Pagination) {
+    <div class="container mx-auto px-4 py-6 print:px-0 print:mx-0 print:w-full print:max-w-none print:py-0">
+        <div class="mb-4 flex items-center justify-between print:hidden">
+            <div>
+                <h1 class="text-2xl font-bold">Student QR Codes</h1>
+                <p class="text-sm text-gray-600">School: { schoolName }</p>
+            </div>
+            <div class="flex items-center gap-3">
+                @components.ItemCounter(pagination)
+                <button onclick="window.print()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium border px-3 py-2 hover:bg-gray-50">
+                    Print
+                </button>
+            </div>
+        </div>
+
+        if len(students) == 0 {
+            <div class="text-gray-600">No students found for the selected criteria.</div>
+        } else {
+            // 5 columns × up to 6 rows (30 per page)
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 print:grid print:grid-cols-5 print:gap-4 qr-grid">
+                for _, s := range students {
+                    // Prefer the stored QRCode; no fallback when missing
+                    {{ code := s.QRCode }}
+                    {{ stringID := fmt.Sprintf("%d",s.ID) }}
+
+
+                    <div class="flex flex-col items-center text-center break-inside-avoid qr-cell">
+                        if code != "" {
+                            <div id={"qr_"+stringID} data-code={code} class="w-32 h-32 md:w-40 md:h-40 lg:w-44 lg:h-44 print:w-36 print:h-36 qr-code">
+                                <script type="text/javascript">
+                                    (function() {
+                                        const parent = document.currentScript.parentElement || document.currentScript.parentNode;
+                                        new QRCode(parent, parent.dataset.code);
+                                    })()
+                                </script>
+                            </div>
+                        } else {
+                            <a class="w-32 h-32 md:w-40 md:h-40 lg:w-44 lg:h-44 print:w-36 print:h-36 qr-code qr-missing flex items-center justify-center bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-gray-50"
+                               hx-get={ fmt.Sprintf("/admin/student/%d", s.ID) }
+                               hx-target="#content"
+                               hx-swap="innerHTML"
+                               hx-push-url="true"
+                               title="Open student page to generate a QR code">
+                                <span class="text-[10px] md:text-xs text-center leading-tight px-2">No QR code defined</span>
+                            </a>
+                        }
+                        <div class="mt-2 text-sm font-medium text-gray-800 w-full truncate qr-name">
+                            { s.FirstName + " " + s.LastName }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="mt-6 print:hidden">
+                @components.ItemCounter(pagination)
+            </div>
+        }
+
+        // Ensure exactly one printable page when up to 30 entries are provided
+        <style>
+            @media print {
+                @page { size: A4; margin: 12mm; }
+                .break-inside-avoid { break-inside: avoid; }
+
+                /* Fit exactly 5 columns × 6 rows per page with comfortable spacing */
+                .qr-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(5, 34mm) !important;
+                    column-gap: 4mm !important;
+                    row-gap: 4mm !important;
+                    width: 100% !important;
+                }
+                .qr-cell {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                    -webkit-region-break-inside: avoid;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                }
+                .qr-code {
+                    width: 32mm !important;
+                    height: 32mm !important;
+                }
+                .qr-code canvas {
+                    width: 100% !important;
+                    height: 100% !important;
+                }
+                .qr-missing {
+                    background: #f3f4f6 !important;
+                    color: #6b7280 !important;
+                    border: 0.2mm dashed #d1d5db !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    text-align: center !important;
+                    padding: 1mm !important;
+                    font-size: 9pt !important;
+                }
+                .qr-name {
+                    font-size: 10pt !important;
+                    margin-top: 1.5mm !important;
+                    max-width: 34mm !important;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                /* Start a new page after every 30 codes, but not after the last item */
+                .qr-cell:nth-of-type(30n):not(:last-child) {
+                    break-after: page;
+                    page-break-after: always;
+                }
+            }
+        </style>
+    </div>
+}

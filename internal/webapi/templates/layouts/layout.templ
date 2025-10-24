@@ -39,7 +39,8 @@ templ FullLayout(main templ.Component, params Params) {
             <script src={ "/static/jslib-html5-camera-photo.min.js?v=" + getCacheVersion() }></script>
 			<script src={ "/static/d3.v7.min.js?v=" + getCacheVersion() }></script>
 			<script src={ "/static/cal-heatmap.min.js?v=" + getCacheVersion() }></script>
-            <script src={ "/static/html5-qrcode.min.js?v=" + getCacheVersion() }></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
             <link rel="stylesheet" href={ "/static/cal-heatmap.css?v=" + getCacheVersion() }/>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			@templ.JSONScript("params", params.export())
@@ -105,9 +106,9 @@ templ FullLayout(main templ.Component, params Params) {
 			<script src={ "/static/posthog.js?v=" + getCacheVersion() }></script> // Posthog hooks & configuration
 		</head>
 		<body>
-			<div class="flex flex-col min-h-screen bg-gray-100">
+			<div class="flex flex-col min-h-screen bg-gray-100 print:bg-transparent">
 				@header(params)
-				<div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2">
+ 			<div class="flex flex-col w-full rounded-lg shadow mx-auto container mt-3 bg-white mb-3 border-gray-300 border-2 print:shadow-none print:border-0 print:bg-transparent print:mt-0 print:mb-0 print:rounded-none print:mx-0 print:px-0 print:w-full print:max-w-none">
 					<div id="content" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 						@main
 					</div>
@@ -123,7 +124,7 @@ templ HTMXLayout(main templ.Component, params Params) {
 }
 
 templ header(params Params) {
-	<header class="border-b bg-white shadow" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+	<header class="border-b bg-white shadow print:hidden" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
 		<div class="flex items-center h-14 px-4 border-b gap-4">
 			<a class="text-lg font-semibold cursor-pointer hover:text-gray-800" hx-get="/admin">
 				<img src={ "/static/img/infinity.svg?v=" + getCacheVersion() } class="h-6 inline-block"/> Feeding
@@ -157,7 +158,7 @@ templ header(params Params) {
 }
 
 templ footer() {
-	<footer class="bg-gray-50 border-t border-gray-200 py-4 mt-auto">
+	<footer class="bg-gray-50 border-t border-gray-200 py-4 mt-auto print:hidden">
 		<div class="container mx-auto px-4">
 			<div class="flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
 				<div class="flex items-center space-x-4">

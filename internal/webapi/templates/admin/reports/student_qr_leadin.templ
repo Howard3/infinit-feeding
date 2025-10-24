@@ -1,0 +1,43 @@
+package reportstempl
+
+import "geevly/internal/webapi/templates/components"
+
+templ StudentQRLeadIn(schools map[string]string) {
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-2xl font-bold mb-4">Student QR Codes</h1>
+
+        <div class="mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-900">
+                <h2 class="text-sm font-semibold mb-2">What happens next</h2>
+                <ul class="list-disc pl-5 space-y-1 text-sm">
+                    <li>After you choose a school, we will show a printable grid of that school's students' QR codes.</li>
+                    <li>The grid is formatted to print cleanly: 5 columns by 6 rows per page (30 per page).</li>
+                    <li>Only the QR codes and student names are included in the printout; the rest of the UI is hidden.</li>
+                    <li>If a student has no QR code yet, you'll see a gray placeholder that links to the student's page to generate one.</li>
+                    <li>Only active students for the selected school are listed.</li>
+                </ul>
+                <p class="mt-3 text-xs text-blue-800">Tip: Use your browser's Print (Cmd/Ctrl+P) and keep scale at 100% for best results.</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <form action="/admin/reports/student-qr-bulk" method="get" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">School</label>
+                        @components.TomSelect(components.SelectConfig{
+                            Options:     schools,
+                            MaxItems:    1,
+                            Name:        "school_id",
+                            Placeholder: "Select a school",
+                        })
+                        <p class="mt-1 text-xs text-gray-500">Select the school to generate its QR code sheet.</p>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    @components.SubmitButton("Generate QR Codes")
+                </div>
+            </form>
+        </div>
+    </div>
+}

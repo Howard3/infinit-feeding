@@ -20,6 +20,8 @@ func (s *Server) adminReports(r chi.Router) {
 	r.Get("/sponsored-students", s.adminSponsoredStudentsReport)
 	r.Get("/recent-feedings", s.adminRecentFeedingsReport)
 	r.Post("/export", s.exportFeedingReport)
+	r.Get("/student-qr", s.studentQRLeadIn)
+	r.Get("/student-qr-bulk", s.exportStudentQRBulk)
 }
 
 func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +39,21 @@ func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
 	s.renderTempl(w, r, reportstempl.ReportsHome(schoolStrMap))
 }
 
+func (s *Server) studentQRLeadIn(w http.ResponseWriter, r *http.Request) {
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	schoolStrMap := make(map[string]string)
+	for k, v := range schoolMap {
+		schoolStrMap[fmt.Sprintf("%d", k)] = v
+	}
+
+	s.renderTempl(w, r, reportstempl.StudentQRLeadIn(schoolStrMap))
+}
+
 func AsDate(ref *time.Time) vex.Converter {
 	return func(ec *vex.Extractor, value string) error {
 		// parse and require YYYY-MM-DD
@@ -47,6 +64,56 @@ func AsDate(ref *time.Time) vex.Converter {
 		*ref = t
 		return nil
 	}
+}
+
+func (s *Server) exportStudentQRBulk(w http.ResponseWriter, r *http.Request) {
+	// Pagination: default to 30 per page for a 5x6 printable grid
+	page := s.pageQuery(r)
+	limit := uint(30)
+	if l := s.limitQuery(r); l != 15 { // respect explicit limit when provided
+		limit = l
+	}
+
+	// Filters: active students, optionally filter by school
+	listOptions := []student.ListOption{student.ActiveOnly()}
+	schoolID := r.URL.Query().Get("school_id")
+	if schoolID != "" {
+		if id, err := strconv.ParseUint(schoolID, 10, 64); err == nil {
+			listOptions = append(listOptions, student.InSchools(id))
+		}
+	}
+
+	res, err := s.Services.StudentSvc.ListStudents(r.Context(), limit, page, listOptions...)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
+	// Determine school name for title
+	schoolName := "All Schools"
+	if schoolID != "" {
+		schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+		if err != nil {
+			s.errorPage(w, r, "Error fetching schools", err)
+			return
+		}
+		if id, err := strconv.ParseUint(schoolID, 10, 64); err == nil {
+			if name, ok := schoolMap[id]; ok {
+				schoolName = name
+			}
+		}
+	}
+
+	// Build pagination
+	pagination := components.NewPagination(page, limit, uint(res.Count))
+	baseURL := "/admin/reports/student-qr-bulk"
+	if schoolID != "" {
+		baseURL = fmt.Sprintf("%s?school_id=%s", baseURL, schoolID)
+	}
+	pagination.URL = baseURL
+
+	// Render the bulk QR page with pagination and title
+	s.renderTempl(w, r, reportstempl.StudentQRBulk(res.Students, schoolName, pagination))
 }
 
 func (s *Server) exportFeedingReport(w http.ResponseWriter, r *http.Request) {
