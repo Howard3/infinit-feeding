@@ -44,7 +44,7 @@ tasks:
     deps:
       - build:info
     cmds:
-      - templ generate
+      - go tool templ generate
 
   build:info:
     desc: "generate build information"
