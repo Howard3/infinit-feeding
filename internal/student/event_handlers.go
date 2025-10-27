@@ -103,6 +103,28 @@ func (eh *eventHandlers) handleUpdateSponsorshipEvent(ctx context.Context, aggID
 	}
 }
 
+func (eh *eventHandlers) handleHealthAssessmentEvent(ctx context.Context, aggID uint64) {
+	student, err := eh.repo.loadStudent(ctx, aggID)
+	if err != nil {
+		slog.Error("failed to load student", "error", err)
+	}
+
+	if err = eh.repo.updateAllHealthProjectionsForStudent(student); err != nil {
+		slog.Error("failed to update health projections", "error", err)
+	}
+}
+
+func (eh *eventHandlers) handleGradeReportEvent(ctx context.Context, aggID uint64) {
+	student, err := eh.repo.loadStudent(ctx, aggID)
+	if err != nil {
+		slog.Error("failed to load student", "error", err)
+	}
+
+	if err = eh.repo.updateAllGradeProjectionsForStudent(student); err != nil {
+		slog.Error("failed to update grade projections", "error", err)
+	}
+}
+
 // routeEvent is a method that routes an event to the appropriate handler
 func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 	id, err := strconv.ParseUint(evt.AggregateID, 10, 64)
@@ -124,5 +146,9 @@ func (eh *eventHandlers) routeEvent(ctx context.Context, evt *gosignal.Event) {
 		eh.handleFeedStudentEvent(ctx, id)
 	case EVENT_UPDATE_SPONSORSHIP:
 		eh.handleUpdateSponsorshipEvent(ctx, id)
+	case EVENT_ADD_HEALTH_ASSESSMENT, EVENT_REMOVE_HEALTH_ASSESSMENT:
+		eh.handleHealthAssessmentEvent(ctx, id)
+	case EVENT_ADD_GRADE_REPORT, EVENT_REMOVE_GRADE_REPORT:
+		eh.handleGradeReportEvent(ctx, id)
 	}
 }

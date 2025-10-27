@@ -86,6 +86,8 @@ type Repository interface {
 	GetAllCurrentSponsorships(ctx context.Context) ([]*SponsorshipProjection, error)
 	GetAllFeedingEvents(ctx context.Context, limit, page uint) ([]*SponsorFeedingEvent, int64, error)
 	getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error)
+	updateAllHealthProjectionsForStudent(*Aggregate) error
+	updateAllGradeProjectionsForStudent(*Aggregate) error
 }
 
 // source schema:
@@ -142,18 +144,325 @@ func (r *sqlRepository) updateProjections(ctx context.Context) {
 		return
 	}
 
+	toClear := []string{}
+
 	for _, v := range whatToUpdate {
+		known := true
 		switch v {
 		case "student_projections":
 			r.updateStudentProjections()
 		case "student_feeding_projections":
 			go r.rebuildStudentFeedingProjections(ctx)
+		case "student_health_projections":
+			go r.rebuildStudentHealthProjections(ctx)
+		case "student_grade_projections":
+			go r.rebuildStudentGradeProjections(ctx)
 		default:
-			panic(fmt.Errorf("unsupported projection: %s", v))
+			slog.Error("unknown projection to update", "projection", v)
+			known = false
+		}
+
+		if known {
+			toClear = append(toClear, v)
 		}
 	}
 
-	r.clearProjectionUpdates()
+	r.clearProjectionUpdates(toClear)
+}
+
+type ProjectedStudentGrade struct {
+	StudentID              string
+	SchoolID               string
+	TestDate               time.Time
+	Grade                  int
+	SchoolYear             sql.NullString
+	GradingPeriod          sql.NullString
+	AssociatedBulkUploadID string
+}
+
+// convertGradesToProjections - converts all grades on a student aggregate to a slice of projections
+func (r *sqlRepository) convertGradesToProjections(student *Aggregate) []ProjectedStudentGrade {
+	projections := make([]ProjectedStudentGrade, 0)
+	for _, grade := range student.data.GradeHistory {
+		year := int(grade.TestDate.Year)
+		month := int(grade.TestDate.Month)
+		day := int(grade.TestDate.Day)
+		testDate := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		projection := ProjectedStudentGrade{
+			StudentID:              student.GetID(),
+			SchoolID:               student.data.SchoolId,
+			TestDate:               testDate,
+			Grade:                  int(grade.Grade),
+			SchoolYear:             sql.NullString{String: grade.SchoolYear, Valid: true},
+			GradingPeriod:          sql.NullString{String: grade.GradingPeriod, Valid: true},
+			AssociatedBulkUploadID: grade.AssociatedBulkUploadId,
+		}
+		projections = append(projections, projection)
+	}
+	return projections
+}
+
+func (r *sqlRepository) rebuildStudentGradeProjections(ctx context.Context) error {
+	slog.Info("updating student grade projections")
+
+	ids := r.getUniqueIDsForAggregates()
+	projections := make([]ProjectedStudentGrade, 0)
+
+	slog.Info("grade import: loading students ", "count", len(ids))
+
+	for _, id := range ids {
+		slog.Info("grade import: loading student", "id", id, "projection_count", len(projections))
+		student, err := r.loadStudent(ctx, id)
+		if err != nil {
+			slog.Error("failed to get student by ID", "id", id, "error", err)
+			continue
+		}
+
+		projections = append(projections, r.convertGradesToProjections(student)...)
+	}
+
+	slog.Info("grade import: projections", "count", len(projections))
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		panic(fmt.Errorf("failed to begin transaction: %w", err))
+	}
+
+	defer func() {
+		slog.Info("cleaning up transaction", "error", err)
+
+		if err != nil {
+			slog.Error("rolling back transaction", "error", err)
+			tx.Rollback()
+			return
+		} else {
+			slog.Info("committing transaction")
+			tx.Commit()
+		}
+	}()
+
+	slog.Info("deleting student grade projections")
+	query := `DELETE FROM student_grade_projections`
+	if _, err = tx.Exec(query); err != nil {
+		panic(fmt.Errorf("failed to delete student grade projections: %w", err))
+	}
+
+	slog.Info("Updating student grade projections", "count", len(projections))
+
+	for _, projection := range projections {
+		slog.Info("Updating student grade projection", "student_id", projection.StudentID)
+		if err = r.insertStudentGradeProjection(tx, projection); err != nil {
+			slog.Error("failed to insert student grade projection", "student_id", projection.StudentID, "error", err)
+			continue
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		panic(fmt.Errorf("failed to commit transaction: %w", err))
+	}
+
+	return nil
+}
+
+func (r *sqlRepository) insertStudentGradeProjection(tx *sql.Tx, pge ProjectedStudentGrade) error {
+	query := `INSERT INTO student_grade_projections
+		(student_id, school_id, test_date, grade, school_year, grading_period, associated_bulk_upload_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (student_id, associated_bulk_upload_id) DO NOTHING;
+	`
+
+	slog.Info("inserting student grade projection", "student_id", pge.StudentID, "school_id", pge.SchoolID, "test_date", pge.TestDate, "grade", pge.Grade, "school_year", pge.SchoolYear, "grading_period", pge.GradingPeriod, "associated_bulk_upload_id", pge.AssociatedBulkUploadID)
+	_, err := tx.Exec(query, pge.StudentID, pge.SchoolID, pge.TestDate, pge.Grade, pge.SchoolYear, pge.GradingPeriod, pge.AssociatedBulkUploadID)
+	if err != nil {
+		return fmt.Errorf("failed to insert student grade projection: %w", err)
+	}
+
+	return nil
+}
+
+func (r *sqlRepository) updateAllGradeProjectionsForStudent(student *Aggregate) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			slog.Error("rolling back transaction", "error", err)
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	slog.Info("deleting student grade projections", "student_id", student.GetID())
+	query := `DELETE FROM student_grade_projections WHERE student_id = ?`
+	if _, err = tx.Exec(query, student.GetID()); err != nil {
+		return fmt.Errorf("failed to delete student grade projections: %w", err)
+	}
+
+	slog.Info("inserting student grade projections", "student_id", student.GetID())
+	projections := r.convertGradesToProjections(student)
+	for _, projection := range projections {
+		if err = r.insertStudentGradeProjection(tx, projection); err != nil {
+			return fmt.Errorf("failed to insert student grade projection: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+type ProjectedStudentHealth struct {
+	StudentID              string
+	SchoolID               string
+	AssessmentDate         time.Time
+	HeightCM               float32
+	WeightKG               float32
+	BMI                    sql.NullFloat64
+	NutritionalStatus      sql.NullString
+	AssociatedBulkUploadID string
+}
+
+// convertHealthReportsToProjections - converts the health reports to a projection
+func (r *sqlRepository) convertHealthReportsToProjections(student *Aggregate) []ProjectedStudentHealth {
+	projections := make([]ProjectedStudentHealth, 0)
+	for _, report := range student.GetHealthAssessments() {
+		projection := ProjectedStudentHealth{
+			StudentID:              student.GetID(),
+			SchoolID:               student.data.SchoolId,
+			AssessmentDate:         report.AssessmentDate,
+			HeightCM:               report.HeightCm,
+			WeightKG:               report.WeightKg,
+			AssociatedBulkUploadID: report.AssociatedBulkUploadId,
+			NutritionalStatus:      sql.NullString{String: report.NutritionalStatus().String()},
+			BMI:                    sql.NullFloat64{Float64: float64(report.BMI()), Valid: true},
+		}
+
+		projections = append(projections, projection)
+	}
+
+	return projections
+}
+
+func (r *sqlRepository) rebuildStudentHealthProjections(ctx context.Context) (err error) {
+	slog.Info("updating student health projections")
+
+	ids := r.getUniqueIDsForAggregates()
+	projections := make([]ProjectedStudentHealth, 0)
+
+	slog.Info("loading student health reports", "count", len(ids))
+
+	for _, id := range ids {
+		student, err := r.loadStudent(ctx, id)
+		if err != nil {
+			return fmt.Errorf("failed to load student: %w", err)
+		}
+
+		newProjections := r.convertHealthReportsToProjections(student)
+		projections = append(projections, newProjections...)
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		panic(fmt.Errorf("failed to begin transaction: %w", err))
+	}
+
+	defer func() {
+		slog.Info("cleaning up transaction", "error", err)
+
+		if err != nil {
+			slog.Error("rolling back transaction", "error", err)
+			tx.Rollback()
+			return
+		} else {
+			slog.Info("committing transaction")
+			tx.Commit()
+		}
+	}()
+
+	slog.Info("deleting student health projections")
+	query := `DELETE FROM student_health_projections`
+	if _, err = tx.Exec(query); err != nil {
+		panic(fmt.Errorf("failed to delete student health projections: %w", err))
+	}
+
+	slog.Info("Updating student health projections", "count", len(projections))
+
+	for _, projection := range projections {
+		slog.Info("Updating student health projection", "student_id", projection.StudentID)
+
+		if err = r.insertStudentHealthProjection(tx, projection); err != nil {
+			slog.Error("failed to insert student health projection", "student_id", projection.StudentID, "error", err)
+			return fmt.Errorf("failed to insert student health projection: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (r *sqlRepository) insertStudentHealthProjection(tx *sql.Tx, phe ProjectedStudentHealth) error {
+	query := `INSERT INTO student_health_projections
+		(student_id, school_id, assessment_date, height_cm, weight_kg, bmi, nutritional_status, associated_bulk_upload_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (student_id, associated_bulk_upload_id) DO NOTHING;
+	`
+
+	bmi := phe.BMI.Float64
+	nutritionalStatus := phe.NutritionalStatus.String
+
+	slog.Info("inserting student health projection", "student_id", phe.StudentID, "school_id", phe.SchoolID, "assessment_date", phe.AssessmentDate, "height_cm", phe.HeightCM, "weight_kg", phe.WeightKG, "bmi", bmi, "nutritional_status", nutritionalStatus, "associated_bulk_upload_id", phe.AssociatedBulkUploadID)
+
+	_, err := tx.Exec(query, phe.StudentID, phe.SchoolID, phe.AssessmentDate, phe.HeightCM, phe.WeightKG, bmi, nutritionalStatus, phe.AssociatedBulkUploadID)
+	if err != nil {
+		return fmt.Errorf("failed to insert student health projection: %w", err)
+	}
+
+	return nil
+}
+
+func (r *sqlRepository) updateAllHealthProjectionsForStudent(student *Aggregate) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			slog.Error("rolling back transaction", "error", err)
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	// first delete all health projections for the student
+	slog.Info("deleting student health projections", "student_id", student.GetID())
+	query := `DELETE FROM student_health_projections WHERE student_id = ?`
+	if _, err = tx.Exec(query, student.GetID()); err != nil {
+		return fmt.Errorf("failed to delete student health projections: %w", err)
+	}
+
+	slog.Info("inserting student health projections", "student_id", student.GetID())
+	projections := r.convertHealthReportsToProjections(student)
+	for _, projection := range projections {
+		if err = r.insertStudentHealthProjection(tx, projection); err != nil {
+			return fmt.Errorf("failed to insert student health projection: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // rebuildStudentFeedingProjections - completely rebuilds the student feeding projections
@@ -340,12 +649,13 @@ func (r *sqlRepository) checkForProjectionUpdates() []string {
 	return whatToUpdate
 }
 
-func (r *sqlRepository) clearProjectionUpdates() {
-	slog.Info("clearing projection updates")
+func (r *sqlRepository) clearProjectionUpdates(toClear []string) {
+	slog.Info("clearing projection updates", "what", toClear)
 
-	query := `DELETE FROM student_projection_updates`
-	if _, err := r.db.Exec(query); err != nil {
-		panic(fmt.Errorf("failed to clear projection updates: %w", err))
+	for _, what := range toClear {
+		query := `DELETE FROM student_projection_updates WHERE what = ?`
+		if _, err := r.db.Exec(query, what); err != nil {
+		}
 	}
 }
 

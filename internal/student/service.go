@@ -302,7 +302,7 @@ func (s *StudentService) GetSponsorImpactMetrics(ctx context.Context, sponsorID 
 	return totalMeals, nil
 }
 
-// Add this new type
+// SponsorFeedingEvent Add this new type
 type SponsorFeedingEvent struct {
 	StudentID      string
 	StudentName    string
@@ -311,7 +311,7 @@ type SponsorFeedingEvent struct {
 	FeedingImageID string
 }
 
-// Add this new method
+// ListSponsorFeedingEvents Add this new method
 func (s *StudentService) ListSponsorFeedingEvents(ctx context.Context, sponsorID string, limit, page uint) ([]*SponsorFeedingEvent, int64, error) {
 	// Get all sponsorships for this sponsor
 	sponsorships, err := s.repo.GetAllSponsorshipsByID(ctx, sponsorID)
