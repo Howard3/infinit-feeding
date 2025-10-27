@@ -88,6 +88,8 @@ type Repository interface {
 	getStudentByStudentAndSchoolID(ctx context.Context, studentSchoolID, schoolID string) (uint64, error)
 	updateAllHealthProjectionsForStudent(*Aggregate) error
 	updateAllGradeProjectionsForStudent(*Aggregate) error
+	GetHealthAssessments(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentHealth, error)
+	GetGrades(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentGrade, error)
 }
 
 // source schema:
@@ -178,6 +180,65 @@ type ProjectedStudentGrade struct {
 	SchoolYear             sql.NullString
 	GradingPeriod          sql.NullString
 	AssociatedBulkUploadID string
+}
+
+// GetGrades returns grades filtered by school and date range
+func (r *sqlRepository) GetGrades(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentGrade, error) {
+	args := []any{}
+	wheres := []string{}
+	if schoolID != "" {
+		wheres = append(wheres, "school_id = ?")
+		args = append(args, schoolID)
+	}
+	if !from.IsZero() {
+		wheres = append(wheres, "date(test_date) >= date(?)")
+		args = append(args, from.Format("2006-01-02"))
+	}
+	if !to.IsZero() {
+		wheres = append(wheres, "date(test_date) <= date(?)")
+		args = append(args, to.Format("2006-01-02"))
+	}
+	q := "SELECT student_id, school_id, test_date, grade, school_year, grading_period, associated_bulk_upload_id FROM student_grade_projections"
+	if len(wheres) > 0 {
+		q += " WHERE " + strings.Join(wheres, " AND ")
+	}
+	q += " ORDER BY test_date DESC"
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query grades: %w", err)
+	}
+	defer rows.Close()
+	var res []*ProjectedStudentGrade
+	for rows.Next() {
+		var p ProjectedStudentGrade
+		var testDate sql.NullString
+		if err := rows.Scan(&p.StudentID, &p.SchoolID, &testDate, &p.Grade, &p.SchoolYear, &p.GradingPeriod, &p.AssociatedBulkUploadID); err != nil {
+			return nil, fmt.Errorf("scan grade: %w", err)
+		}
+		// parse test date
+		dateStr := testDate.String
+		parsed := time.Time{}
+		if dateStr != "" {
+			layouts := []string{
+				"2006-01-02 15:04:05-07:00",
+				time.RFC3339,
+				"2006-01-02 15:04:05Z07:00",
+				"2006-01-02",
+			}
+			for _, layout := range layouts {
+				if t, err := time.Parse(layout, dateStr); err == nil {
+					parsed = t
+					break
+				}
+			}
+			if parsed.IsZero() {
+				parsed = r.parseDate(dateStr)
+			}
+		}
+		p.TestDate = parsed
+		res = append(res, &p)
+	}
+	return res, nil
 }
 
 // convertGradesToProjections - converts all grades on a student aggregate to a slice of projections
@@ -325,6 +386,70 @@ type ProjectedStudentHealth struct {
 	BMI                    sql.NullFloat64
 	NutritionalStatus      sql.NullString
 	AssociatedBulkUploadID string
+}
+
+// GetHealthAssessments returns health assessments filtered by school and date range
+func (r *sqlRepository) GetHealthAssessments(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentHealth, error) {
+	var args []any
+	var wheres []string
+	if schoolID != "" {
+		wheres = append(wheres, "school_id = ?")
+		args = append(args, schoolID)
+	}
+	// Compare using SQLite's date() function to avoid timezone / type issues
+	if !from.IsZero() {
+		wheres = append(wheres, "date(assessment_date) >= date(?)")
+		args = append(args, from.Format("2006-01-02"))
+	}
+	if !to.IsZero() {
+		wheres = append(wheres, "date(assessment_date) <= date(?)")
+		args = append(args, to.Format("2006-01-02"))
+	}
+	q := "SELECT student_id, school_id, assessment_date, height_cm, weight_kg, bmi, nutritional_status, associated_bulk_upload_id FROM student_health_projections"
+	if len(wheres) > 0 {
+		q += " WHERE " + strings.Join(wheres, " AND ")
+	}
+	q += " ORDER BY assessment_date DESC"
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query health assessments: %w", err)
+	}
+	defer rows.Close()
+	var res []*ProjectedStudentHealth
+	for rows.Next() {
+		var p ProjectedStudentHealth
+		var assessmentDate sql.NullString
+		var height, weight float64
+		if err := rows.Scan(&p.StudentID, &p.SchoolID, &assessmentDate, &height, &weight, &p.BMI, &p.NutritionalStatus, &p.AssociatedBulkUploadID); err != nil {
+			return nil, fmt.Errorf("scan health assessment: %w", err)
+		}
+		// Parse assessment date with multiple layouts
+		parsed := time.Time{}
+		dateStr := assessmentDate.String
+		if dateStr != "" {
+			layouts := []string{
+				"2006-01-02 15:04:05-07:00",
+				time.RFC3339,
+				"2006-01-02 15:04:05Z07:00",
+				"2006-01-02",
+			}
+			for _, layout := range layouts {
+				if t, err := time.Parse(layout, dateStr); err == nil {
+					parsed = t
+					break
+				}
+			}
+			if parsed.IsZero() {
+				// Fallback to the existing simple date parser
+				parsed = r.parseDate(dateStr)
+			}
+		}
+		p.AssessmentDate = parsed
+		p.HeightCM = float32(height)
+		p.WeightKG = float32(weight)
+		res = append(res, &p)
+	}
+	return res, nil
 }
 
 // convertHealthReportsToProjections - converts the health reports to a projection

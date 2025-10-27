@@ -347,6 +347,16 @@ func (s *StudentService) GetRecentFeedingEvents(ctx context.Context, page, limit
 	return events, total, nil
 }
 
+// GetHealthAssessments returns health assessments projections for reporting
+func (s *StudentService) GetHealthAssessments(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentHealth, error) {
+	return s.repo.GetHealthAssessments(ctx, schoolID, from, to)
+}
+
+// GetGrades returns grade projections for reporting
+func (s *StudentService) GetGrades(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentGrade, error) {
+	return s.repo.GetGrades(ctx, schoolID, from, to)
+}
+
 func (s *StudentService) AddGradeReport(ctx context.Context, id uint64, report *eda.Student_GradeReport) error {
 	studentAgg, err := s.repo.loadStudent(ctx, id)
 	if err != nil {

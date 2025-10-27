@@ -19,6 +19,8 @@ func (s *Server) adminReports(r chi.Router) {
 	r.Get("/", s.reportsHome)
 	r.Get("/sponsored-students", s.adminSponsoredStudentsReport)
 	r.Get("/recent-feedings", s.adminRecentFeedingsReport)
+	r.Get("/health-csv", s.adminHealthCSV)
+	r.Get("/grades-csv", s.adminGradesCSV)
 	r.Post("/export", s.exportFeedingReport)
 	r.Get("/student-qr", s.studentQRLeadIn)
 	r.Get("/student-qr-bulk", s.exportStudentQRBulk)
@@ -320,4 +322,124 @@ func (s *Server) adminRecentFeedingsReport(w http.ResponseWriter, r *http.Reques
 	pagination := components.NewPagination(page, uint(limit), uint(total))
 	pagination.URL = "/admin/reports/recent-feedings"
 	s.renderTempl(w, r, reportstempl.RecentFeedingsReport(recentFeedings, pagination))
+}
+
+// adminHealthCSV streams a CSV of height and weight assessments
+func (s *Server) adminHealthCSV(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	schoolID := q.Get("school_id")
+	startStr := q.Get("start_date")
+	endStr := q.Get("end_date")
+
+	var startDate, endDate time.Time
+	var err error
+	if startStr != "" {
+		startDate, err = time.Parse("2006-01-02", startStr)
+		if err != nil {
+			s.errorPage(w, r, "Invalid start date", err)
+			return
+		}
+	}
+	if endStr != "" {
+		endDate, err = time.Parse("2006-01-02", endStr)
+		if err != nil {
+			s.errorPage(w, r, "Invalid end date", err)
+			return
+		}
+	}
+
+	recs, err := s.Services.StudentSvc.GetHealthAssessments(r.Context(), schoolID, startDate, endDate)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching health assessments", err)
+		return
+	}
+
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=health_report_%s.csv", time.Now().Format("2006-01-02")))
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	// header (combined Health + BMI + Nutrition)
+	_ = cw.Write([]string{"Student ID", "School", "Assessment Date", "Height (cm)", "Weight (kg)", "BMI", "Nutritional Status"})
+	for _, rec := range recs {
+		sid, _ := strconv.ParseUint(rec.SchoolID, 10, 64)
+		schoolName := schoolMap[sid]
+		bmiStr := ""
+		if rec.BMI.Valid {
+			bmiStr = fmt.Sprintf("%.1f", rec.BMI.Float64)
+		}
+		row := []string{
+			rec.StudentID,
+			schoolName,
+			rec.AssessmentDate.Format("2006-01-02"),
+			fmt.Sprintf("%.1f", rec.HeightCM),
+			fmt.Sprintf("%.1f", rec.WeightKG),
+			bmiStr,
+			rec.NutritionalStatus.String,
+		}
+		_ = cw.Write(row)
+	}
+}
+
+// adminGradesCSV streams a CSV of student grades
+func (s *Server) adminGradesCSV(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	schoolID := q.Get("school_id")
+	startStr := q.Get("start_date")
+	endStr := q.Get("end_date")
+
+	var startDate, endDate time.Time
+	var err error
+	if startStr != "" {
+		startDate, err = time.Parse("2006-01-02", startStr)
+		if err != nil {
+			s.errorPage(w, r, "Invalid start date", err)
+			return
+		}
+	}
+	if endStr != "" {
+		endDate, err = time.Parse("2006-01-02", endStr)
+		if err != nil {
+			s.errorPage(w, r, "Invalid end date", err)
+			return
+		}
+	}
+
+	recs, err := s.Services.StudentSvc.GetGrades(r.Context(), schoolID, startDate, endDate)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching grades", err)
+		return
+	}
+
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=grades_report_%s.csv", time.Now().Format("2006-01-02")))
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	_ = cw.Write([]string{"Student ID", "School", "Test Date", "Grade", "School Year", "Grading Period"})
+	for _, rec := range recs {
+		sid, _ := strconv.ParseUint(rec.SchoolID, 10, 64)
+		schoolName := schoolMap[sid]
+		row := []string{
+			rec.StudentID,
+			schoolName,
+			rec.TestDate.Format("2006-01-02"),
+			fmt.Sprintf("%d", rec.Grade),
+			rec.SchoolYear.String,
+			rec.GradingPeriod.String,
+		}
+		_ = cw.Write(row)
+	}
 }
