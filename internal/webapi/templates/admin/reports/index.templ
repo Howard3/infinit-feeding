@@ -4,7 +4,8 @@ import "geevly/internal/webapi/templates/components"
 
 templ ReportsHome(schools map[string]string) {
     <div class="container mx-auto px-4 py-8">
-        <h1 class="text-2xl font-bold mb-6">Reports</h1>
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-gray-900">Reports</h1>
+        <p class="mt-2 mb-6 text-gray-600">Export feeding data and explore quick reports for operations and program insights.</p>
         
         // Feeding Report Section
         <div class="mb-8">
@@ -46,35 +47,125 @@ templ ReportsHome(schools map[string]string) {
         </div>
 
         // Other Reports Section
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <a class="block" hx-get="/admin/reports/sponsored-students">
-                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold mb-2">Sponsored Students</h3>
-                    <p class="text-gray-600 text-sm">View all currently sponsored students and their sponsorship details.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+            <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-lg" hx-get="/admin/reports/sponsored-students">
+                <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-indigo-500 hover:border-t-indigo-600 hover:-translate-y-0.5">
+                    <div class="flex items-start justify-between">
+                        <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-indigo-50 text-indigo-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Zm-8 0c1.657 0 3-1.79 3-4S9.657 3 8 3 5 4.79 5 7s1.343 4 3 4Zm0 2c-2.673 0-8 1.337-8 4v2h10v-2c0-1.657.67-2.99 1.77-3.99A9.36 9.36 0 0 0 8 13Zm8 0c-.93 0-1.79.11-2.55.3 1.53.97 2.55 2.36 2.55 4.2v2h8v-2c0-2.663-5.327-4.5-8-4.5Z"/>
+                            </svg>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Sponsored Students</h3>
+                        <p class="text-gray-600 text-sm">View all currently sponsored students and their sponsorship details.</p>
+                    </div>
+                    <div class="mt-auto pt-4 text-sm text-indigo-600 inline-flex items-center">
+                        View
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
                 </div>
             </a>
-            <a class="block" hx-get="/admin/reports/recent-feedings">
-                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold mb-2">Recent Feedings</h3>
-                    <p class="text-gray-600 text-sm">View the most recent student feeding events across all schools.</p>
+            <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded-lg" hx-get="/admin/reports/recent-feedings">
+                <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-teal-500 hover:border-t-teal-600 hover:-translate-y-0.5">
+                    <div class="flex items-start justify-between">
+                        <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-teal-50 text-teal-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                <path d="M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z"/>
+                            </svg>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Recent Feedings</h3>
+                        <p class="text-gray-600 text-sm">View the most recent student feeding events across all schools.</p>
+                    </div>
+                    <div class="mt-auto pt-4 text-sm text-teal-600 inline-flex items-center">
+                        View
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
                 </div>
             </a>
-            <a class="block" hx-get="/admin/reports/student-qr">
-                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold mb-2">Student QR Codes</h3>
-                    <p class="text-gray-600 text-sm">Select a school and generate printable student QR codes (5×6 per page).</p>
+            <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 rounded-lg" hx-get="/admin/reports/student-qr">
+                <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-amber-500 hover:border-t-amber-600 hover:-translate-y-0.5">
+                    <div class="flex items-start justify-between">
+                        <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-amber-50 text-amber-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                <path d="M3 3h4v4H3V3Zm7 0h4v4h-4V3Zm7 0h4v4h-4V3ZM3 10h4v4H3v-4Zm7 0h4v4h-4v-4Zm7 0h4v4h-4v-4ZM3 17h4v4H3v-4Zm7 0h4v4h-4v-4Zm7 0h4v4h-4v-4Z"/>
+                            </svg>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Student QR Codes</h3>
+                        <p class="text-gray-600 text-sm">Select a school and generate printable student QR codes (5×6 per page).</p>
+                    </div>
+                    <div class="mt-auto pt-4 text-sm text-amber-600 inline-flex items-center">
+                        Generate
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
                 </div>
             </a>
-            <a class="block" href="/admin/reports/health-csv">
-                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold mb-2">Health, BMI & Nutrition (CSV)</h3>
-                    <p class="text-gray-600 text-sm">Download combined health assessments including height, weight, BMI, and nutritional status.</p>
+            <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 rounded-lg" href="/admin/reports/health-csv">
+                <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-emerald-500 hover:border-t-emerald-600 hover:-translate-y-0.5">
+                    <div class="flex items-start justify-between">
+                        <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-emerald-50 text-emerald-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                <path d="M3 13h2v8H3v-8Zm4-6h2v14H7V7Zm4 4h2v10h-2V11Zm4-8h2v18h-2V3Z"/>
+                            </svg>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Health, BMI & Nutrition (CSV)</h3>
+                        <p class="text-gray-600 text-sm">Download combined health assessments including height, weight, BMI, and nutritional status.</p>
+                    </div>
+                    <div class="mt-auto pt-4 text-sm text-emerald-600 inline-flex items-center">
+                        Download CSV
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
                 </div>
             </a>
-            <a class="block" href="/admin/reports/grades-csv">
-                <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold mb-2">Grades (CSV)</h3>
-                    <p class="text-gray-600 text-sm">Download student grades.</p>
+            <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 rounded-lg" href="/admin/reports/grades-csv">
+                <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-sky-500 hover:border-t-sky-600 hover:-translate-y-0.5">
+                    <div class="flex items-start justify-between">
+                        <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-sky-50 text-sky-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                <path d="M19 21V8l-7-5-7 5v13h14ZM5 9.3V19h14V9.3l-7-5-7 5ZM7 11h10v2H7v-2Zm0 4h10v2H7v-2Z"/>
+                            </svg>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Grades (CSV)</h3>
+                        <p class="text-gray-600 text-sm">Download student grades.</p>
+                    </div>
+                    <div class="mt-auto pt-4 text-sm text-sky-600 inline-flex items-center">
+                        Download CSV
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
                 </div>
             </a>
         </div>
