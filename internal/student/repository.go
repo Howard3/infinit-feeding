@@ -858,9 +858,9 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 	}
 
 	if filters.NameSearch != "" {
-		where = append(where, "(LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?)")
+		where = append(where, "(LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR LOWER(student_id) LIKE ?)")
 		searchTerm := "%" + strings.ToLower(filters.NameSearch) + "%"
-		args = append(args, searchTerm, searchTerm)
+		args = append(args, searchTerm, searchTerm, searchTerm)
 	}
 
 	if len(filters.StudentIDs) > 0 {
@@ -923,9 +923,9 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 	}
 
 	if filters.NameSearch != "" {
-		where = append(where, "(LOWER(sp.first_name) LIKE ? OR LOWER(sp.last_name) LIKE ?)")
+		where = append(where, "(LOWER(sp.first_name) LIKE ? OR LOWER(sp.last_name) LIKE ? OR LOWER(sp.student_id) LIKE ?)")
 		searchTerm := "%" + strings.ToLower(filters.NameSearch) + "%"
-		args = append(args, searchTerm, searchTerm)
+		args = append(args, searchTerm, searchTerm, searchTerm)
 	}
 
 	if len(filters.StudentIDs) > 0 {

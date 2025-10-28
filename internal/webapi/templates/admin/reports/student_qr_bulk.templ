@@ -44,18 +44,25 @@ templ StudentQRBulk(students []*student.ProjectedStudent, schoolName string, pag
                                 <script type="text/javascript">
                                     (function() {
                                         const parent = document.currentScript.parentElement || document.currentScript.parentNode;
-                                        new QRCode(parent, parent.dataset.code);
+                                        const existingQR = parent.querySelector('img');
+
+                                        if (!existingQR) {
+                                            new QRCode(parent, parent.dataset.code);
+                                        }
                                     })()
                                 </script>
                             </div>
                         } else {
-                            <a class="w-32 h-32 md:w-40 md:h-40 lg:w-44 lg:h-44 print:w-36 print:h-36 qr-code qr-missing flex items-center justify-center bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-gray-50"
+                            <a class="w-32 h-32 md:w-40 md:h-40 lg:w-44 lg:h-44 print:w-36 print:h-36 qr-code qr-missing flex items-center justify-center bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-gray-50 cursor-pointer hover:text-indigo-600 hover:border-indigo-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
                                hx-get={ fmt.Sprintf("/admin/student/%d", s.ID) }
                                hx-target="#content"
                                hx-swap="innerHTML"
                                hx-push-url="true"
                                title="Open student page to generate a QR code">
-                                <span class="text-[10px] md:text-xs text-center leading-tight px-2">No QR code defined</span>
+                                <span class="text-[10px] md:text-xs text-center leading-tight px-2">
+                                    No QR code defined
+                                    <span class="block text-[10px] font-medium text-indigo-600 mt-1 print:hidden">Click to generate</span>
+                                </span>
                             </a>
                         }
                         <div class="mt-2 text-sm font-medium text-gray-800 w-full truncate qr-name">

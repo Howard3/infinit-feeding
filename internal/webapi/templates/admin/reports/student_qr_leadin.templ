@@ -11,6 +11,7 @@ templ StudentQRLeadIn(schools map[string]string) {
                 <h2 class="text-sm font-semibold mb-2">What happens next</h2>
                 <ul class="list-disc pl-5 space-y-1 text-sm">
                     <li>After you choose a school, we will show a printable grid of that school's students' QR codes.</li>
+                    <li>Alternatively, you can select specific students using the search below.</li>
                     <li>The grid is formatted to print cleanly: 5 columns by 6 rows per page (30 per page).</li>
                     <li>Only the QR codes and student names are included in the printout; the rest of the UI is hidden.</li>
                     <li>If a student has no QR code yet, you'll see a gray placeholder that links to the student's page to generate one.</li>
@@ -21,7 +22,7 @@ templ StudentQRLeadIn(schools map[string]string) {
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
-            <form action="/admin/reports/student-qr-bulk" method="get" class="space-y-4">
+            <form action="/admin/reports/student-qr-bulk" method="get" class="space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="text-sm font-medium text-gray-700">School</label>
@@ -31,9 +32,38 @@ templ StudentQRLeadIn(schools map[string]string) {
                             Name:        "school_id",
                             Placeholder: "Select a school",
                         })
-                        <p class="mt-1 text-xs text-gray-500">Select the school to generate its QR code sheet.</p>
+                        <p class="mt-1 text-xs text-gray-500">Select the school to generate its QR code sheet. If you pick specific students below, that selection takes priority.</p>
                     </div>
                 </div>
+
+                <div class="border-t border-gray-200 pt-4">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Or, select specific students</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Search students</label>
+                            <input
+                                type="search"
+                                name="q"
+                                placeholder="Type a name or LRN..."
+                                class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                hx-get="/admin/reports/student-search"
+                                hx-trigger="keyup changed delay:300ms, search"
+                                hx-target="#student-search-results"
+                                hx-include="[name='school_id']"
+                                hx-push-url="false"
+                                onkeydown="if (event.key === 'Enter') { event.preventDefault(); return false; }"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Results are limited to 30 for quick selection. Click to add to the list.</p>
+                            <div id="student-search-results" class="mt-2 max-h-60 overflow-auto rounded border border-gray-200 divide-y divide-gray-100"></div>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Selected students</label>
+                            <div id="selected-students" class="mt-1 flex flex-wrap gap-2"></div>
+                            <p class="mt-1 text-xs text-gray-500">Selected students will be submitted as part of this form.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex justify-end">
                     @components.SubmitButton("Generate QR Codes")
                 </div>

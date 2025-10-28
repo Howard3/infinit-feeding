@@ -24,6 +24,9 @@ func (s *Server) adminReports(r chi.Router) {
 	r.Post("/export", s.exportFeedingReport)
 	r.Get("/student-qr", s.studentQRLeadIn)
 	r.Get("/student-qr-bulk", s.exportStudentQRBulk)
+	// HTMX endpoints for QR student selection
+	r.Get("/student-search", s.adminReportStudentSearch)
+	r.Get("/student-chip", s.adminReportStudentChip)
 }
 
 func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +71,104 @@ func AsDate(ref *time.Time) vex.Converter {
 	}
 }
 
+func (s *Server) adminReportStudentSearch(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	// Limit results to a reasonable number for the typeahead
+	limit := uint(30)
+	page := uint(1)
+
+	listOptions := []student.ListOption{student.ActiveOnly()}
+	if q != "" {
+		listOptions = append(listOptions, student.WithNameSearch(q))
+	}
+	if schoolID := r.URL.Query().Get("school_id"); schoolID != "" {
+		if id, err := strconv.ParseUint(schoolID, 10, 64); err == nil {
+			listOptions = append(listOptions, student.InSchools(id))
+		}
+	}
+
+	res, err := s.Services.StudentSvc.ListStudents(r.Context(), limit, page, listOptions...)
+	if err != nil {
+		s.errorPage(w, r, "Error searching students", err)
+		return
+	}
+
+	// Build school map to show school names in results
+	schoolMap, mapErr := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if mapErr != nil {
+		// proceed with empty map on error
+		schoolMap = map[uint64]string{}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	for _, st := range res.Students {
+		// Resolve school name
+		schoolName := ""
+		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+			if name, ok := schoolMap[sid]; ok {
+				schoolName = name
+			}
+		}
+		if schoolName == "" {
+			schoolName = "Unknown School"
+		}
+
+		// Each result is a button that appends a chip to the selected list
+		fmt.Fprintf(w, `<button type="button" class="w-full text-left px-3 py-2 hover:bg-indigo-50/60 focus:bg-indigo-50 flex items-center justify-between"
+			hx-get="/admin/reports/student-chip?student_id=%d" hx-target="#selected-students" hx-swap="beforeend" hx-push-url="false">
+		  <div class="min-w-0">
+		    <div class="font-medium text-gray-900 truncate">%s %s</div>
+		    <div class="text-xs text-gray-500 truncate">LRN %s · %s</div>
+		  </div>
+		  <span class="ml-3 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-[10px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">Add</span>
+		</button>`,
+			st.ID, st.FirstName, st.LastName, st.StudentID, schoolName)
+	}
+}
+
+func (s *Server) adminReportStudentChip(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("student_id")
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("missing student_id"))
+		return
+	}
+	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), []string{id})
+	if err != nil || len(students) == 0 {
+		s.errorPage(w, r, "Error loading student", err)
+		return
+	}
+	st := students[0]
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Inline chip HTML with hidden input so the form submits student_ids[]
+	fmt.Fprintf(w, `<span class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-full px-2 py-1 text-xs mr-2 mb-2" data-chip>
+  <input type="hidden" name="student_ids[]" value="%d"/>
+  <span>%s %s · LRN %s</span>
+  <button type="button" class="text-indigo-500 hover:text-red-600" onclick="this.closest('[data-chip]').remove()" aria-label="Remove">&times;</button>
+</span>`, st.ID, st.FirstName, st.LastName, st.StudentID)
+}
+
 func (s *Server) exportStudentQRBulk(w http.ResponseWriter, r *http.Request) {
+	// Allow selecting explicit students via student_ids[]; when present, ignore pagination and school filter
+	studentIDs := r.URL.Query()["student_ids[]"]
+	if len(studentIDs) == 0 {
+		// support "student_ids" as well
+		studentIDs = r.URL.Query()["student_ids"]
+	}
+	if len(studentIDs) > 0 {
+		sts, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
+		if err != nil {
+			s.errorPage(w, r, "Error fetching selected students", err)
+			return
+		}
+		// Build a simple pagination showing total count
+		count := uint(len(sts))
+		pagination := components.NewPagination(1, count, count)
+		pagination.URL = "/admin/reports/student-qr-bulk"
+		s.renderTempl(w, r, reportstempl.StudentQRBulk(sts, "Selected Students", pagination))
+		return
+	}
+
 	// Pagination: default to 30 per page for a 5x6 printable grid
 	page := s.pageQuery(r)
 	limit := uint(30)
