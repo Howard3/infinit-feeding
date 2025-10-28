@@ -273,6 +273,29 @@ func (s *StudentService) ListForSchool(ctx context.Context, schoolID string) ([]
 	return s.repo.ListStudentsForSchool(ctx, schoolID)
 }
 
+func (s *StudentService) FetchManyStudentProjections(ctx context.Context, studentIDs []string) ([]*ProjectedStudent, error) {
+	filters := StudentListFilters{
+		ActiveOnly: false,
+		StudentIDs: studentIDs,
+	}
+
+	var all []*ProjectedStudent
+	page := uint(1)
+	for {
+		batch, err := s.repo.ListStudents(ctx, MaxPageSize, page, filters)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, batch...)
+		if len(batch) < int(MaxPageSize) {
+			break
+		}
+		page++
+	}
+
+	return all, nil
+}
+
 func (s *StudentService) GetCurrentSponsorships(ctx context.Context, sponsorID string) ([]*SponsorshipProjection, error) {
 	return s.repo.GetCurrentSponsorships(ctx, sponsorID)
 }

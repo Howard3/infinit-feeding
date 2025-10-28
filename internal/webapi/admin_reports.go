@@ -354,6 +354,19 @@ func (s *Server) adminHealthCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only include students that are actually referenced in the projections
+	studentIDs := student.CollectDistinctStudentAggIDs(recs)
+	sts, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
+	studentsByAggID := make(map[string]*student.ProjectedStudent)
+	for _, st := range sts {
+		studentsByAggID[fmt.Sprintf("%d", st.ID)] = st
+	}
+
 	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
@@ -366,7 +379,7 @@ func (s *Server) adminHealthCSV(w http.ResponseWriter, r *http.Request) {
 	defer cw.Flush()
 
 	// header (combined Health + BMI + Nutrition)
-	_ = cw.Write([]string{"Student ID", "School", "Assessment Date", "Height (cm)", "Weight (kg)", "BMI", "Nutritional Status"})
+	_ = cw.Write([]string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Assessment Date", "Height (cm)", "Weight (kg)", "BMI", "Nutritional Status"})
 	for _, rec := range recs {
 		sid, _ := strconv.ParseUint(rec.SchoolID, 10, 64)
 		schoolName := schoolMap[sid]
@@ -374,8 +387,20 @@ func (s *Server) adminHealthCSV(w http.ResponseWriter, r *http.Request) {
 		if rec.BMI.Valid {
 			bmiStr = fmt.Sprintf("%.1f", rec.BMI.Float64)
 		}
+		st := studentsByAggID[rec.GetStudentAggID()]
+		lrn := ""
+		firstName := ""
+		lastName := ""
+		if st != nil {
+			lrn = st.StudentID
+			firstName = st.FirstName
+			lastName = st.LastName
+		}
 		row := []string{
 			rec.StudentID,
+			lrn,
+			firstName,
+			lastName,
 			schoolName,
 			rec.AssessmentDate.Format("2006-01-02"),
 			fmt.Sprintf("%.1f", rec.HeightCM),
@@ -417,6 +442,19 @@ func (s *Server) adminGradesCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build student map for enriching rows with LRN and names
+	studentIDs := student.CollectDistinctStudentAggIDs(recs)
+	sts, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
+	var studentsByAggID = make(map[string]*student.ProjectedStudent, 0)
+	for _, st := range sts {
+		studentsByAggID[fmt.Sprintf("%d", st.ID)] = st
+	}
+
 	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching schools", err)
@@ -428,12 +466,24 @@ func (s *Server) adminGradesCSV(w http.ResponseWriter, r *http.Request) {
 	cw := csv.NewWriter(w)
 	defer cw.Flush()
 
-	_ = cw.Write([]string{"Student ID", "School", "Test Date", "Grade", "School Year", "Grading Period"})
+	_ = cw.Write([]string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Test Date", "Grade", "School Year", "Grading Period"})
 	for _, rec := range recs {
 		sid, _ := strconv.ParseUint(rec.SchoolID, 10, 64)
 		schoolName := schoolMap[sid]
+		st := studentsByAggID[rec.GetStudentAggID()]
+		lrn := ""
+		firstName := ""
+		lastName := ""
+		if st != nil {
+			lrn = st.StudentID
+			firstName = st.FirstName
+			lastName = st.LastName
+		}
 		row := []string{
 			rec.StudentID,
+			lrn,
+			firstName,
+			lastName,
 			schoolName,
 			rec.TestDate.Format("2006-01-02"),
 			fmt.Sprintf("%d", rec.Grade),

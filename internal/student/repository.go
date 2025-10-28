@@ -46,6 +46,7 @@ type StudentListFilters struct {
 	ActiveOnly                 bool
 	EligibleForSponsorshipOnly bool
 	SchoolIDs                  []uint64
+	StudentIDs                 []string
 	MinBirthDate               *time.Time
 	MaxBirthDate               *time.Time
 	NameSearch                 string
@@ -862,6 +863,15 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 		args = append(args, searchTerm, searchTerm)
 	}
 
+	if len(filters.StudentIDs) > 0 {
+		placeholders := make([]string, len(filters.StudentIDs))
+		for i, id := range filters.StudentIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		where = append(where, fmt.Sprintf("id IN (%s)", strings.Join(placeholders, ",")))
+	}
+
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -916,6 +926,15 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 		where = append(where, "(LOWER(sp.first_name) LIKE ? OR LOWER(sp.last_name) LIKE ?)")
 		searchTerm := "%" + strings.ToLower(filters.NameSearch) + "%"
 		args = append(args, searchTerm, searchTerm)
+	}
+
+	if len(filters.StudentIDs) > 0 {
+		placeholders := make([]string, len(filters.StudentIDs))
+		for i, id := range filters.StudentIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		where = append(where, fmt.Sprintf("sp.id IN (%s)", strings.Join(placeholders, ",")))
 	}
 
 	if len(where) > 0 {
@@ -1168,7 +1187,7 @@ func (r *sqlRepository) upsertStudentProfilePhoto(agg *Aggregate) error {
 	return nil
 }
 
-// ListStudentsForSchool - returns all students for a school
+// ListStudentsForSchool - returns all ACTIVE students for a school
 func (r *sqlRepository) ListStudentsForSchool(ctx context.Context, schoolID string) ([]*ProjectedStudent, error) {
 	query := `SELECT
 		id, first_name, last_name, school_id, date_of_birth, student_id, age, grade, version, active
