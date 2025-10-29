@@ -24,7 +24,7 @@ type BulkUploadDomain interface {
 	// UploadFile handles the file upload process
 	UploadFile(r *http.Request, fileSvc *file.Service) (string, error)
 
-	// GetTargetDomain returns the EDA domain type
+	// GetDomain returns the EDA domain type
 	GetDomain() eda.BulkUpload_Domain
 
 	// GetFileName returns the name of the file field in the form
