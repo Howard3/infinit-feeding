@@ -3,11 +3,14 @@ package bulk_domains
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"geevly/gen/go/eda"
 	"geevly/internal/bulk_upload"
 	"geevly/internal/file"
+	"geevly/internal/student"
 	"io"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -289,7 +292,7 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 	return nil
 }
 
-func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) error {
+func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Aggregate, svc *bulk_upload.Service) (err error) {
 	recordsUpdated := make([]string, 0)
 	defer func() {
 		action := bulk_upload.RecordActions{
@@ -298,7 +301,9 @@ func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk
 			Reason:     eda.BulkUpload_RecordAction_INVALIDATED,
 		}
 
-		svc.MarkRecordsAsUndone(context.Background(), aggregate.ID, action)
+		if err := svc.MarkRecordsAsUndone(context.Background(), aggregate.ID, action); err != nil {
+			err = fmt.Errorf("error marking records as undone: %w", err)
+		}
 	}()
 
 	for studentID, states := range aggregate.GetRecordStates() {
@@ -313,6 +318,11 @@ func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk
 		}
 
 		if err := d.services.StudentService.RemoveHealthAssessment(ctx, studentIDUint, aggregate.GetID()); err != nil {
+			// permit undoing if the health assessment was not found. just log it.
+			if errors.Is(err, student.ErrHealthAssessmentNotFound) {
+				slog.Error("error removing health assessment for student ID %d: %w", studentID, err)
+				continue
+			}
 			return fmt.Errorf("error deleting health assessment for student ID %d: %w", studentIDUint, err)
 		}
 
