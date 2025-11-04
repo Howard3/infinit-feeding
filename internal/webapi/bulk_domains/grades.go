@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"geevly/internal/student"
 	"io"
 	"log/slog"
 	"net/http"
@@ -433,6 +434,10 @@ func (d *GradesDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Ag
 		}
 
 		if err := d.services.StudentService.RemoveGradeReport(ctx, studentIDUint, aggregate.GetID()); err != nil {
+			if errors.Is(err, student.ErrGradeReportNotFound) {
+				slog.Warn("error removing grade report for student ID %d: %w", studentID, err)
+				continue
+			}
 			return fmt.Errorf("failed to remove grade report for student %s: %w", studentID, err)
 		}
 
