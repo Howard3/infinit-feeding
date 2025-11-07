@@ -15,9 +15,15 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+const (
+	healthAssessmentWorkerPoolSize = 15
 )
 
 type HealthAssessmentRow struct {
@@ -253,21 +259,45 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 		svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), actions)
 	}()
 
+	// Phase 1: Fetch all students concurrently
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
+
+	// Worker pool size for concurrent student fetching
+	semaphore := make(chan struct{}, healthAssessmentWorkerPoolSize)
+
+	schoolID := aggregate.GetUploadMetadataField("school_id")
+
 	for _, row := range rows {
-		assessment := &eda.Student_HealthAssessment{
-			HeightCm:               float32(row.HeightCM),
-			WeightKg:               float32(row.WeightKG),
-			AssociatedBulkUploadId: aggregate.GetID(),
-			AssessmentDate:         timestamppb.New(row.AssesmentDate),
-		}
+		row := row // capture loop variable
 
-		student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, row.LRN, aggregate.GetUploadMetadataField("school_id"))
-		if err != nil {
-			return fmt.Errorf("error getting student by LRN %s: %w", row.LRN, err)
-		}
+		semaphore <- struct{}{} // acquire
+		g.Go(func() error {
+			defer func() { <-semaphore }() // release
 
-		toProcessIDs = append(toProcessIDs, student.GetID())
-		toProcess[student.GetIDUint64()] = assessment
+			assessment := &eda.Student_HealthAssessment{
+				HeightCm:               float32(row.HeightCM),
+				WeightKg:               float32(row.WeightKG),
+				AssociatedBulkUploadId: aggregate.GetID(),
+				AssessmentDate:         timestamppb.New(row.AssesmentDate),
+			}
+
+			student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(gctx, row.LRN, schoolID)
+			if err != nil {
+				return fmt.Errorf("error getting student by LRN %s: %w", row.LRN, err)
+			}
+
+			mu.Lock()
+			toProcessIDs = append(toProcessIDs, student.GetID())
+			toProcess[student.GetIDUint64()] = assessment
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	recordActions := bulk_upload.RecordActions{
@@ -280,13 +310,33 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 		return fmt.Errorf("error adding records to process: %w", err)
 	}
 
-	for id, assessment := range toProcess {
-		err := d.services.StudentService.AddHealthAssessment(ctx, id, assessment)
-		if err != nil {
-			return fmt.Errorf("error creating health assessment for student ID %d: %w", id, err)
-		}
+	// Phase 2: Process health assessments concurrently
+	g2, gctx2 := errgroup.WithContext(ctx)
+	semaphore2 := make(chan struct{}, healthAssessmentWorkerPoolSize)
 
-		recentlyProcessed = append(recentlyProcessed, fmt.Sprintf("%d", id))
+	for id, assessment := range toProcess {
+		id := id                 // capture loop variable
+		assessment := assessment // capture loop variable
+
+		semaphore2 <- struct{}{} // acquire
+		g2.Go(func() error {
+			defer func() { <-semaphore2 }() // release
+
+			err := d.services.StudentService.AddHealthAssessment(gctx2, id, assessment)
+			if err != nil {
+				return fmt.Errorf("error creating health assessment for student ID %d: %w", id, err)
+			}
+
+			mu.Lock()
+			recentlyProcessed = append(recentlyProcessed, fmt.Sprintf("%d", id))
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g2.Wait(); err != nil {
+		return err
 	}
 
 	return nil
