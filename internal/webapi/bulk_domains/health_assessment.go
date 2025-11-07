@@ -356,6 +356,13 @@ func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk
 		}
 	}()
 
+	// Collect students to process
+	type studentToUndo struct {
+		id     string
+		idUint uint64
+	}
+	studentsToUndo := make([]studentToUndo, 0)
+
 	for studentID, states := range aggregate.GetRecordStates() {
 		finalState := states.RecordActions[len(states.RecordActions)-1]
 		if finalState.Reason != eda.BulkUpload_RecordAction_PROCESSING {
@@ -367,16 +374,43 @@ func (d *HealthAssessmentDomain) UndoUpload(ctx context.Context, aggregate *bulk
 			return fmt.Errorf("error parsing student ID %s: %w", studentID, err)
 		}
 
-		if err := d.services.StudentService.RemoveHealthAssessment(ctx, studentIDUint, aggregate.GetID()); err != nil {
-			// permit undoing if the health assessment was not found. just log it.
-			if errors.Is(err, student.ErrHealthAssessmentNotFound) {
-				slog.Error("error removing health assessment for student ID %d: %w", studentID, err)
-				continue
-			}
-			return fmt.Errorf("error deleting health assessment for student ID %d: %w", studentIDUint, err)
-		}
+		studentsToUndo = append(studentsToUndo, studentToUndo{
+			id:     studentID,
+			idUint: studentIDUint,
+		})
+	}
 
-		recordsUpdated = append(recordsUpdated, studentID)
+	// Process removals concurrently
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
+	semaphore := make(chan struct{}, healthAssessmentWorkerPoolSize)
+
+	for _, stud := range studentsToUndo {
+		stud := stud // capture loop variable
+
+		semaphore <- struct{}{} // acquire
+		g.Go(func() error {
+			defer func() { <-semaphore }() // release
+
+			if err := d.services.StudentService.RemoveHealthAssessment(gctx, stud.idUint, aggregate.GetID()); err != nil {
+				// permit undoing if the health assessment was not found. just log it.
+				if errors.Is(err, student.ErrHealthAssessmentNotFound) {
+					slog.Error("error removing health assessment for student ID %s: %v", stud.id, err)
+					return nil
+				}
+				return fmt.Errorf("error deleting health assessment for student ID %d: %w", stud.idUint, err)
+			}
+
+			mu.Lock()
+			recordsUpdated = append(recordsUpdated, stud.id)
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	return nil
