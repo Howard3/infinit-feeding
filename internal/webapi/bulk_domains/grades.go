@@ -11,11 +11,17 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"geevly/gen/go/eda"
 	"geevly/internal/bulk_upload"
 	"geevly/internal/file"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	gradesWorkerPoolSize = 50
 )
 
 // GradesDomain implements BulkUploadDomain for grades uploads
@@ -336,6 +342,12 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 	}
 
 	// Track processed records
+	type studentGrade struct {
+		studentID    uint64
+		studentIDStr string
+		gradeVal     int
+	}
+	toProcess := make([]studentGrade, 0)
 	toProcessIDs := make([]string, 0)
 	recentlyProcessed := make([]string, 0)
 
@@ -349,15 +361,45 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 		svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), actions)
 	}()
 
-	// First pass: gather student IDs to process
-	for _, row := range rows {
-		// Find the student by LRN and school ID
-		student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, row.LRN, schoolID)
-		if err != nil {
-			return fmt.Errorf("failed to find student with LRN %s and school ID %s: %w", row.LRN, schoolID, err)
-		}
+	// Phase 1: Fetch all students concurrently
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
+	semaphore := make(chan struct{}, gradesWorkerPoolSize)
 
-		toProcessIDs = append(toProcessIDs, student.GetID())
+	for _, row := range rows {
+		row := row // capture loop variable
+
+		semaphore <- struct{}{} // acquire
+		g.Go(func() error {
+			defer func() { <-semaphore }() // release
+
+			// Parse the grade value
+			gradeVal, err := row.GradeInt()
+			if err != nil {
+				return fmt.Errorf("failed to parse grade value: %w", err)
+			}
+
+			// Find the student by LRN and school ID
+			student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(gctx, row.LRN, schoolID)
+			if err != nil {
+				return fmt.Errorf("failed to find student with LRN %s and school ID %s: %w", row.LRN, schoolID, err)
+			}
+
+			mu.Lock()
+			toProcessIDs = append(toProcessIDs, student.GetID())
+			toProcess = append(toProcess, studentGrade{
+				studentID:    student.GetIDUint64(),
+				studentIDStr: student.GetID(),
+				gradeVal:     gradeVal,
+			})
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	// Mark records for processing
@@ -371,39 +413,45 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 		return fmt.Errorf("error adding records to process: %w", err)
 	}
 
-	// Second pass: process each row and update student grades
-	for _, row := range rows {
-		// Parse the grade value
-		gradeVal, err := row.GradeInt()
-		if err != nil {
-			return fmt.Errorf("failed to parse grade value: %w", err)
-		}
+	// Phase 2: Process grade reports concurrently
+	g2, gctx2 := errgroup.WithContext(ctx)
+	semaphore2 := make(chan struct{}, gradesWorkerPoolSize)
 
-		// Find the student by LRN and school ID
-		student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, row.LRN, schoolID)
-		if err != nil {
-			return fmt.Errorf("failed to find student with LRN %s and school ID %s: %w", row.LRN, schoolID, err)
-		}
+	for _, sg := range toProcess {
+		sg := sg // capture loop variable
 
-		// Create a grade update command based on your actual data model
-		gradeCmd := &eda.Student_GradeReport{
-			Grade: int32(gradeVal),
-			TestDate: &eda.Date{
-				Year:  int32(effectiveDateParsed.Year()),
-				Month: int32(effectiveDateParsed.Month()),
-				Day:   int32(effectiveDateParsed.Day()),
-			},
-			AssociatedBulkUploadId: aggregate.GetID(),
-			SchoolYear:             schoolYear,
-			GradingPeriod:          gradingPeriod,
-		}
+		semaphore2 <- struct{}{} // acquire
+		g2.Go(func() error {
+			defer func() { <-semaphore2 }() // release
 
-		err = d.services.StudentService.AddGradeReport(ctx, student.GetIDUint64(), gradeCmd)
-		if err != nil {
-			return fmt.Errorf("failed to add grade report for student %s: %w", student.GetID(), err)
-		}
+			// Create a grade update command based on your actual data model
+			gradeCmd := &eda.Student_GradeReport{
+				Grade: int32(sg.gradeVal),
+				TestDate: &eda.Date{
+					Year:  int32(effectiveDateParsed.Year()),
+					Month: int32(effectiveDateParsed.Month()),
+					Day:   int32(effectiveDateParsed.Day()),
+				},
+				AssociatedBulkUploadId: aggregate.GetID(),
+				SchoolYear:             schoolYear,
+				GradingPeriod:          gradingPeriod,
+			}
 
-		recentlyProcessed = append(recentlyProcessed, student.GetID())
+			err := d.services.StudentService.AddGradeReport(gctx2, sg.studentID, gradeCmd)
+			if err != nil {
+				return fmt.Errorf("failed to add grade report for student %s: %w", sg.studentIDStr, err)
+			}
+
+			mu.Lock()
+			recentlyProcessed = append(recentlyProcessed, sg.studentIDStr)
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g2.Wait(); err != nil {
+		return err
 	}
 
 	return nil
@@ -421,6 +469,13 @@ func (d *GradesDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Ag
 		svc.MarkRecordsAsUndone(context.Background(), aggregate.GetID(), actions)
 	}()
 
+	// Collect students to process
+	type studentToUndo struct {
+		id     string
+		idUint uint64
+	}
+	studentsToUndo := make([]studentToUndo, 0)
+
 	for studentID, states := range aggregate.GetRecordStates() {
 		finalState := states.RecordActions[len(states.RecordActions)-1]
 		if finalState.Reason != eda.BulkUpload_RecordAction_PROCESSING {
@@ -433,15 +488,42 @@ func (d *GradesDomain) UndoUpload(ctx context.Context, aggregate *bulk_upload.Ag
 			return fmt.Errorf("failed to parse student ID %s: %w", studentID, err)
 		}
 
-		if err := d.services.StudentService.RemoveGradeReport(ctx, studentIDUint, aggregate.GetID()); err != nil {
-			if errors.Is(err, student.ErrGradeReportNotFound) {
-				slog.Warn("error removing grade report for student ID %d: %w", studentID, err)
-				continue
-			}
-			return fmt.Errorf("failed to remove grade report for student %s: %w", studentID, err)
-		}
+		studentsToUndo = append(studentsToUndo, studentToUndo{
+			id:     studentID,
+			idUint: studentIDUint,
+		})
+	}
 
-		recordsUpdated = append(recordsUpdated, studentID)
+	// Process removals concurrently
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
+	semaphore := make(chan struct{}, gradesWorkerPoolSize)
+
+	for _, stud := range studentsToUndo {
+		stud := stud // capture loop variable
+
+		semaphore <- struct{}{} // acquire
+		g.Go(func() error {
+			defer func() { <-semaphore }() // release
+
+			if err := d.services.StudentService.RemoveGradeReport(gctx, stud.idUint, aggregate.GetID()); err != nil {
+				if errors.Is(err, student.ErrGradeReportNotFound) {
+					slog.Warn("error removing grade report for student ID %s: %v", stud.id, err)
+					return nil
+				}
+				return fmt.Errorf("failed to remove grade report for student %s: %w", stud.id, err)
+			}
+
+			mu.Lock()
+			recordsUpdated = append(recordsUpdated, stud.id)
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	return nil
