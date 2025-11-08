@@ -178,6 +178,26 @@ func (sd *Aggregate) routeEvent(evt gosignal.Event) (err error) {
 	return handler(wevt)
 }
 
+func (sd *Aggregate) GetGradeReports() []*eda.Student_GradeReport {
+	// Create a copy of the grade history slice
+	reports := make([]*eda.Student_GradeReport, len(sd.data.GradeHistory))
+	copy(reports, sd.data.GradeHistory)
+
+	// Sort by test date, oldest first
+	slices.SortFunc(reports, func(a, b *eda.Student_GradeReport) int {
+		aTime := time.Date(int(a.TestDate.Year), time.Month(a.TestDate.Month), int(a.TestDate.Day), 0, 0, 0, 0, time.UTC)
+		bTime := time.Date(int(b.TestDate.Year), time.Month(b.TestDate.Month), int(b.TestDate.Day), 0, 0, 0, 0, time.UTC)
+		if aTime.Before(bTime) {
+			return -1
+		} else if aTime.After(bTime) {
+			return 1
+		}
+		return 0
+	})
+
+	return reports
+}
+
 func (sd *Aggregate) GetHealthAssessments() []*HealthReport {
 	hr := make([]*HealthReport, len(sd.data.HealthAssessments))
 	dob := time.Date(
@@ -195,6 +215,17 @@ func (sd *Aggregate) GetHealthAssessments() []*HealthReport {
 			dob:                    &dob,
 		}
 	}
+
+	// Sort by assessment date, oldest first
+	slices.SortFunc(hr, func(a, b *HealthReport) int {
+		if a.AssessmentDate.Before(b.AssessmentDate) {
+			return -1
+		} else if a.AssessmentDate.After(b.AssessmentDate) {
+			return 1
+		}
+		return 0
+	})
+
 	return hr
 }
 
