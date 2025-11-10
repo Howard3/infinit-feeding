@@ -18,6 +18,13 @@ if ! sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d; then
     exit 1
 fi
 
+# Install swag (Swagger documentation generator)
+echo "Installing swag..."
+if ! GO111MODULE=on GOBIN=/usr/local/bin go install github.com/swaggo/swag/cmd/swag@latest; then
+    echo "Failed to install swag"
+    exit 1
+fi
+
 # Install Node.js and npm
 echo "Installing Node.js and npm..."
 if ! apt update; then

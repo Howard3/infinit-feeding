@@ -30,6 +30,7 @@ tasks:
       - build:templates
       - build:buf
       - build:tailwind
+      - build:swagger
   build:sqlc:
     desc: "build sqlc code"
     cmds:
@@ -93,10 +94,14 @@ tasks:
     desc: "deploy to staging"
     cmds:
       - fly deploy -a infinit-feeding-staging
+  build:swagger:
+    desc: "generate swagger docs"
+    cmds:
+      - swag init -g internal/webapi/api_routes.go -o ./docs
   swagger:
     desc: "generate swagger docs"
     cmds:
-      - ./scripts/swagger.sh
+      - task: build:swagger
   build:docker:
     desc: "build docker image"
     cmds:
