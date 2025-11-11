@@ -112,10 +112,6 @@ For more detailed information about each tool used in this project, please refer
 - Templ: [https://templ.dev/docs](https://templ.dev/docs)
 - Taskfile: [https://taskfile.dev/#/](https://taskfile.dev/#/)
 
-## Contributing
-
-Please read [CONTRIBUTING.md](/CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
