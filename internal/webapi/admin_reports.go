@@ -638,7 +638,7 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Created Date"}
 	header = append(header, schoolYears...)
 	header = append(header, "Total")
 	_ = cw.Write(header)
@@ -650,6 +650,7 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 		firstName := ""
 		lastName := ""
 		schoolName := ""
+		createdDate := ""
 		if st != nil {
 			lrn = st.StudentID
 			firstName = st.FirstName
@@ -657,9 +658,12 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
 				schoolName = schoolMap[sid]
 			}
+			if !st.CreatedAt.IsZero() {
+				createdDate = st.CreatedAt.Format("2006-01-02")
+			}
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, createdDate}
 		total := 0
 		for _, schoolYear := range schoolYears {
 			count := yearCounts[schoolYear]
@@ -715,7 +719,7 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Created Date"}
 	for _, year := range years {
 		header = append(header, fmt.Sprintf("%d", year))
 	}
@@ -729,6 +733,7 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 		firstName := ""
 		lastName := ""
 		schoolName := ""
+		createdDate := ""
 		if st != nil {
 			lrn = st.StudentID
 			firstName = st.FirstName
@@ -736,9 +741,12 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
 				schoolName = schoolMap[sid]
 			}
+			if !st.CreatedAt.IsZero() {
+				createdDate = st.CreatedAt.Format("2006-01-02")
+			}
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, createdDate}
 		total := 0
 		for _, year := range years {
 			count := yearCounts[year]
@@ -794,7 +802,7 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Created Date"}
 	for _, year := range years {
 		header = append(header, fmt.Sprintf("%d", year))
 	}
@@ -808,6 +816,7 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 		firstName := ""
 		lastName := ""
 		schoolName := ""
+		createdDate := ""
 		if st != nil {
 			lrn = st.StudentID
 			firstName = st.FirstName
@@ -815,9 +824,12 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
 				schoolName = schoolMap[sid]
 			}
+			if !st.CreatedAt.IsZero() {
+				createdDate = st.CreatedAt.Format("2006-01-02")
+			}
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, createdDate}
 		total := 0
 		for _, year := range years {
 			count := yearCounts[year]

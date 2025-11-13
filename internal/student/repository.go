@@ -40,6 +40,7 @@ type ProjectedStudent struct {
 	ProfilePhotoID         string
 	EligibleForSponsorship bool
 	QRCode                 string
+	CreatedAt              time.Time
 }
 
 // Add this new struct for filter options
@@ -891,10 +892,12 @@ func (r *sqlRepository) CountStudents(ctx context.Context, filters StudentListFi
 func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filters StudentListFilters) ([]*ProjectedStudent, error) {
 	baseQuery := `SELECT
 		sp.id, sp.first_name, sp.last_name, sp.school_id, sp.date_of_birth, sp.student_id, sp.age, sp.grade, sp.version, sp.active,
-		spp.file_id as profile_photo_id, sp.eligible_for_sponsorship, spl.code
+		spp.file_id as profile_photo_id, sp.eligible_for_sponsorship, spl.code,
+		se.timestamp as created_at
 		FROM student_projections sp
 		LEFT JOIN student_profile_photos spp ON sp.id = spp.id
-        LEFT JOIN student_code_lookup spl on sp.id = spl.id`
+        LEFT JOIN student_code_lookup spl on sp.id = spl.id
+		LEFT JOIN student_events se ON sp.id = se.aggregate_id AND se.version = 1`
 
 	where := []string{}
 	args := []interface{}{}
@@ -960,7 +963,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 	for rows.Next() {
 		student := &ProjectedStudent{}
 		var dateOfBirth, studentID, profilePhotoID, qrCode sql.NullString
-		var grade, age sql.NullInt64
+		var grade, age, createdAtUnix sql.NullInt64
 
 		if err := rows.Scan(
 			&student.ID,
@@ -976,6 +979,7 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 			&profilePhotoID,
 			&student.EligibleForSponsorship,
 			&qrCode,
+			&createdAtUnix,
 		); err != nil {
 			return nil, fmt.Errorf("scan student: %w", err)
 		}
@@ -986,6 +990,9 @@ func (r *sqlRepository) ListStudents(ctx context.Context, limit, page uint, filt
 		student.Age = uint(age.Int64)
 		student.ProfilePhotoID = profilePhotoID.String
 		student.QRCode = qrCode.String
+		if createdAtUnix.Valid {
+			student.CreatedAt = time.Unix(createdAtUnix.Int64, 0)
+		}
 
 		students = append(students, student)
 	}
