@@ -169,5 +169,85 @@ templ ReportsHome(schools map[string]string) {
                 </div>
             </a>
         </div>
+
+        // Data Completeness Reports Section
+        <div class="mt-12">
+            <h2 class="text-xl font-semibold mb-4">Data Completeness Reports</h2>
+            <p class="text-gray-600 text-sm mb-4">Executive reports showing record counts per student across time periods.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-fr">
+                <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 rounded-lg" href="/admin/reports/completeness/grades">
+                    <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-violet-500 hover:border-t-violet-600 hover:-translate-y-0.5">
+                        <div class="flex items-start justify-between">
+                            <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-violet-50 text-violet-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                                </svg>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="text-lg font-semibold mb-2">Grade Report Completeness</h3>
+                            <p class="text-gray-600 text-sm">Number of grade reports per student by school year (rows: students, columns: school years).</p>
+                        </div>
+                        <div class="mt-auto pt-4 text-sm text-violet-600 inline-flex items-center">
+                            Download CSV
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+                <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 rounded-lg" href="/admin/reports/completeness/health">
+                    <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-rose-500 hover:border-t-rose-600 hover:-translate-y-0.5">
+                        <div class="flex items-start justify-between">
+                            <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-rose-50 text-rose-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                </svg>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="text-lg font-semibold mb-2">Health Assessment Completeness</h3>
+                            <p class="text-gray-600 text-sm">Number of health assessments per student by year (rows: students, columns: years).</p>
+                        </div>
+                        <div class="mt-auto pt-4 text-sm text-rose-600 inline-flex items-center">
+                            Download CSV
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+                <a class="block h-full group cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-lg" href="/admin/reports/completeness/feedings">
+                    <div class="h-full bg-white rounded-lg shadow hover:shadow-md transition-all p-6 border border-gray-200 flex flex-col border-t-4 border-t-orange-500 hover:border-t-orange-600 hover:-translate-y-0.5">
+                        <div class="flex items-start justify-between">
+                            <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-orange-50 text-orange-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+                                    <path d="M11 9H9V2H7v7H5V2H3v7c0 2.21 1.79 4 4 4v9h2v-9c2.21 0 4-1.79 4-4V2h-2v7zm5-3v8h2.5v8H20V2c-2.76 0-5 2.24-5 4z"/>
+                                </svg>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-gray-300 transform transition-transform group-hover:translate-x-0.5">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="text-lg font-semibold mb-2">Feeding Completeness</h3>
+                            <p class="text-gray-600 text-sm">Number of feedings per student by year (rows: students, columns: years).</p>
+                        </div>
+                        <div class="mt-auto pt-4 text-sm text-orange-600 inline-flex items-center">
+                            Download CSV
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="ml-1 h-4 w-4 transform transition-transform group-hover:translate-x-0.5">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 1 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
     </div>
 } 

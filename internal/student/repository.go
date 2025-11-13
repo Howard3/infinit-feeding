@@ -10,6 +10,7 @@ import (
 	"geevly/internal/infrastructure"
 	"log/slog"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -91,6 +92,9 @@ type Repository interface {
 	updateAllGradeProjectionsForStudent(*Aggregate) error
 	GetHealthAssessments(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentHealth, error)
 	GetGrades(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentGrade, error)
+	GetGradeCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error)
+	GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error)
+	GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error)
 }
 
 // source schema:
@@ -1705,4 +1709,180 @@ func (r *sqlRepository) GetAllCurrentSponsorships(ctx context.Context) ([]*Spons
 	}
 
 	return sponsorships, nil
+}
+
+// GetGradeCompletenessReport returns a report of grade counts by student and school year.
+// Returns: data map[studentID]map[schoolYear]count, sorted school years, error
+func (r *sqlRepository) GetGradeCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
+	args := []any{}
+	query := `
+		SELECT 
+			sgp.student_id,
+			sgp.school_year,
+			COUNT(*) as count
+		FROM student_grade_projections sgp
+	`
+
+	if schoolID != "" {
+		query += " WHERE sgp.school_id = ?"
+		args = append(args, schoolID)
+	}
+
+	query += `
+		GROUP BY sgp.student_id, sgp.school_year
+		ORDER BY sgp.student_id, sgp.school_year
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("query grade completeness: %w", err)
+	}
+	defer rows.Close()
+
+	data := make(map[string]map[string]int)
+	schoolYearsSet := make(map[string]struct{})
+
+	for rows.Next() {
+		var studentID string
+		var schoolYear sql.NullString
+		var count int
+
+		if err := rows.Scan(&studentID, &schoolYear, &count); err != nil {
+			return nil, nil, fmt.Errorf("scan grade completeness: %w", err)
+		}
+
+		sy := schoolYear.String
+		if sy == "" {
+			sy = "Unknown"
+		}
+
+		if _, ok := data[studentID]; !ok {
+			data[studentID] = make(map[string]int)
+		}
+		data[studentID][sy] = count
+		schoolYearsSet[sy] = struct{}{}
+	}
+
+	// Convert set to sorted slice
+	schoolYears := make([]string, 0, len(schoolYearsSet))
+	for sy := range schoolYearsSet {
+		schoolYears = append(schoolYears, sy)
+	}
+	sort.Strings(schoolYears)
+
+	return data, schoolYears, nil
+}
+
+// GetHealthAssessmentCompletenessReport returns a report of health assessment counts by student and year.
+// Returns: data map[studentID]map[year]count, sorted years, error
+func (r *sqlRepository) GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+	args := []any{}
+	query := `
+		SELECT 
+			shp.student_id,
+			CAST(strftime('%Y', shp.assessment_date) AS INTEGER) as year,
+			COUNT(*) as count
+		FROM student_health_projections shp
+	`
+
+	if schoolID != "" {
+		query += " WHERE shp.school_id = ?"
+		args = append(args, schoolID)
+	}
+
+	query += `
+		GROUP BY shp.student_id, year
+		ORDER BY shp.student_id, year
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("query health assessment completeness: %w", err)
+	}
+	defer rows.Close()
+
+	data := make(map[string]map[int]int)
+	yearsSet := make(map[int]struct{})
+
+	for rows.Next() {
+		var studentID string
+		var year int
+		var count int
+
+		if err := rows.Scan(&studentID, &year, &count); err != nil {
+			return nil, nil, fmt.Errorf("scan health assessment completeness: %w", err)
+		}
+
+		if _, ok := data[studentID]; !ok {
+			data[studentID] = make(map[int]int)
+		}
+		data[studentID][year] = count
+		yearsSet[year] = struct{}{}
+	}
+
+	// Convert set to sorted slice
+	years := make([]int, 0, len(yearsSet))
+	for y := range yearsSet {
+		years = append(years, y)
+	}
+	sort.Ints(years)
+
+	return data, years, nil
+}
+
+// GetFeedingCompletenessReport returns a report of feeding counts by student and year.
+// Returns: data map[studentID]map[year]count, sorted years, error
+func (r *sqlRepository) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+	args := []any{}
+	query := `
+		SELECT 
+			sfp.student_id,
+			CAST(strftime('%Y', sfp.feeding_timestamp) AS INTEGER) as year,
+			COUNT(*) as count
+		FROM student_feeding_projections sfp
+	`
+
+	if schoolID != "" {
+		query += " WHERE sfp.school_id = ?"
+		args = append(args, schoolID)
+	}
+
+	query += `
+		GROUP BY sfp.student_id, year
+		ORDER BY sfp.student_id, year
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("query feeding completeness: %w", err)
+	}
+	defer rows.Close()
+
+	data := make(map[string]map[int]int)
+	yearsSet := make(map[int]struct{})
+
+	for rows.Next() {
+		var studentID string
+		var year int
+		var count int
+
+		if err := rows.Scan(&studentID, &year, &count); err != nil {
+			return nil, nil, fmt.Errorf("scan feeding completeness: %w", err)
+		}
+
+		if _, ok := data[studentID]; !ok {
+			data[studentID] = make(map[int]int)
+		}
+		data[studentID][year] = count
+		yearsSet[year] = struct{}{}
+	}
+
+	// Convert set to sorted slice
+	years := make([]int, 0, len(yearsSet))
+	for y := range yearsSet {
+		years = append(years, y)
+	}
+	sort.Ints(years)
+
+	return data, years, nil
 }

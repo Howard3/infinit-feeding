@@ -27,6 +27,10 @@ func (s *Server) adminReports(r chi.Router) {
 	// HTMX endpoints for QR student selection
 	r.Get("/student-search", s.adminReportStudentSearch)
 	r.Get("/student-chip", s.adminReportStudentChip)
+	// Data completeness reports
+	r.Get("/completeness/grades", s.adminGradeCompletenessCSV)
+	r.Get("/completeness/health", s.adminHealthCompletenessCSV)
+	r.Get("/completeness/feedings", s.adminFeedingCompletenessCSV)
 }
 
 func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {
@@ -590,6 +594,241 @@ func (s *Server) adminGradesCSV(w http.ResponseWriter, r *http.Request) {
 			rec.SchoolYear.String,
 			rec.GradingPeriod.String,
 		}
+		_ = cw.Write(row)
+	}
+}
+
+// adminGradeCompletenessCSV streams a CSV of grade report completeness by student and school year
+func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Request) {
+	schoolID := r.URL.Query().Get("school_id")
+
+	data, schoolYears, err := s.Services.StudentSvc.GetGradeCompletenessReport(r.Context(), schoolID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching grade completeness report", err)
+		return
+	}
+
+	// Get student information for all students in the report
+	studentIDs := make([]string, 0, len(data))
+	for studentID := range data {
+		studentIDs = append(studentIDs, studentID)
+	}
+
+	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
+	studentsByID := make(map[string]*student.ProjectedStudent)
+	for _, st := range students {
+		studentsByID[fmt.Sprintf("%d", st.ID)] = st
+	}
+
+	// Get school names
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=grade_completeness_%s.csv", time.Now().Format("2006-01-02")))
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	// Build header
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School"}
+	header = append(header, schoolYears...)
+	header = append(header, "Total")
+	_ = cw.Write(header)
+
+	// Write rows
+	for studentID, yearCounts := range data {
+		st := studentsByID[studentID]
+		lrn := ""
+		firstName := ""
+		lastName := ""
+		schoolName := ""
+		if st != nil {
+			lrn = st.StudentID
+			firstName = st.FirstName
+			lastName = st.LastName
+			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+				schoolName = schoolMap[sid]
+			}
+		}
+
+		row := []string{studentID, lrn, firstName, lastName, schoolName}
+		total := 0
+		for _, schoolYear := range schoolYears {
+			count := yearCounts[schoolYear]
+			total += count
+			if count > 0 {
+				row = append(row, fmt.Sprintf("%d", count))
+			} else {
+				row = append(row, "")
+			}
+		}
+		row = append(row, fmt.Sprintf("%d", total))
+		_ = cw.Write(row)
+	}
+}
+
+// adminHealthCompletenessCSV streams a CSV of health assessment completeness by student and year
+func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Request) {
+	schoolID := r.URL.Query().Get("school_id")
+
+	data, years, err := s.Services.StudentSvc.GetHealthAssessmentCompletenessReport(r.Context(), schoolID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching health assessment completeness report", err)
+		return
+	}
+
+	// Get student information for all students in the report
+	studentIDs := make([]string, 0, len(data))
+	for studentID := range data {
+		studentIDs = append(studentIDs, studentID)
+	}
+
+	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
+	studentsByID := make(map[string]*student.ProjectedStudent)
+	for _, st := range students {
+		studentsByID[fmt.Sprintf("%d", st.ID)] = st
+	}
+
+	// Get school names
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=health_completeness_%s.csv", time.Now().Format("2006-01-02")))
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	// Build header
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School"}
+	for _, year := range years {
+		header = append(header, fmt.Sprintf("%d", year))
+	}
+	header = append(header, "Total")
+	_ = cw.Write(header)
+
+	// Write rows
+	for studentID, yearCounts := range data {
+		st := studentsByID[studentID]
+		lrn := ""
+		firstName := ""
+		lastName := ""
+		schoolName := ""
+		if st != nil {
+			lrn = st.StudentID
+			firstName = st.FirstName
+			lastName = st.LastName
+			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+				schoolName = schoolMap[sid]
+			}
+		}
+
+		row := []string{studentID, lrn, firstName, lastName, schoolName}
+		total := 0
+		for _, year := range years {
+			count := yearCounts[year]
+			total += count
+			if count > 0 {
+				row = append(row, fmt.Sprintf("%d", count))
+			} else {
+				row = append(row, "")
+			}
+		}
+		row = append(row, fmt.Sprintf("%d", total))
+		_ = cw.Write(row)
+	}
+}
+
+// adminFeedingCompletenessCSV streams a CSV of feeding completeness by student and year
+func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Request) {
+	schoolID := r.URL.Query().Get("school_id")
+
+	data, years, err := s.Services.StudentSvc.GetFeedingCompletenessReport(r.Context(), schoolID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching feeding completeness report", err)
+		return
+	}
+
+	// Get student information for all students in the report
+	studentIDs := make([]string, 0, len(data))
+	for studentID := range data {
+		studentIDs = append(studentIDs, studentID)
+	}
+
+	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching students", err)
+		return
+	}
+
+	studentsByID := make(map[string]*student.ProjectedStudent)
+	for _, st := range students {
+		studentsByID[fmt.Sprintf("%d", st.ID)] = st
+	}
+
+	// Get school names
+	schoolMap, err := s.Services.SchoolSvc.MapSchoolsByID(r.Context())
+	if err != nil {
+		s.errorPage(w, r, "Error fetching schools", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=feeding_completeness_%s.csv", time.Now().Format("2006-01-02")))
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	// Build header
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School"}
+	for _, year := range years {
+		header = append(header, fmt.Sprintf("%d", year))
+	}
+	header = append(header, "Total")
+	_ = cw.Write(header)
+
+	// Write rows
+	for studentID, yearCounts := range data {
+		st := studentsByID[studentID]
+		lrn := ""
+		firstName := ""
+		lastName := ""
+		schoolName := ""
+		if st != nil {
+			lrn = st.StudentID
+			firstName = st.FirstName
+			lastName = st.LastName
+			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+				schoolName = schoolMap[sid]
+			}
+		}
+
+		row := []string{studentID, lrn, firstName, lastName, schoolName}
+		total := 0
+		for _, year := range years {
+			count := yearCounts[year]
+			total += count
+			if count > 0 {
+				row = append(row, fmt.Sprintf("%d", count))
+			} else {
+				row = append(row, "")
+			}
+		}
+		row = append(row, fmt.Sprintf("%d", total))
 		_ = cw.Write(row)
 	}
 }

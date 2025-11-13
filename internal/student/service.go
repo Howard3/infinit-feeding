@@ -463,3 +463,18 @@ func (s *StudentService) RemoveHealthAssessment(ctx context.Context, id uint64, 
 
 	return nil
 }
+
+// GetGradeCompletenessReport returns a map of student ID to map of school years to count of grade reports
+func (s *StudentService) GetGradeCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
+	return s.repo.GetGradeCompletenessReport(ctx, schoolID)
+}
+
+// GetHealthAssessmentCompletenessReport returns a map of student ID to map of years to count of health assessments
+func (s *StudentService) GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+	return s.repo.GetHealthAssessmentCompletenessReport(ctx, schoolID)
+}
+
+// GetFeedingCompletenessReport returns a map of student ID to map of years to count of feedings
+func (s *StudentService) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+	return s.repo.GetFeedingCompletenessReport(ctx, schoolID)
+}
