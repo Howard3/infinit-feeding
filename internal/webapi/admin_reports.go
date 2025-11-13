@@ -608,13 +608,19 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Get student information for all students in the report
-	studentIDs := make([]string, 0, len(data))
-	for studentID := range data {
-		studentIDs = append(studentIDs, studentID)
+	// Get ALL students (not just those with grade reports)
+	var students []*student.ProjectedStudent
+	if schoolID != "" {
+		students, err = s.Services.StudentSvc.ListForSchool(r.Context(), schoolID)
+	} else {
+		// Get all students across all schools
+		res, err := s.Services.StudentSvc.ListStudents(r.Context(), 0, 1)
+		if err != nil {
+			s.errorPage(w, r, "Error fetching students", err)
+			return
+		}
+		students = res.Students
 	}
-
-	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching students", err)
 		return
@@ -638,32 +644,31 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Created Date"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Created Date"}
 	header = append(header, schoolYears...)
 	header = append(header, "Total")
 	_ = cw.Write(header)
 
-	// Write rows
-	for studentID, yearCounts := range data {
-		st := studentsByID[studentID]
-		lrn := ""
-		firstName := ""
-		lastName := ""
+	// Write rows for ALL students
+	for _, st := range students {
+		studentID := fmt.Sprintf("%d", st.ID)
+		yearCounts := data[studentID] // Will be nil/empty if student has no records
+
+		lrn := st.StudentID
+		firstName := st.FirstName
+		lastName := st.LastName
 		schoolName := ""
+		gradeLevel := fmt.Sprintf("%d", st.Grade)
 		createdDate := ""
-		if st != nil {
-			lrn = st.StudentID
-			firstName = st.FirstName
-			lastName = st.LastName
-			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
-				schoolName = schoolMap[sid]
-			}
-			if !st.CreatedAt.IsZero() {
-				createdDate = st.CreatedAt.Format("2006-01-02")
-			}
+
+		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+			schoolName = schoolMap[sid]
+		}
+		if !st.CreatedAt.IsZero() {
+			createdDate = st.CreatedAt.Format("2006-01-02")
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName, createdDate}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, createdDate}
 		total := 0
 		for _, schoolYear := range schoolYears {
 			count := yearCounts[schoolYear]
@@ -689,13 +694,19 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get student information for all students in the report
-	studentIDs := make([]string, 0, len(data))
-	for studentID := range data {
-		studentIDs = append(studentIDs, studentID)
+	// Get ALL students (not just those with health assessments)
+	var students []*student.ProjectedStudent
+	if schoolID != "" {
+		students, err = s.Services.StudentSvc.ListForSchool(r.Context(), schoolID)
+	} else {
+		// Get all students across all schools
+		res, err := s.Services.StudentSvc.ListStudents(r.Context(), 0, 1)
+		if err != nil {
+			s.errorPage(w, r, "Error fetching students", err)
+			return
+		}
+		students = res.Students
 	}
-
-	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching students", err)
 		return
@@ -719,34 +730,33 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Created Date"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Created Date"}
 	for _, year := range years {
 		header = append(header, fmt.Sprintf("%d", year))
 	}
 	header = append(header, "Total")
 	_ = cw.Write(header)
 
-	// Write rows
-	for studentID, yearCounts := range data {
-		st := studentsByID[studentID]
-		lrn := ""
-		firstName := ""
-		lastName := ""
+	// Write rows for ALL students
+	for _, st := range students {
+		studentID := fmt.Sprintf("%d", st.ID)
+		yearCounts := data[studentID] // Will be nil/empty if student has no records
+
+		lrn := st.StudentID
+		firstName := st.FirstName
+		lastName := st.LastName
 		schoolName := ""
+		gradeLevel := fmt.Sprintf("%d", st.Grade)
 		createdDate := ""
-		if st != nil {
-			lrn = st.StudentID
-			firstName = st.FirstName
-			lastName = st.LastName
-			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
-				schoolName = schoolMap[sid]
-			}
-			if !st.CreatedAt.IsZero() {
-				createdDate = st.CreatedAt.Format("2006-01-02")
-			}
+
+		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+			schoolName = schoolMap[sid]
+		}
+		if !st.CreatedAt.IsZero() {
+			createdDate = st.CreatedAt.Format("2006-01-02")
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName, createdDate}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, createdDate}
 		total := 0
 		for _, year := range years {
 			count := yearCounts[year]
@@ -772,13 +782,19 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get student information for all students in the report
-	studentIDs := make([]string, 0, len(data))
-	for studentID := range data {
-		studentIDs = append(studentIDs, studentID)
+	// Get ALL students (not just those with feedings)
+	var students []*student.ProjectedStudent
+	if schoolID != "" {
+		students, err = s.Services.StudentSvc.ListForSchool(r.Context(), schoolID)
+	} else {
+		// Get all students across all schools
+		res, err := s.Services.StudentSvc.ListStudents(r.Context(), 0, 1)
+		if err != nil {
+			s.errorPage(w, r, "Error fetching students", err)
+			return
+		}
+		students = res.Students
 	}
-
-	students, err := s.Services.StudentSvc.FetchManyStudentProjections(r.Context(), studentIDs)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching students", err)
 		return
@@ -802,34 +818,33 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Created Date"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Created Date"}
 	for _, year := range years {
 		header = append(header, fmt.Sprintf("%d", year))
 	}
 	header = append(header, "Total")
 	_ = cw.Write(header)
 
-	// Write rows
-	for studentID, yearCounts := range data {
-		st := studentsByID[studentID]
-		lrn := ""
-		firstName := ""
-		lastName := ""
+	// Write rows for ALL students
+	for _, st := range students {
+		studentID := fmt.Sprintf("%d", st.ID)
+		yearCounts := data[studentID] // Will be nil/empty if student has no records
+
+		lrn := st.StudentID
+		firstName := st.FirstName
+		lastName := st.LastName
 		schoolName := ""
+		gradeLevel := fmt.Sprintf("%d", st.Grade)
 		createdDate := ""
-		if st != nil {
-			lrn = st.StudentID
-			firstName = st.FirstName
-			lastName = st.LastName
-			if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
-				schoolName = schoolMap[sid]
-			}
-			if !st.CreatedAt.IsZero() {
-				createdDate = st.CreatedAt.Format("2006-01-02")
-			}
+
+		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
+			schoolName = schoolMap[sid]
+		}
+		if !st.CreatedAt.IsZero() {
+			createdDate = st.CreatedAt.Format("2006-01-02")
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName, createdDate}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, createdDate}
 		total := 0
 		for _, year := range years {
 			count := yearCounts[year]
