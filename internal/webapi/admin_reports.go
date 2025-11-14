@@ -644,7 +644,7 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Created Date"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Status", "Created Date"}
 	header = append(header, schoolYears...)
 	header = append(header, "Total")
 	_ = cw.Write(header)
@@ -659,6 +659,10 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 		lastName := st.LastName
 		schoolName := ""
 		gradeLevel := fmt.Sprintf("%d", st.Grade)
+		status := "Inactive"
+		if st.Active {
+			status = "Active"
+		}
 		createdDate := ""
 
 		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
@@ -668,7 +672,7 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 			createdDate = st.CreatedAt.Format("2006-01-02")
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, createdDate}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, status, createdDate}
 		total := 0
 		for _, schoolYear := range schoolYears {
 			count := yearCounts[schoolYear]
@@ -730,7 +734,7 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Created Date"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Status", "Created Date"}
 	for _, year := range years {
 		header = append(header, fmt.Sprintf("%d", year))
 	}
@@ -747,6 +751,10 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 		lastName := st.LastName
 		schoolName := ""
 		gradeLevel := fmt.Sprintf("%d", st.Grade)
+		status := "Inactive"
+		if st.Active {
+			status = "Active"
+		}
 		createdDate := ""
 
 		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
@@ -756,7 +764,7 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 			createdDate = st.CreatedAt.Format("2006-01-02")
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, createdDate}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, status, createdDate}
 		total := 0
 		for _, year := range years {
 			count := yearCounts[year]
@@ -818,7 +826,7 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 	defer cw.Flush()
 
 	// Build header
-	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Created Date"}
+	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Status", "Created Date"}
 	for _, year := range years {
 		header = append(header, fmt.Sprintf("%d", year))
 	}
@@ -835,6 +843,10 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 		lastName := st.LastName
 		schoolName := ""
 		gradeLevel := fmt.Sprintf("%d", st.Grade)
+		status := "Inactive"
+		if st.Active {
+			status = "Active"
+		}
 		createdDate := ""
 
 		if sid, err := strconv.ParseUint(st.SchoolID, 10, 64); err == nil {
@@ -844,7 +856,7 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 			createdDate = st.CreatedAt.Format("2006-01-02")
 		}
 
-		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, createdDate}
+		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, status, createdDate}
 		total := 0
 		for _, year := range years {
 			count := yearCounts[year]
