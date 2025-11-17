@@ -375,18 +375,69 @@ func (s *Server) adminSponsoredStudentsReport(w http.ResponseWriter, r *http.Req
 		sponsorMap[sp.SponsorID] = append(sponsorMap[sp.SponsorID], sponsoredStudent)
 	}
 
-	// Convert map to slice of groups
+	// Convert map to slice of groups and enrich with Clerk sponsor data
+	// TODO: Performance optimization - consider:
+	// 1. Concurrent goroutines for parallel sponsor fetches (quick win)
+	// 2. Sponsor projection table with caching (robust solution)
+	// 3. Batch API if Clerk supports it
 	groups := make([]reportstempl.SponsorGroup, 0, len(sponsorMap))
 	for sponsorID, students := range sponsorMap {
-		groups = append(groups, reportstempl.SponsorGroup{
+		group := reportstempl.SponsorGroup{
 			SponsorID: sponsorID,
 			Students:  students,
-		})
+		}
+
+		// Fetch sponsor details from Sponsor Clerk instance (graceful degradation if fails)
+		// NOTE: Sequential API call - one per sponsor. See TODO above for optimization.
+		if clerkUser, err := s.SponsorClerk.Users().Read(sponsorID); err == nil {
+			// Build sponsor name from available fields
+			var nameParts []string
+			if clerkUser.FirstName != nil && *clerkUser.FirstName != "" {
+				nameParts = append(nameParts, *clerkUser.FirstName)
+			}
+			if clerkUser.LastName != nil && *clerkUser.LastName != "" {
+				nameParts = append(nameParts, *clerkUser.LastName)
+			}
+
+			if len(nameParts) > 0 {
+				group.SponsorName = fmt.Sprintf("%s", nameParts[0])
+				if len(nameParts) > 1 {
+					group.SponsorName = fmt.Sprintf("%s %s", nameParts[0], nameParts[1])
+				}
+			} else if clerkUser.Username != nil && *clerkUser.Username != "" {
+				group.SponsorName = *clerkUser.Username
+			}
+
+			// Get primary email if available
+			if len(clerkUser.EmailAddresses) > 0 {
+				for _, email := range clerkUser.EmailAddresses {
+					if clerkUser.PrimaryEmailAddressID != nil && email.ID == *clerkUser.PrimaryEmailAddressID {
+						group.SponsorEmail = email.EmailAddress
+						break
+					}
+				}
+				// Fallback to first email if primary not found
+				if group.SponsorEmail == "" {
+					group.SponsorEmail = clerkUser.EmailAddresses[0].EmailAddress
+				}
+			}
+		}
+		// If Clerk fetch fails, the group will just show the sponsor ID (graceful degradation)
+
+		groups = append(groups, group)
 	}
 
-	// Sort groups by sponsor ID for consistent display
+	// Sort groups by sponsor name (with fallback to ID for unnamed sponsors)
 	sort.Slice(groups, func(i, j int) bool {
-		return groups[i].SponsorID < groups[j].SponsorID
+		nameI := groups[i].SponsorName
+		if nameI == "" {
+			nameI = groups[i].SponsorID
+		}
+		nameJ := groups[j].SponsorName
+		if nameJ == "" {
+			nameJ = groups[j].SponsorID
+		}
+		return nameI < nameJ
 	})
 
 	s.renderTempl(w, r, reportstempl.SponsoredStudentsReport(groups))

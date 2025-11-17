@@ -40,9 +40,26 @@ func main() {
 		Region:       os.Getenv("S3_REGION"),
 	}
 
-	clerkClient, err := clerk.NewClient(os.Getenv("CLERK_SECRET_KEY"))
+	// Admin Clerk client (for admin dashboard user management)
+	// Use CLERK_ADMIN_SECRET_KEY if available, fallback to CLERK_SECRET_KEY for backward compatibility
+	adminSecretKey := os.Getenv("CLERK_ADMIN_SECRET_KEY")
+	if adminSecretKey == "" {
+		adminSecretKey = os.Getenv("CLERK_SECRET_KEY")
+	}
+	adminClerkClient, err := clerk.NewClient(adminSecretKey)
 	if err != nil {
-		panic(fmt.Errorf("error creating clerk client: %w", err))
+		panic(fmt.Errorf("error creating admin clerk client: %w", err))
+	}
+
+	// Sponsor Clerk client (for user frontend/sponsors)
+	// Use CLERK_SPONSOR_SECRET_KEY if available, fallback to same as admin for single-instance setups
+	sponsorSecretKey := os.Getenv("CLERK_SPONSOR_SECRET_KEY")
+	if sponsorSecretKey == "" {
+		sponsorSecretKey = adminSecretKey // Fallback to admin key if sponsor key not configured
+	}
+	sponsorClerkClient, err := clerk.NewClient(sponsorSecretKey)
+	if err != nil {
+		panic(fmt.Errorf("error creating sponsor clerk client: %w", err))
 	}
 
 	// configure a sqlite connection
@@ -66,6 +83,6 @@ func main() {
 	bulkUploadRepo := bulk_upload.NewRepository(db, &mq)
 	bulkUploadService := bulk_upload.NewService(bulkUploadRepo, bulkUploadACL)
 
-	server := webapi.NewServer(":3000", getStaticFS(), studentService, schoolService, fileService, bulkUploadService, clerkClient)
+	server := webapi.NewServer(":3000", getStaticFS(), studentService, schoolService, fileService, bulkUploadService, adminClerkClient, sponsorClerkClient)
 	server.Start(ctx)
 }

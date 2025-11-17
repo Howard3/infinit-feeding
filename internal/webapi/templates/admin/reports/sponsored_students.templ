@@ -1,89 +1,177 @@
 package reportstempl
 
 import (
-    "time"
-    "fmt"
+	"fmt"
+	"os"
+	"time"
 )
 
+// getClerkDashboardURL constructs a Clerk dashboard user URL for sponsors
+// Requires CLERK_SPONSOR_DASHBOARD_URL env var (falls back to CLERK_DASHBOARD_URL for backward compatibility)
+func getClerkDashboardURL() string {
+	// Try new sponsor-specific env var first
+	dashURL := os.Getenv("CLERK_SPONSOR_DASHBOARD_URL")
+	if dashURL == "" {
+		// Fallback to legacy env var for backward compatibility
+		dashURL = os.Getenv("CLERK_DASHBOARD_URL")
+	}
+	if dashURL == "" {
+		// Default to a generic Clerk URL structure
+		// Users should set CLERK_SPONSOR_DASHBOARD_URL to their sponsor Clerk instance
+		return "https://dashboard.clerk.com"
+	}
+	return dashURL
+}
+
 type SponsoredStudent struct {
-    StudentID   string
-    StudentName string
-    SponsorID   string
-    StartDate   time.Time
-    EndDate     time.Time
+	StudentID   string
+	StudentName string
+	SponsorID   string
+	StartDate   time.Time
+	EndDate     time.Time
 }
 
 type SponsorGroup struct {
-    SponsorID  string
-    Students   []SponsoredStudent
+	SponsorID    string
+	SponsorName  string
+	SponsorEmail string
+	Students     []SponsoredStudent
 }
 
 templ SponsoredStudentsReport(groups []SponsorGroup) {
-    <div class="container mx-auto px-4 py-8 bg-yellow-50/50">
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-700">
-                        This report is currently under construction. Sponsor information is not yet available but is under consideration for future updates.
-                    </p>
-                </div>
-            </div>
-        </div>
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold">Sponsored Students Report</h1>
-            <button 
-                hx-get="/admin/reports"
-                class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                Back to Reports
-            </button>
-        </div>
-
-        <div class="space-y-6">
-            for _, group := range groups {
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="bg-gray-50 px-6 py-3 border-b">
-                        <h2 class="text-lg font-semibold text-gray-900">Sponsor ID: { group.SponsorID }</h2>
-                        <p class="text-sm text-gray-600">{ fmt.Sprintf("%d sponsored students", len(group.Students)) }</p>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm text-left text-gray-500">
-                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3">Student Name</th>
-                                    <th scope="col" class="px-6 py-3">Student ID</th>
-                                    <th scope="col" class="px-6 py-3">Start Date</th>
-                                    <th scope="col" class="px-6 py-3">End Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                for _, student := range group.Students {
-                                    <tr class="border-b hover:bg-gray-50">
-                                        <td class="px-6 py-4 font-medium text-gray-900">
-                                            <a href={ templ.SafeURL(fmt.Sprintf("/admin/student/%s", student.StudentID)) } 
-                                               class="text-blue-600 hover:text-blue-800 hover:underline">
-                                                { student.StudentName }
-                                            </a>
-                                        </td>
-                                        <td class="px-6 py-4">{ student.StudentID }</td>
-                                        <td class="px-6 py-4">{ student.StartDate.Format("2006-01-02") }</td>
-                                        <td class="px-6 py-4">{ student.EndDate.Format("2006-01-02") }</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-            if len(groups) == 0 {
-                <div class="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-                    No sponsored students found
-                </div>
-            }
-        </div>
-    </div>
-} 
+	<div class="container mx-auto px-4 py-8">
+		<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+			<div class="flex">
+				<div class="flex-shrink-0">
+					<svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+					</svg>
+				</div>
+				<div class="ml-3">
+					<p class="text-sm text-blue-700">
+						<strong>Performance Note:</strong> This report currently fetches sponsor information one at a time from Clerk. 
+						For large numbers of sponsors, this may take a few moments to load. 
+						Future optimization will cache sponsor data for faster loading.
+					</p>
+				</div>
+			</div>
+		</div>
+		<div class="flex justify-between items-center mb-6">
+			<h1 class="text-2xl font-bold">Sponsored Students Report</h1>
+			<button
+				hx-get="/admin/reports"
+				class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+			>
+				Back to Reports
+			</button>
+		</div>
+		<div class="space-y-6">
+			for _, group := range groups {
+				<div class="bg-white rounded-lg shadow overflow-hidden">
+					<div class="bg-gradient-to-r from-indigo-50 to-indigo-100 px-6 py-4 border-b border-indigo-200">
+						<div class="flex items-start justify-between">
+							<div class="flex-1">
+								if group.SponsorName != "" {
+									<h2 class="text-lg font-semibold text-gray-900">{ group.SponsorName }</h2>
+									if group.SponsorEmail != "" {
+										<div class="flex items-center gap-2 mt-1">
+											<p class="text-sm text-gray-600">
+												<svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+												</svg>
+												<span id={ fmt.Sprintf("email-%s", group.SponsorID) }>{ group.SponsorEmail }</span>
+											</p>
+											<button
+												data-email={ group.SponsorEmail }
+												onclick="copyEmailToClipboard(this)"
+												class="inline-flex items-center p-1 text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors"
+												title="Copy email to clipboard"
+												type="button"
+											>
+												<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+												</svg>
+											</button>
+										</div>
+									}
+									<p class="text-xs text-gray-500 mt-1">ID: { group.SponsorID }</p>
+								} else {
+									<h2 class="text-lg font-semibold text-gray-900">Sponsor ID: { group.SponsorID }</h2>
+									<p class="text-sm text-gray-500 italic mt-1">Sponsor details unavailable</p>
+								}
+								<p class="text-sm text-indigo-700 font-medium mt-2">
+									{ fmt.Sprintf("%d sponsored student", len(group.Students)) }
+									if len(group.Students) != 1 {
+										s
+									}
+								</p>
+							</div>
+							<a
+								href={ templ.SafeURL(fmt.Sprintf("%s/users/%s", getClerkDashboardURL(), group.SponsorID)) }
+								target="_blank"
+								rel="noopener noreferrer"
+								class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-700 bg-white border border-indigo-300 rounded-md hover:bg-indigo-50 transition-colors"
+								title="View in Clerk Dashboard"
+							>
+								<svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+								</svg>
+								View in Clerk
+							</a>
+						</div>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm text-left text-gray-500">
+							<thead class="text-xs text-gray-700 uppercase bg-gray-50">
+								<tr>
+									<th scope="col" class="px-6 py-3">Student Name</th>
+									<th scope="col" class="px-6 py-3">Student ID</th>
+									<th scope="col" class="px-6 py-3">Start Date</th>
+									<th scope="col" class="px-6 py-3">End Date</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, student := range group.Students {
+									<tr class="border-b hover:bg-gray-50">
+										<td class="px-6 py-4 font-medium text-gray-900">
+											<a
+												href={ templ.SafeURL(fmt.Sprintf("/admin/student/%s", student.StudentID)) }
+												class="text-blue-600 hover:text-blue-800 hover:underline"
+											>
+												{ student.StudentName }
+											</a>
+										</td>
+										<td class="px-6 py-4">{ student.StudentID }</td>
+										<td class="px-6 py-4">{ student.StartDate.Format("2006-01-02") }</td>
+										<td class="px-6 py-4">{ student.EndDate.Format("2006-01-02") }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			}
+			if len(groups) == 0 {
+				<div class="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+					No sponsored students found
+				</div>
+			}
+		</div>
+	</div>
+	<script>
+		function copyEmailToClipboard(btn) {
+			const email = btn.getAttribute('data-email');
+			navigator.clipboard.writeText(email).then(() => {
+				const originalHTML = btn.innerHTML;
+				btn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+				btn.classList.add('text-green-600');
+				setTimeout(() => {
+					btn.innerHTML = originalHTML;
+					btn.classList.remove('text-green-600');
+				}, 2000);
+			}).catch(err => {
+				console.error('Failed to copy email:', err);
+			});
+		}
+	</script>
+}

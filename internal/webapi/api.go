@@ -51,7 +51,8 @@ type Server struct {
 	ListenAddress      string
 	StaticFS           fs.FS
 	Services           *ServiceRegistry
-	Clerk              clerk.Client
+	Clerk              clerk.Client // Admin Clerk instance
+	SponsorClerk       clerk.Client // Sponsor/User frontend Clerk instance
 	bulkDomainRegistry *bulk_domains.DomainRegistry
 }
 
@@ -63,7 +64,8 @@ func NewServer(
 	schoolSvc *school.Service,
 	fileSvc *file.Service,
 	bulkUploadSvc *bulk_upload.Service,
-	clerk clerk.Client,
+	adminClerk clerk.Client,
+	sponsorClerk clerk.Client,
 ) *Server {
 	return &Server{
 		ListenAddress: listenAddress,
@@ -74,7 +76,8 @@ func NewServer(
 			fileSvc,
 			bulkUploadSvc,
 		),
-		Clerk: clerk,
+		Clerk:        adminClerk,
+		SponsorClerk: sponsorClerk,
 	}
 }
 
