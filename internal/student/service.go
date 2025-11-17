@@ -469,12 +469,13 @@ func (s *StudentService) GetGradeCompletenessReport(ctx context.Context, schoolI
 	return s.repo.GetGradeCompletenessReport(ctx, schoolID)
 }
 
-// GetHealthAssessmentCompletenessReport returns a map of student ID to map of years to count of health assessments
-func (s *StudentService) GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+// GetHealthAssessmentCompletenessReport returns a map of student ID to map of quarter/years to count of health assessments
+// Uses assessment_date (not event timestamp) to determine the quarter/year.
+func (s *StudentService) GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
 	return s.repo.GetHealthAssessmentCompletenessReport(ctx, schoolID)
 }
 
-// GetFeedingCompletenessReport returns a map of student ID to map of years to count of feedings
-func (s *StudentService) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+// GetFeedingCompletenessReport returns a map of student ID to map of quarter/years to count of feedings
+func (s *StudentService) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
 	return s.repo.GetFeedingCompletenessReport(ctx, schoolID)
 }

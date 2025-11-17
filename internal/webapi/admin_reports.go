@@ -739,11 +739,11 @@ func (s *Server) adminGradeCompletenessCSV(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// adminHealthCompletenessCSV streams a CSV of health assessment completeness by student and year
+// adminHealthCompletenessCSV streams a CSV of health assessment completeness by student and quarter/year
 func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Request) {
 	schoolID := r.URL.Query().Get("school_id")
 
-	data, years, err := s.Services.StudentSvc.GetHealthAssessmentCompletenessReport(r.Context(), schoolID)
+	data, quarterYears, err := s.Services.StudentSvc.GetHealthAssessmentCompletenessReport(r.Context(), schoolID)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching health assessment completeness report", err)
 		return
@@ -784,18 +784,16 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 	cw := csv.NewWriter(w)
 	defer cw.Flush()
 
-	// Build header
+	// Build header with quarter/year columns (e.g., "2024-Q1", "2024-Q2")
 	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Status", "Created Date"}
-	for _, year := range years {
-		header = append(header, fmt.Sprintf("%d", year))
-	}
+	header = append(header, quarterYears...)
 	header = append(header, "Total")
 	_ = cw.Write(header)
 
 	// Write rows for ALL students
 	for _, st := range students {
 		studentID := fmt.Sprintf("%d", st.ID)
-		yearCounts := data[studentID] // Will be nil/empty if student has no records
+		quarterYearCounts := data[studentID] // Will be nil/empty if student has no records
 
 		lrn := st.StudentID
 		firstName := st.FirstName
@@ -817,8 +815,8 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 
 		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, status, createdDate}
 		total := 0
-		for _, year := range years {
-			count := yearCounts[year]
+		for _, quarterYear := range quarterYears {
+			count := quarterYearCounts[quarterYear]
 			total += count
 			if count > 0 {
 				row = append(row, fmt.Sprintf("%d", count))
@@ -831,11 +829,11 @@ func (s *Server) adminHealthCompletenessCSV(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// adminFeedingCompletenessCSV streams a CSV of feeding completeness by student and year
+// adminFeedingCompletenessCSV streams a CSV of feeding completeness by student and quarter/year
 func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Request) {
 	schoolID := r.URL.Query().Get("school_id")
 
-	data, years, err := s.Services.StudentSvc.GetFeedingCompletenessReport(r.Context(), schoolID)
+	data, quarterYears, err := s.Services.StudentSvc.GetFeedingCompletenessReport(r.Context(), schoolID)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding completeness report", err)
 		return
@@ -876,18 +874,16 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 	cw := csv.NewWriter(w)
 	defer cw.Flush()
 
-	// Build header
+	// Build header with quarter/year columns (e.g., "2024-Q1", "2024-Q2")
 	header := []string{"Student ID", "Student LRN", "First Name", "Last Name", "School", "Grade Level", "Status", "Created Date"}
-	for _, year := range years {
-		header = append(header, fmt.Sprintf("%d", year))
-	}
+	header = append(header, quarterYears...)
 	header = append(header, "Total")
 	_ = cw.Write(header)
 
 	// Write rows for ALL students
 	for _, st := range students {
 		studentID := fmt.Sprintf("%d", st.ID)
-		yearCounts := data[studentID] // Will be nil/empty if student has no records
+		quarterYearCounts := data[studentID] // Will be nil/empty if student has no records
 
 		lrn := st.StudentID
 		firstName := st.FirstName
@@ -909,8 +905,8 @@ func (s *Server) adminFeedingCompletenessCSV(w http.ResponseWriter, r *http.Requ
 
 		row := []string{studentID, lrn, firstName, lastName, schoolName, gradeLevel, status, createdDate}
 		total := 0
-		for _, year := range years {
-			count := yearCounts[year]
+		for _, quarterYear := range quarterYears {
+			count := quarterYearCounts[quarterYear]
 			total += count
 			if count > 0 {
 				row = append(row, fmt.Sprintf("%d", count))

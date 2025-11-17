@@ -94,8 +94,8 @@ type Repository interface {
 	GetHealthAssessments(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentHealth, error)
 	GetGrades(ctx context.Context, schoolID string, from, to time.Time) ([]*ProjectedStudentGrade, error)
 	GetGradeCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error)
-	GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error)
-	GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error)
+	GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error)
+	GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error)
 }
 
 // source schema:
@@ -1780,14 +1780,22 @@ func (r *sqlRepository) GetGradeCompletenessReport(ctx context.Context, schoolID
 	return data, schoolYears, nil
 }
 
-// GetHealthAssessmentCompletenessReport returns a report of health assessment counts by student and year.
-// Returns: data map[studentID]map[year]count, sorted years, error
-func (r *sqlRepository) GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+// GetHealthAssessmentCompletenessReport returns a report of health assessment counts by student and quarter/year.
+// Uses assessment_date (not event timestamp) to determine the quarter/year.
+// Returns: data map[studentID]map[quarterYear]count, sorted quarter/years, error
+// quarterYear format: "YYYY-Q#" (e.g., "2024-Q1", "2024-Q2")
+func (r *sqlRepository) GetHealthAssessmentCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
 	args := []any{}
 	query := `
 		SELECT 
 			shp.student_id,
 			CAST(strftime('%Y', shp.assessment_date) AS INTEGER) as year,
+			CASE 
+				WHEN CAST(strftime('%m', shp.assessment_date) AS INTEGER) BETWEEN 1 AND 3 THEN 1
+				WHEN CAST(strftime('%m', shp.assessment_date) AS INTEGER) BETWEEN 4 AND 6 THEN 2
+				WHEN CAST(strftime('%m', shp.assessment_date) AS INTEGER) BETWEEN 7 AND 9 THEN 3
+				ELSE 4
+			END as quarter,
 			COUNT(*) as count
 		FROM student_health_projections shp
 	`
@@ -1798,8 +1806,8 @@ func (r *sqlRepository) GetHealthAssessmentCompletenessReport(ctx context.Contex
 	}
 
 	query += `
-		GROUP BY shp.student_id, year
-		ORDER BY shp.student_id, year
+		GROUP BY shp.student_id, year, quarter
+		ORDER BY shp.student_id, year, quarter
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -1808,43 +1816,54 @@ func (r *sqlRepository) GetHealthAssessmentCompletenessReport(ctx context.Contex
 	}
 	defer rows.Close()
 
-	data := make(map[string]map[int]int)
-	yearsSet := make(map[int]struct{})
+	data := make(map[string]map[string]int)
+	quarterYearsSet := make(map[string]struct{})
 
 	for rows.Next() {
 		var studentID string
 		var year int
+		var quarter int
 		var count int
 
-		if err := rows.Scan(&studentID, &year, &count); err != nil {
+		if err := rows.Scan(&studentID, &year, &quarter, &count); err != nil {
 			return nil, nil, fmt.Errorf("scan health assessment completeness: %w", err)
 		}
 
+		quarterYear := fmt.Sprintf("%d-Q%d", year, quarter)
+
 		if _, ok := data[studentID]; !ok {
-			data[studentID] = make(map[int]int)
+			data[studentID] = make(map[string]int)
 		}
-		data[studentID][year] = count
-		yearsSet[year] = struct{}{}
+		data[studentID][quarterYear] = count
+		quarterYearsSet[quarterYear] = struct{}{}
 	}
 
 	// Convert set to sorted slice
-	years := make([]int, 0, len(yearsSet))
-	for y := range yearsSet {
-		years = append(years, y)
+	quarterYears := make([]string, 0, len(quarterYearsSet))
+	for qy := range quarterYearsSet {
+		quarterYears = append(quarterYears, qy)
 	}
-	sort.Ints(years)
+	sort.Strings(quarterYears)
 
-	return data, years, nil
+	return data, quarterYears, nil
 }
 
-// GetFeedingCompletenessReport returns a report of feeding counts by student and year.
-// Returns: data map[studentID]map[year]count, sorted years, error
-func (r *sqlRepository) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[int]int, []int, error) {
+// GetFeedingCompletenessReport returns a report of feeding counts by student and quarter/year.
+// Uses feeding_timestamp to determine the quarter/year.
+// Returns: data map[studentID]map[quarterYear]count, sorted quarter/years, error
+// quarterYear format: "YYYY-Q#" (e.g., "2024-Q1", "2024-Q2")
+func (r *sqlRepository) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
 	args := []any{}
 	query := `
 		SELECT 
 			sfp.student_id,
 			CAST(strftime('%Y', sfp.feeding_timestamp) AS INTEGER) as year,
+			CASE 
+				WHEN CAST(strftime('%m', sfp.feeding_timestamp) AS INTEGER) BETWEEN 1 AND 3 THEN 1
+				WHEN CAST(strftime('%m', sfp.feeding_timestamp) AS INTEGER) BETWEEN 4 AND 6 THEN 2
+				WHEN CAST(strftime('%m', sfp.feeding_timestamp) AS INTEGER) BETWEEN 7 AND 9 THEN 3
+				ELSE 4
+			END as quarter,
 			COUNT(*) as count
 		FROM student_feeding_projections sfp
 	`
@@ -1855,8 +1874,8 @@ func (r *sqlRepository) GetFeedingCompletenessReport(ctx context.Context, school
 	}
 
 	query += `
-		GROUP BY sfp.student_id, year
-		ORDER BY sfp.student_id, year
+		GROUP BY sfp.student_id, year, quarter
+		ORDER BY sfp.student_id, year, quarter
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -1865,31 +1884,34 @@ func (r *sqlRepository) GetFeedingCompletenessReport(ctx context.Context, school
 	}
 	defer rows.Close()
 
-	data := make(map[string]map[int]int)
-	yearsSet := make(map[int]struct{})
+	data := make(map[string]map[string]int)
+	quarterYearsSet := make(map[string]struct{})
 
 	for rows.Next() {
 		var studentID string
 		var year int
+		var quarter int
 		var count int
 
-		if err := rows.Scan(&studentID, &year, &count); err != nil {
+		if err := rows.Scan(&studentID, &year, &quarter, &count); err != nil {
 			return nil, nil, fmt.Errorf("scan feeding completeness: %w", err)
 		}
 
+		quarterYear := fmt.Sprintf("%d-Q%d", year, quarter)
+
 		if _, ok := data[studentID]; !ok {
-			data[studentID] = make(map[int]int)
+			data[studentID] = make(map[string]int)
 		}
-		data[studentID][year] = count
-		yearsSet[year] = struct{}{}
+		data[studentID][quarterYear] = count
+		quarterYearsSet[quarterYear] = struct{}{}
 	}
 
 	// Convert set to sorted slice
-	years := make([]int, 0, len(yearsSet))
-	for y := range yearsSet {
-		years = append(years, y)
+	quarterYears := make([]string, 0, len(quarterYearsSet))
+	for qy := range quarterYearsSet {
+		quarterYears = append(quarterYears, qy)
 	}
-	sort.Ints(years)
+	sort.Strings(quarterYears)
 
-	return data, years, nil
+	return data, quarterYears, nil
 }
