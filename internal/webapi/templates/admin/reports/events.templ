@@ -1,0 +1,439 @@
+package reportstempl
+
+import (
+	"fmt"
+	"sort"
+	"time"
+	"geevly/internal/webapi/templates/components"
+)
+
+// DomainEvent represents an event from any domain's event table
+type DomainEvent struct {
+	Domain         string
+	Type           string
+	AggregateID    string
+	Version        int
+	Timestamp      time.Time
+	Data           []byte
+	FormattedData  string
+}
+
+// EventStatistics represents aggregate statistics about events
+type EventStatistics struct {
+	TotalEvents      uint
+	EventsByType     map[string]uint
+	OldestEventTime  time.Time
+	NewestEventTime  time.Time
+	UniqueAggregates uint
+}
+
+templ EventsViewer(currentDomain string, events []DomainEvent, eventTypes map[string]string, currentEventType, currentAggregateID string, stats *EventStatistics, pagination components.Pagination) {
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div class="mb-6">
+			<h1 class="text-3xl font-bold text-gray-900">Event Stream Viewer</h1>
+			<p class="mt-2 text-sm text-gray-600">View raw domain events from the event store</p>
+		</div>
+		<!-- Domain Selector Tabs -->
+		<div class="mb-6">
+			<div class="border-b border-gray-200">
+				<nav class="-mb-px flex space-x-8" aria-label="Domains">
+					@domainTab("student", "Student", currentDomain)
+					@domainTab("school", "School", currentDomain)
+					@domainTab("file", "File", currentDomain)
+					@domainTab("bulk_upload", "Bulk Upload", currentDomain)
+				</nav>
+			</div>
+		</div>
+		<!-- Statistics Dashboard -->
+		if stats != nil {
+			@statisticsDashboard(stats)
+		}
+		<!-- Filters -->
+		<div class="mb-6 bg-white shadow sm:rounded-lg p-6">
+			<h3 class="text-lg font-medium text-gray-900 mb-4">Filters</h3>
+			<form 
+				id="event-filters" 
+				hx-get="/admin/reports/events"
+				hx-target="body"
+				hx-push-url="true"
+				hx-trigger="submit"
+				onsubmit="prepareFormSubmit(event)"
+			>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+					<input type="hidden" name="domain" value={ currentDomain }/>
+					<div>
+						<label for="event_type" class="block text-sm font-medium text-gray-700 mb-2">Event Type</label>
+						<select
+							id="event_type"
+							name="event_type"
+							class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						>
+							<option value="">All Event Types</option>
+							for _, eventType := range sortedEventTypes(eventTypes) {
+								<option value={ eventType } selected?={ eventType == currentEventType }>
+									{ eventType }
+								</option>
+							}
+						</select>
+					</div>
+					<div>
+						<label for="aggregate_id" class="block text-sm font-medium text-gray-700 mb-2">Aggregate ID</label>
+						<input
+							type="text"
+							id="aggregate_id"
+							name="aggregate_id"
+							value={ currentAggregateID }
+							placeholder="Filter by ID..."
+							class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+					</div>
+					<div>
+						<label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Start Date/Time</label>
+						<input
+							type="datetime-local"
+							id="start_date"
+							name="start_date_local"
+							class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+						<input type="hidden" id="start_date_rfc" name="start_date"/>
+					</div>
+					<div>
+						<label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">End Date/Time</label>
+						<input
+							type="datetime-local"
+							id="end_date"
+							name="end_date_local"
+							class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+						<input type="hidden" id="end_date_rfc" name="end_date"/>
+					</div>
+				</div>
+				<div class="mt-4 flex items-center gap-3">
+					<button
+						type="submit"
+						class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+					>
+						Apply Filters
+					</button>
+					<button
+						type="button"
+						class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+						hx-get={ fmt.Sprintf("/admin/reports/events?domain=%s", currentDomain) }
+						hx-target="body"
+						hx-push-url="true"
+					>
+						Clear Filters
+					</button>
+				<div class="ml-auto text-sm text-gray-500">
+					<button
+						type="button"
+						class="text-indigo-600 hover:text-indigo-500"
+						onclick="setQuickDateRange('1h')"
+					>Last Hour</button>
+					<span class="mx-2">·</span>
+					<button
+						type="button"
+						class="text-indigo-600 hover:text-indigo-500"
+						onclick="setQuickDateRange('24h')"
+					>Last 24h</button>
+					<span class="mx-2">·</span>
+					<button
+						type="button"
+						class="text-indigo-600 hover:text-indigo-500"
+						onclick="setQuickDateRange('7d')"
+					>Last 7 days</button>
+				</div>
+			</div>
+			</form>
+		</div>
+		<script>
+			function setQuickDateRange(range) {
+				const now = new Date();
+				const end = now.toISOString().slice(0, 16);
+				let start = new Date();
+				
+				switch(range) {
+					case '1h':
+						start.setHours(start.getHours() - 1);
+						break;
+					case '24h':
+						start.setHours(start.getHours() - 24);
+						break;
+					case '7d':
+						start.setDate(start.getDate() - 7);
+						break;
+				}
+				
+				document.getElementById('start_date').value = start.toISOString().slice(0, 16);
+				document.getElementById('end_date').value = end;
+			}
+			
+			function prepareFormSubmit(event) {
+				// Convert datetime-local to RFC3339 for the backend
+				const startLocal = document.getElementById('start_date').value;
+				const endLocal = document.getElementById('end_date').value;
+				
+				if (startLocal) {
+					const startDate = new Date(startLocal);
+					document.getElementById('start_date_rfc').value = startDate.toISOString();
+				}
+				
+				if (endLocal) {
+					const endDate = new Date(endLocal);
+					document.getElementById('end_date_rfc').value = endDate.toISOString();
+				}
+				
+				// Let HTMX handle the rest via hx-get on the form
+				return true;
+			}
+		</script>
+		<!-- Events Table -->
+		<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+				<div class="flex items-center justify-between">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">
+						{ capitalize(currentDomain) } Events
+					</h3>
+					@components.ItemCounter(pagination)
+				</div>
+			</div>
+			<div class="overflow-x-auto">
+				<table class="min-w-full divide-y divide-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Timestamp
+							</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Event Type
+							</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Aggregate ID
+							</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Version
+							</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Payload
+							</th>
+						</tr>
+					</thead>
+					<tbody class="bg-white">
+						if len(events) == 0 {
+							<tr>
+								<td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
+									No events found for this domain
+								</td>
+							</tr>
+						} else {
+							for _, evt := range events {
+								@eventRow(evt)
+							}
+						}
+					</tbody>
+				</table>
+			</div>
+			<div class="px-4 py-4 border-t border-gray-200 bg-gray-50">
+				@components.ItemCounter(pagination)
+			</div>
+		</div>
+	</div>
+}
+
+templ domainTab(domain, label, currentDomain string) {
+	<a
+		href={ templ.URL(fmt.Sprintf("/admin/reports/events?domain=%s", domain)) }
+		class={
+			"whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm",
+			templ.KV("border-indigo-500 text-indigo-600", domain == currentDomain),
+			templ.KV("border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300", domain != currentDomain),
+		}
+	>
+		{ label }
+	</a>
+}
+
+templ eventRow(evt DomainEvent) {
+	<tr class="hover:bg-gray-50 border-b border-gray-200">
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+			{ evt.Timestamp.Format("2006-01-02 15:04:05") }
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap">
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+				{ evt.Type }
+			</span>
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm font-mono">
+			if aggregateURL := getAggregateURL(evt.Domain, evt.AggregateID); aggregateURL != "" {
+				<a href={ templ.URL(aggregateURL) } class="text-indigo-600 hover:text-indigo-900 hover:underline">
+					{ evt.AggregateID }
+				</a>
+			} else {
+				<span class="text-gray-600">{ evt.AggregateID }</span>
+			}
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+			v{ fmt.Sprintf("%d", evt.Version) }
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm">
+			if len(evt.Data) > 0 {
+				<button
+					type="button"
+					class="text-indigo-600 hover:text-indigo-900 text-xs"
+					onclick={ toggleEventData(fmt.Sprintf("event-%s-%d", evt.AggregateID, evt.Version)) }
+				>
+					View Data
+				</button>
+			} else {
+				<span class="text-gray-400 text-xs">No data</span>
+			}
+		</td>
+	</tr>
+	if len(evt.Data) > 0 {
+		<tr id={ fmt.Sprintf("event-%s-%d", evt.AggregateID, evt.Version) } class="hidden bg-gray-50">
+			<td colspan="5" class="px-6 py-4">
+				<div class="bg-white rounded border border-gray-200 p-4">
+					<div class="flex items-center justify-between mb-2">
+						<span class="text-xs font-medium text-gray-700">Event Payload</span>
+						<span class="text-xs text-gray-500">{ fmt.Sprintf("%d bytes", len(evt.Data)) }</span>
+					</div>
+					<pre class="text-xs text-gray-800 overflow-x-auto bg-gray-100 p-3 rounded max-h-96 overflow-y-auto font-mono">{ evt.FormattedData }</pre>
+				</div>
+			</td>
+		</tr>
+	}
+}
+
+script toggleEventData(id string) {
+	const row = document.getElementById(id);
+	if (row) {
+		row.classList.toggle('hidden');
+	}
+}
+
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s == "bulk_upload" {
+		return "Bulk Upload"
+	}
+	return string(s[0]-32) + s[1:]
+}
+
+// sortedEventTypes returns the event type keys sorted alphabetically
+func sortedEventTypes(eventTypes map[string]string) []string {
+	keys := make([]string, 0, len(eventTypes))
+	for k := range eventTypes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// getAggregateURL returns the admin URL for viewing an aggregate, or empty string if no view page exists
+func getAggregateURL(domain, aggregateID string) string {
+	switch domain {
+	case "student":
+		return fmt.Sprintf("/admin/student/%s", aggregateID)
+	case "school":
+		return fmt.Sprintf("/admin/school/%s", aggregateID)
+	case "bulk_upload":
+		return fmt.Sprintf("/admin/bulk-upload/%s/view", aggregateID)
+	case "file":
+		// No admin view page exists for files yet
+		return ""
+	default:
+		return ""
+	}
+}
+
+templ statisticsDashboard(stats *EventStatistics) {
+	<div class="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg shadow p-6">
+		<h3 class="text-lg font-semibold text-gray-900 mb-4">Event Statistics</h3>
+		<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+			<div class="bg-white rounded-lg p-4 shadow-sm">
+				<div class="text-sm font-medium text-gray-500">Total Events</div>
+				<div class="mt-1 text-2xl font-semibold text-gray-900">{ formatNumber(stats.TotalEvents) }</div>
+			</div>
+			<div class="bg-white rounded-lg p-4 shadow-sm">
+				<div class="text-sm font-medium text-gray-500">Unique Aggregates</div>
+				<div class="mt-1 text-2xl font-semibold text-gray-900">{ formatNumber(stats.UniqueAggregates) }</div>
+			</div>
+			<div class="bg-white rounded-lg p-4 shadow-sm">
+				<div class="text-sm font-medium text-gray-500">Event Types</div>
+				<div class="mt-1 text-2xl font-semibold text-gray-900">{ fmt.Sprintf("%d", len(stats.EventsByType)) }</div>
+			</div>
+			<div class="bg-white rounded-lg p-4 shadow-sm">
+				<div class="text-sm font-medium text-gray-500">Date Range</div>
+				if !stats.OldestEventTime.IsZero() && !stats.NewestEventTime.IsZero() {
+					<div class="mt-1 text-xs text-gray-600">
+						{ stats.OldestEventTime.Format("2006-01-02") }
+						<br/>
+						to { stats.NewestEventTime.Format("2006-01-02") }
+					</div>
+				} else {
+					<div class="mt-1 text-sm text-gray-400">No events</div>
+				}
+			</div>
+		</div>
+		if len(stats.EventsByType) > 0 {
+			<div class="mt-4 bg-white rounded-lg p-4 shadow-sm">
+				<div class="text-sm font-medium text-gray-700 mb-3">Events by Type</div>
+				<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+					for _, pair := range sortedEventTypesByCount(stats.EventsByType) {
+						<div class="flex justify-between items-center text-xs">
+							<span class="text-gray-600 truncate mr-2">{ pair.Type }</span>
+							<span class="font-semibold text-indigo-600">{ formatNumber(pair.Count) }</span>
+						</div>
+					}
+				</div>
+			</div>
+		}
+	</div>
+}
+
+type EventTypePair struct {
+	Type  string
+	Count uint
+}
+
+// sortedEventTypesByCount returns event types sorted by count (descending)
+func sortedEventTypesByCount(eventsByType map[string]uint) []EventTypePair {
+	pairs := make([]EventTypePair, 0, len(eventsByType))
+	for t, c := range eventsByType {
+		pairs = append(pairs, EventTypePair{Type: t, Count: c})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Count > pairs[j].Count
+	})
+	return pairs
+}
+
+// formatNumber formats a number with comma separators
+func formatNumber(n uint) string {
+	s := fmt.Sprintf("%d", n)
+	if len(s) <= 3 {
+		return s
+	}
+	
+	// Add commas from right to left
+	var result string
+	for i, digit := range reverseString(s) {
+		if i > 0 && i%3 == 0 {
+			result = "," + result
+		}
+		result = string(digit) + result
+	}
+	return result
+}
+
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+

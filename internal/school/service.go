@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"geevly/gen/go/eda"
+	"time"
 
 	"github.com/Howard3/gosignal"
 )
@@ -168,4 +169,19 @@ func (s *Service) GetSchoolIDsByLocation(ctx context.Context, location Location)
 	}
 
 	return s.repo.getSchoolIDsByLocation(ctx, location)
+}
+
+// GetDomainEvents retrieves domain events with pagination and optional filtering
+func (s *Service) GetDomainEvents(ctx context.Context, limit, offset uint, eventTypeFilter, aggregateIDFilter string, startDate, endDate *time.Time) ([]DomainEvent, uint, error) {
+	return s.repo.GetDomainEvents(ctx, limit, offset, eventTypeFilter, aggregateIDFilter, startDate, endDate)
+}
+
+// GetEventTypes retrieves all distinct event types for the school domain
+func (s *Service) GetEventTypes(ctx context.Context) ([]string, error) {
+	return s.repo.GetEventTypes(ctx)
+}
+
+// GetEventStatistics retrieves aggregate statistics about school events
+func (s *Service) GetEventStatistics(ctx context.Context) (*EventStatistics, error) {
+	return s.repo.GetEventStatistics(ctx)
 }

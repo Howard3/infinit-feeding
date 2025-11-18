@@ -31,6 +31,8 @@ func (s *Server) adminReports(r chi.Router) {
 	r.Get("/completeness/grades", s.adminGradeCompletenessCSV)
 	r.Get("/completeness/health", s.adminHealthCompletenessCSV)
 	r.Get("/completeness/feedings", s.adminFeedingCompletenessCSV)
+	// Event stream viewer
+	r.Get("/events", s.adminEventsViewer)
 }
 
 func (s *Server) reportsHome(w http.ResponseWriter, r *http.Request) {

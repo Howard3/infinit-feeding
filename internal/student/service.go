@@ -479,3 +479,18 @@ func (s *StudentService) GetHealthAssessmentCompletenessReport(ctx context.Conte
 func (s *StudentService) GetFeedingCompletenessReport(ctx context.Context, schoolID string) (map[string]map[string]int, []string, error) {
 	return s.repo.GetFeedingCompletenessReport(ctx, schoolID)
 }
+
+// GetDomainEvents retrieves domain events with pagination and optional filtering
+func (s *StudentService) GetDomainEvents(ctx context.Context, limit, offset uint, eventTypeFilter, aggregateIDFilter string, startDate, endDate *time.Time) ([]DomainEvent, uint, error) {
+	return s.repo.GetDomainEvents(ctx, limit, offset, eventTypeFilter, aggregateIDFilter, startDate, endDate)
+}
+
+// GetEventTypes retrieves all distinct event types for the student domain
+func (s *StudentService) GetEventTypes(ctx context.Context) ([]string, error) {
+	return s.repo.GetEventTypes(ctx)
+}
+
+// GetEventStatistics retrieves aggregate statistics about student events
+func (s *StudentService) GetEventStatistics(ctx context.Context) (*EventStatistics, error) {
+	return s.repo.GetEventStatistics(ctx)
+}

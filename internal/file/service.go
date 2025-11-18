@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"geevly/gen/go/eda"
 
 	"github.com/Howard3/gosignal"
@@ -129,4 +131,19 @@ func (s *Service) withFile(ctx context.Context, commandFunc func(*Aggregate) (*g
 	go s.eventHandlers.routeEvent(ctx, evt)
 
 	return f, nil
+}
+
+// GetDomainEvents retrieves domain events with pagination and optional filtering
+func (s *Service) GetDomainEvents(ctx context.Context, limit, offset uint, eventTypeFilter, aggregateIDFilter string, startDate, endDate *time.Time) ([]DomainEvent, uint, error) {
+	return s.repo.GetDomainEvents(ctx, limit, offset, eventTypeFilter, aggregateIDFilter, startDate, endDate)
+}
+
+// GetEventTypes retrieves all distinct event types for the file domain
+func (s *Service) GetEventTypes(ctx context.Context) ([]string, error) {
+	return s.repo.GetEventTypes(ctx)
+}
+
+// GetEventStatistics retrieves aggregate statistics about file events
+func (s *Service) GetEventStatistics(ctx context.Context) (*EventStatistics, error) {
+	return s.repo.GetEventStatistics(ctx)
 }

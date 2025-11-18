@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"geevly/gen/go/eda"
+	"time"
+
 	"geevly/internal/bulk_upload/db/sqlc"
 
 	"github.com/Howard3/gosignal"
@@ -201,4 +203,19 @@ func (s *Service) AddRecordsToProcess(ctx context.Context, id string, actions Re
 	s.eventHandlers.HandleBulkUploadEvent(ctx, event)
 
 	return nil
+}
+
+// GetDomainEvents retrieves domain events with pagination and optional filtering
+func (s *Service) GetDomainEvents(ctx context.Context, limit, offset uint, eventTypeFilter, aggregateIDFilter string, startDate, endDate *time.Time) ([]DomainEvent, uint, error) {
+	return s.repo.GetDomainEvents(ctx, limit, offset, eventTypeFilter, aggregateIDFilter, startDate, endDate)
+}
+
+// GetEventTypes retrieves all distinct event types for the bulk_upload domain
+func (s *Service) GetEventTypes(ctx context.Context) ([]string, error) {
+	return s.repo.GetEventTypes(ctx)
+}
+
+// GetEventStatistics retrieves aggregate statistics about bulk_upload events
+func (s *Service) GetEventStatistics(ctx context.Context) (*EventStatistics, error) {
+	return s.repo.GetEventStatistics(ctx)
 }
