@@ -63,7 +63,7 @@ func (h *HealthReport) AgeYears() float64 {
 		return 0
 	}
 
-	return time.Since(*h.dob).Hours() / 24 / 365
+	return h.AssessmentDate.Sub(*h.dob).Hours() / 24 / 365
 }
 
 func (h *HealthReport) NutritionalStatus() NutritionalStatus {
