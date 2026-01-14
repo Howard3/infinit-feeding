@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"slices"
 	"time"
 
@@ -66,6 +65,23 @@ func (h *HealthReport) AgeYears() float64 {
 	return h.AssessmentDate.Sub(*h.dob).Hours() / 24 / 365
 }
 
+func (h *HealthReport) AgeMonths() int {
+	if h.dob == nil {
+		return 0
+	}
+
+	years := h.AssessmentDate.Year() - h.dob.Year()
+	months := int(h.AssessmentDate.Month()) - int(h.dob.Month())
+
+	// Adjust if day of month hasn't occurred yet
+	if h.AssessmentDate.Day() < h.dob.Day() {
+		months--
+	}
+
+	totalMonths := years*12 + months
+	return totalMonths
+}
+
 func (h *HealthReport) NutritionalStatus() NutritionalStatus {
 	var gender Gender
 	switch *h.sex {
@@ -77,9 +93,9 @@ func (h *HealthReport) NutritionalStatus() NutritionalStatus {
 		return NutritionalStatusGenderError
 	}
 
-	age := int(math.Round(h.AgeYears()))
+	ageMonths := h.AgeMonths()
 
-	status, err := CalculateNutritionalStatus(gender, age, h.BMI())
+	status, err := CalculateNutritionalStatusByMonth(gender, ageMonths, h.BMI())
 	if err != nil {
 		slog.Error("error calculating nutritional status", "error", err)
 		return NutritionalStatusError
