@@ -142,6 +142,11 @@ templ header(params Params) {
 							Staff
 						</a>
 					}
+					if (params.IsNurse) {
+						<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/nurse">
+							Nurse
+						</a>
+					}
 					<a class="flex h-8 items-center justify-center rounded-md hover:underline cursor-pointer" hx-get="/feeding">
 						Feeding
 					</a>

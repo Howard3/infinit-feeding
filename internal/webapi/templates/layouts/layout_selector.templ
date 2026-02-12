@@ -10,6 +10,7 @@ type Params struct {
 	IsAdmin bool
 	IsSignedIn bool
 	IsFeeder bool
+	IsNurse bool
 }
 
 func (p Params) export() map[string]any {
@@ -17,6 +18,7 @@ func (p Params) export() map[string]any {
 		"IsAdmin": p.IsAdmin,
 		"IsSignedIn": p.IsSignedIn,
 		"IsFeeder": p.IsFeeder,
+		"IsNurse": p.IsNurse,
 	}
 }
 

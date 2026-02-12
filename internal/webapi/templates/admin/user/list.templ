@@ -1,4 +1,4 @@
-package usertempl 
+package usertempl
 
 import (
 	"geevly/internal/webapi/templates/components"
@@ -12,6 +12,7 @@ type User struct {
 	Active    bool   `json:"active"`
 	IsAdmin   bool   `json:"is_admin"`
 	IsFeeder  bool   `json:"is_feeder"`
+	IsNurse   bool   `json:"is_nurse"`
 }
 
 type ListResponse struct {
@@ -47,13 +48,13 @@ templ List(users *ListResponse, pagination components.Pagination) {
 								Username
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
-								Active 
+								Active
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
-							Roles	
+							Roles
 							</th>
 							<th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 text-sm">
-								Actions 
+								Actions
 							</th>
 						</tr>
 					</thead>
@@ -79,6 +80,9 @@ templ List(users *ListResponse, pagination components.Pagination) {
 									}
 									if user.IsFeeder {
 										<span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">Feeder</span>
+									}
+									if user.IsNurse {
+										<span class="inline-flex items-center rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-600/20">Nurse</span>
 									}
 								</td>
 								<td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">

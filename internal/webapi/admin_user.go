@@ -27,6 +27,7 @@ func (s *Server) userAdminRouter(r chi.Router) {
 		r.Post(`/{ID}`, s.adminUpdateUser)
 		r.Put(`/{ID}/setRole`, s.setUserRole)
 		r.Put(`/{ID}/school/{schoolID}/feederEnrollment`, s.setUserFeederInSchool)
+		r.Put(`/{ID}/school/{schoolID}/nurseEnrollment`, s.setUserNurseInSchool)
 	})
 }
 
@@ -75,6 +76,16 @@ func (s *Server) adminViewUser(w http.ResponseWriter, r *http.Request) {
 		feederEnrollmentsSlice = strings.Split(feederEnrollments, ",")
 	}
 
+	nurseEnrollments, err := getMetadataValue[string](clerkUser.PrivateMetadata, "nurse_enrollments")
+	if err != nil {
+		log.Printf("Error getting nurse enrollments: %v", err)
+		nurseEnrollments = ""
+	}
+	nurseEnrollmentsSlice := []string{}
+	if nurseEnrollments != "" {
+		nurseEnrollmentsSlice = strings.Split(nurseEnrollments, ",")
+	}
+
 	// Get a list of all schools
 	schools, err := s.Services.SchoolSvc.List(r.Context(), 1000, 1)
 	if err != nil {
@@ -111,6 +122,7 @@ func (s *Server) adminViewUser(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:           isAdmin,
 		Schools:           schoolList,
 		FeederEnrollments: feederEnrollmentsSlice,
+		NurseEnrollments:  nurseEnrollmentsSlice,
 	}
 
 	// Render the user view template
@@ -197,6 +209,12 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		isFeeder := feederEnrollments != ""
 
+		nurseEnrollments, err := getMetadataValue[string](cu.PrivateMetadata, "nurse_enrollments")
+		if err != nil {
+			nurseEnrollments = ""
+		}
+		isNurse := nurseEnrollments != ""
+
 		firstName := ""
 		if cu.FirstName != nil {
 			firstName = *cu.FirstName
@@ -213,6 +231,7 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 			Name:     firstName + " " + lastName,
 			IsAdmin:  isAdmin,
 			IsFeeder: isFeeder,
+			IsNurse:  isNurse,
 		}
 	}
 
@@ -357,6 +376,73 @@ func (s *Server) setUserFeederInSchool(w http.ResponseWriter, r *http.Request) {
 	currentFeeders = strings.Join(feederSlice, ",")
 
 	privateMetadata, err := setMetadataValue(clerkUser.PrivateMetadata, "feeder_enrollments", currentFeeders)
+	if err != nil {
+		s.errorPage(w, r, "Error setting metadata", err)
+		return
+	}
+
+	_, err = s.Clerk.Users().Update(userID, &clerk.UpdateUser{
+		PrivateMetadata: privateMetadata,
+	})
+	if err != nil {
+		s.errorPage(w, r, "Error updating user", err)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/admin/user/%s", userID), http.StatusSeeOther)
+}
+
+func (s *Server) setUserNurseInSchool(w http.ResponseWriter, r *http.Request) {
+	userID := s.getUserIDFromContext(r.Context())
+	schoolID := chi.URLParam(r, "schoolID")
+	enroll := r.URL.Query().Get("enroll")
+
+	enrollBool, err := strconv.ParseBool(enroll)
+	if err != nil {
+		s.errorPage(w, r, "Error parsing enroll value", err)
+		return
+	}
+
+	schoolIDInt, err := strconv.ParseUint(schoolID, 10, 64)
+	if err != nil {
+		s.errorPage(w, r, "Error parsing school ID", err)
+		return
+	}
+
+	if err := s.Services.SchoolSvc.ValidateSchoolID(r.Context(), schoolIDInt); err != nil {
+		s.errorPage(w, r, "Error validating school ID", err)
+		return
+	}
+
+	clerkUser, err := s.Clerk.Users().Read(userID)
+	if err != nil {
+		s.errorPage(w, r, "Error fetching user", err)
+		return
+	}
+	currentNurses, err := getMetadataValue[string](clerkUser.PrivateMetadata, "nurse_enrollments")
+	if err != nil {
+		currentNurses = ""
+	}
+
+	nurseSlice := []string{}
+	if currentNurses != "" {
+		nurseSlice = strings.Split(currentNurses, ",")
+	}
+
+	if enrollBool {
+		if !slices.Contains(nurseSlice, schoolID) {
+			nurseSlice = append(nurseSlice, schoolID)
+		}
+	} else {
+		idx := slices.Index(nurseSlice, schoolID)
+		if idx >= 0 {
+			nurseSlice = slices.Delete(nurseSlice, idx, idx+1)
+		}
+	}
+
+	currentNurses = strings.Join(nurseSlice, ",")
+
+	privateMetadata, err := setMetadataValue(clerkUser.PrivateMetadata, "nurse_enrollments", currentNurses)
 	if err != nil {
 		s.errorPage(w, r, "Error setting metadata", err)
 		return

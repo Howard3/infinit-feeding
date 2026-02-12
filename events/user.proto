@@ -28,6 +28,7 @@ message User {
             SYSTEM_ADMIN = 1;
             SCHOOL_ADMIN = 2;
             FEEDER_USER = 3;
+            NURSE_USER = 4;
         }
     }
 

@@ -16,3 +16,8 @@ dump*.sql
 internal/buildinfo/build_vars.go
 .DS_Store
 .idea
+
+# Deploy secrets
+deploy/.env
+deploy/caddy/certs/*.pem
+deploy/caddy/certs/*.key

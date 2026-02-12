@@ -1,0 +1,90 @@
+package reportstempl
+
+import (
+    "fmt"
+    "geevly/internal/webapi/templates/components"
+    "time"
+)
+
+type HealthAssessment struct {
+    StudentID         string
+    SchoolID          string
+    SchoolName        string
+    AssessmentDate    time.Time
+    HeightCM          float64
+    WeightKG          float64
+    BMI               string
+    NutritionalStatus string
+}
+
+// HealthReport renders a filter form and (optionally) a table of assessments
+templ HealthReport(schools map[string]string, assessments []HealthAssessment) {
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Health & BMI Report</h1>
+            <button hx-get="/admin/reports" class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Back to Reports</button>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <form action="/admin/reports/health" method="get" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">School</label>
+                        @components.TomSelect(components.SelectConfig{
+                            Options:     schools,
+                            MaxItems:    1,
+                            Name:        "school_id",
+                            Placeholder: "Select a school",
+                        })
+                    </div>
+                    <div>
+                        @components.DateField("Start Date", "start_date", "")
+                    </div>
+                    <div>
+                        @components.DateField("End Date", "end_date", "")
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    @components.SubmitButton("Run Report")
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3">Student ID</th>
+                            <th class="px-6 py-3">School</th>
+                            <th class="px-6 py-3">Assessment Date</th>
+                            <th class="px-6 py-3">Height (cm)</th>
+                            <th class="px-6 py-3">Weight (kg)</th>
+                            <th class="px-6 py-3">BMI</th>
+                            <th class="px-6 py-3">Nutritional Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        if len(assessments) == 0 {
+                            <tr><td class="px-6 py-4 text-center text-gray-400" colspan="7">No results. Choose School and Date Range above.</td></tr>
+                        } else {
+                            for _, a := range assessments {
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-6 py-4 font-medium text-gray-900">
+                                        <a href={ "/admin/student/" + a.StudentID } class="text-blue-600 hover:text-blue-800 hover:underline">{ a.StudentID }</a>
+                                    </td>
+                                    <td class="px-6 py-4">{ a.SchoolName }</td>
+                                    <td class="px-6 py-4">{ a.AssessmentDate.Format("2006-01-02") }</td>
+                                    <td class="px-6 py-4">{ fmt.Sprintf("%.1f", a.HeightCM) }</td>
+                                    <td class="px-6 py-4">{ fmt.Sprintf("%.1f", a.WeightKG) }</td>
+                                    <td class="px-6 py-4">{ a.BMI }</td>
+                                    <td class="px-6 py-4">{ a.NutritionalStatus }</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}

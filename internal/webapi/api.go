@@ -85,6 +85,7 @@ type Roles struct {
 	Admin      bool
 	IsSignedIn bool
 	IsFeeder   bool
+	IsNurse    bool
 }
 
 func (s *Server) verifyConfig() {
@@ -139,6 +140,7 @@ func (s *Server) renderTempl(w http.ResponseWriter, r *http.Request, page templ.
 		params.IsAdmin = roles.Admin
 		params.IsSignedIn = roles.IsSignedIn
 		params.IsFeeder = roles.IsFeeder
+		params.IsNurse = roles.IsNurse
 	}
 
 	page = layouts.Layout(r, page, params)
@@ -185,8 +187,8 @@ func (s *Server) Start(ctx context.Context) {
 	c := chi.NewRouter()
 	c.Use(middleware.Logger)
 	c.Use(middleware.Recoverer)
+	c.Use(PrometheusMiddleware)
 	c.Use(middleware.Compress(5))
-	c.Use(middleware.Logger)
 	c.Use(clerk.WithSessionV2(s.Clerk))
 	c.Use(s.AddRolesToContext)
 
@@ -199,6 +201,9 @@ func (s *Server) Start(ctx context.Context) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	// Prometheus metrics endpoint
+	c.Handle("/metrics", MetricsHandler())
 
 	// Redirect root to admin since this is an admin-only system
 	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +231,12 @@ func (s *Server) Start(ctx context.Context) {
 	c.Group(func(r chi.Router) {
 		r.Use(s.requireAuth)
 		r.Route("/staff", s.staffRoutes)
+	})
+
+	c.Group(func(r chi.Router) {
+		r.Use(s.requireAuth)
+		r.Use(s.requireNurse)
+		r.Route("/nurse", s.nurseRoutes)
 	})
 
 	c.Route("/feeding", s.feedingRoutes)
@@ -271,6 +282,18 @@ func (s *Server) requireFeeder(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		roles, ok := r.Context().Value("roles").(Roles)
 		if !ok || !roles.IsFeeder {
+			s.renderTempl(w, r, templates.PermissionDenied())
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) requireNurse(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		roles, ok := r.Context().Value("roles").(Roles)
+		if !ok || !roles.IsNurse {
+			w.WriteHeader(http.StatusForbidden)
 			s.renderTempl(w, r, templates.PermissionDenied())
 			return
 		}
@@ -345,6 +368,11 @@ func (s *Server) AddRolesToContext(next http.Handler) http.Handler {
 		feederEnrollments, err := getMetadataValue[string](user.PrivateMetadata, "feeder_enrollments")
 		if err == nil {
 			roles.IsFeeder = feederEnrollments != ""
+		}
+
+		nurseEnrollments, err := getMetadataValue[string](user.PrivateMetadata, "nurse_enrollments")
+		if err == nil {
+			roles.IsNurse = nurseEnrollments != ""
 		}
 
 		roles.IsSignedIn = true

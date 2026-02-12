@@ -1,4 +1,4 @@
-package usertempl 
+package usertempl
 
 import (
 	"fmt"
@@ -20,10 +20,20 @@ type ViewParams struct {
 	IsAdmin   bool
 	Schools           []School
 	FeederEnrollments []string
+	NurseEnrollments  []string
 }
 
 func (p *ViewParams) IsFeederEnrolled(schoolID string) bool {
 	for _, enrolled := range p.FeederEnrollments {
+		if enrolled == schoolID {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *ViewParams) IsNurseEnrolled(schoolID string) bool {
+	for _, enrolled := range p.NurseEnrollments {
 		if enrolled == schoolID {
 			return true
 		}
@@ -99,17 +109,30 @@ templ View(params ViewParams) {
 									<h3 class="text-sm font-medium">
 										{ school.Name }
 									</h3>
-									if params.IsFeederEnrolled(school.ID) {
-										@components.PrimaryButton("Feeder Unenroll", templ.Attributes{
-											"hx-confirm": fmt.Sprintf("Are you sure you want to unenroll this user as a feeder in %s?", school.Name),
-											"hx-put": fmt.Sprintf("/admin/user/%s/school/%s/feederEnrollment?enroll=false", params.ID, school.ID),
-										})
-									} else {
-										@components.PrimaryButton("Feeder Enroll", templ.Attributes{
-											"hx-confirm": fmt.Sprintf("Are you sure you want to enroll this user as a feeder in %s?", school.Name),
-											"hx-put": fmt.Sprintf("/admin/user/%s/school/%s/feederEnrollment?enroll=true", params.ID, school.ID),
-										})
-									}
+									<div class="flex gap-2">
+										if params.IsFeederEnrolled(school.ID) {
+											@components.PrimaryButton("Feeder Unenroll", templ.Attributes{
+												"hx-confirm": fmt.Sprintf("Are you sure you want to unenroll this user as a feeder in %s?", school.Name),
+												"hx-put": fmt.Sprintf("/admin/user/%s/school/%s/feederEnrollment?enroll=false", params.ID, school.ID),
+											})
+										} else {
+											@components.PrimaryButton("Feeder Enroll", templ.Attributes{
+												"hx-confirm": fmt.Sprintf("Are you sure you want to enroll this user as a feeder in %s?", school.Name),
+												"hx-put": fmt.Sprintf("/admin/user/%s/school/%s/feederEnrollment?enroll=true", params.ID, school.ID),
+											})
+										}
+										if params.IsNurseEnrolled(school.ID) {
+											@components.DangerButton("Nurse Unenroll", templ.Attributes{
+												"hx-confirm": fmt.Sprintf("Are you sure you want to unenroll this user as a nurse in %s?", school.Name),
+												"hx-put": fmt.Sprintf("/admin/user/%s/school/%s/nurseEnrollment?enroll=false", params.ID, school.ID),
+											})
+										} else {
+											@components.SecondaryButton("Nurse Enroll", templ.Attributes{
+												"hx-confirm": fmt.Sprintf("Are you sure you want to enroll this user as a nurse in %s?", school.Name),
+												"hx-put": fmt.Sprintf("/admin/user/%s/school/%s/nurseEnrollment?enroll=true", params.ID, school.ID),
+											})
+										}
+									</div>
 								</div>
 							}
 						</div>
