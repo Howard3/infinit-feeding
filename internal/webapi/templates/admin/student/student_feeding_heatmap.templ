@@ -27,6 +27,8 @@ func convertStudentFeedingToHeatmap(fr []*eda.Student_Feeding_Event) HeatmapData
 }
 
 script studentCalendarHeatmap(data HeatmapData, id string) {
+    document.getElementById(id).innerHTML = '';
+
     const maxDate = new Date();
     maxDate.setMonth(maxDate.getMonth() + 1);
 

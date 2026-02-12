@@ -21,8 +21,8 @@ func base64Encode(b []byte) string {
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
 }
 
-templ healthAssessmentsSection(healthAssessments []*student.HealthReport) {
-	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full mt-4" data-v0-t="card">
+templ healthAssessmentsSection(studentID uint64, healthAssessments []*student.HealthReport) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full" data-v0-t="card">
 		<div class="flex flex-col space-y-1.5 p-6">
 			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
 				Health Assessments
@@ -42,6 +42,7 @@ templ healthAssessmentsSection(healthAssessments []*student.HealthReport) {
 								<th class="py-3 px-4 text-left font-medium bg-blue-50">BMI *</th>
 								<th class="py-3 px-4 text-left font-medium bg-blue-50">Age *</th>
 								<th class="py-3 px-4 text-left font-medium bg-blue-50">Status *</th>
+								<th class="py-3 px-4 text-left font-medium"></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -63,11 +64,23 @@ templ healthAssessmentsSection(healthAssessments []*student.HealthReport) {
 											<span class="px-2 py-1 text-white bg-gray-500 rounded-md text-xs font-semibold whitespace-nowrap">{ assessment.NutritionalStatus().String() }</span>
 										}
 									</td>
+									<td class="py-2 px-4">
+										<button
+											class="text-red-400 hover:text-red-600 p-1"
+											title="Remove assessment"
+											hx-delete={ fmt.Sprintf("/admin/student/%d/healthAssessment?bulk_upload_id=%s", studentID, assessment.AssociatedBulkUploadId) }
+											hx-confirm="Are you sure you want to remove this health assessment?"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+												<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+											</svg>
+										</button>
+									</td>
 								</tr>
 							}
 						</tbody>
 					</table>
-					<div class="text-xs text-gray-500 mt-2 pl-4 border-t pt-2">
+					<div class="text-xs text-gray-500 mt-2 px-4 pb-3 border-t pt-2">
 						<div class="font-medium mb-2">Legend:</div>
 						<div class="flex items-center gap-2 flex-wrap">
 							<span>* Calculated fields</span>
@@ -108,24 +121,36 @@ templ AdminViewStudent(params ViewParams) {
 	@studentCalendarHeatmap(convertStudentFeedingToHeatmap(params.Student.GetFeedingReport()), "calheatmap")
 	<div class="grid gap-6 md:grid-cols-2 m-3">
 		<div class="space-y-4">
-			<form>
-				// Embed Personal Info Section
-				@StudentPersonalInfoSection(params.Student, params.Version, params.Student.IsDeleted)
-				// Embed Action Buttons Section
-				@actionButtonsSection(params.ID, params.Student.Status, params.Student.EligibleForSponsorship, params.Version, params.Student.IsDeleted)
-			</form>
-			// Embed School Enrollment Section
-			@schoolEnrollmentSection(params, params.Student.IsDeleted)
-		</div>
-		<div class="flex flex-col">
 			<div class="flex flex-row gap-3">
 				@profilePhoto(params, params.Student.IsDeleted)
 				@codeSection(params, params.Student.IsDeleted)
 			</div>
+			<form>
+				<div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+					<div class="px-4 pt-4 pb-1">
+						<h3 class="text-lg font-semibold leading-none tracking-tight">Student Info</h3>
+					</div>
+					<div class="px-4 pb-6 pt-1 space-y-3">
+						@StudentPersonalInfoSection(params.Student, params.Version, params.Student.IsDeleted)
+						if !params.Student.IsDeleted {
+							<div class="flex justify-end border-t pt-4 mt-3">
+								@components.PrimaryButton("Update", templ.Attributes{
+									"hx-post": fmt.Sprintf("/admin/student/%d", params.ID),
+								})
+							</div>
+						}
+					</div>
+				</div>
+				@statusSection(params.ID, params.Student.Status, params.Student.EligibleForSponsorship, params.Version, params.Student.IsDeleted)
+			</form>
+			// Embed School Enrollment Section
+			@schoolEnrollmentSection(params, params.Student.IsDeleted)
+		</div>
+		<div class="flex flex-col gap-4">
 			// Embed Grade Reports Section
 			@gradeReportsSection(params.Aggregate.GetGradeReports())
 			// Embed Health Assessments Section
-			@healthAssessmentsSection(params.Aggregate.GetHealthAssessments())
+			@healthAssessmentsSection(params.ID, params.Aggregate.GetHealthAssessments())
 			// Embed History Section
 			<div hx-push-url="false" hx-trigger="load" hx-get={ fmt.Sprintf("/admin/student/%d/history", params.ID) } hx-target="this">
 				Loading...
@@ -140,14 +165,18 @@ func toggleStatusURL(id uint64, ver uint64, status eda.Student_Status) string {
 }
 
 templ StudentPersonalInfoSection(student *eda.Student, ver uint64, isDeleted bool) {
-	<div class="space-y-4" id="personal-info">
-		if isDeleted {
-			<div class="opacity-60 pointer-events-none">
-				@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
-				@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
-				@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
-				@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
-				<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
+	<div class={ "space-y-2", templ.KV("opacity-60 pointer-events-none", isDeleted) } id="personal-info">
+		<div class="grid grid-cols-2 gap-2">
+			@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
+			@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
+		</div>
+		<div class="grid grid-cols-2 gap-2">
+			@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
+			@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
+		</div>
+		<div class="grid grid-cols-2 gap-2">
+			<div class="space-y-1">
+				<label class="text-sm font-medium leading-none">Sex</label>
 				@components.TomSelect(components.SelectConfig{
 					Options: map[string]string{
 						eda.Student_MALE.String():   "Male",
@@ -158,7 +187,9 @@ templ StudentPersonalInfoSection(student *eda.Student, ver uint64, isDeleted boo
 					Placeholder: "Select a sex",
 					Value:       student.Sex.Enum().String(),
 				})
-				<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Grade Level</label>
+			</div>
+			<div class="space-y-1">
+				<label class="text-sm font-medium leading-none">Grade Level</label>
 				@components.TomSelect(components.SelectConfig{
 					Options: map[string]string{
 						"1": "1",
@@ -174,53 +205,21 @@ templ StudentPersonalInfoSection(student *eda.Student, ver uint64, isDeleted boo
 					Value:       fmt.Sprintf("%d", student.GradeLevel),
 				})
 			</div>
-		} else {
-			@components.TextField("First Name", "first_name", "Enter the first name", student.FirstName)
-			@components.TextField("Last Name", "last_name", "Enter the last name", student.LastName)
-			@components.DateField("Date of Birth", "date_of_birth", fmt.Sprintf("%d-%02d-%02d", student.DateOfBirth.Year, student.DateOfBirth.Month, student.DateOfBirth.Day))
-			@components.TextField("Student ID", "student_school_id", "Enter the student ID", student.StudentSchoolId)
-			<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Sex</label>
-			@components.TomSelect(components.SelectConfig{
-				Options: map[string]string{
-					eda.Student_MALE.String():   "Male",
-					eda.Student_FEMALE.String(): "Female",
-				},
-				MaxItems:    1,
-				Name:        "sex",
-				Placeholder: "Select a sex",
-				Value:       student.Sex.Enum().String(),
-			})
-			<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Grade Level</label>
-			@components.TomSelect(components.SelectConfig{
-				Options: map[string]string{
-					"1": "1",
-					"2": "2",
-					"3": "3",
-					"4": "4",
-					"5": "5",
-					"6": "6",
-				},
-				MaxItems:    1,
-				Name:        "grade_level",
-				Placeholder: "Select a grade level",
-				Value:       fmt.Sprintf("%d", student.GradeLevel),
-			})
-		}
-
+		</div>
 		@components.HiddenField("version", fmt.Sprintf("%d", ver))
 	</div>
 }
 
-templ actionButtonsSection(id uint64, status eda.Student_Status, eligibleForSponsorship bool, ver uint64, isDeleted bool) {
-	<div class="flex items-center justify-between mt-4 gap-4">
-		<div class="flex items-center space-x-4 bg-gray-100 p-4 rounded-lg border" hx-params="none">
-			if isDeleted {
-				<div class="flex items-center space-x-2 bg-red-50 p-4 rounded-lg border border-red-200">
-					<span class="text-sm font-bold text-red-600">DELETED</span>
-					<span class="text-xs text-red-500">This student record has been deleted</span>
-				</div>
-			} else {
-				<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
+templ statusSection(id uint64, status eda.Student_Status, eligibleForSponsorship bool, ver uint64, isDeleted bool) {
+	<div class="mt-4" hx-params="none">
+		if isDeleted {
+			<div class="flex items-center space-x-2 bg-red-50 p-4 rounded-lg border border-red-200">
+				<span class="text-sm font-bold text-red-600">DELETED</span>
+				<span class="text-xs text-red-500">This student record has been deleted</span>
+			</div>
+		} else {
+			<div class="grid grid-cols-2 gap-3">
+				<div class="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border text-center">
 					if status == eda.Student_ACTIVE {
 						<span class="text-sm font-medium text-green-500">Active</span>
 					} else {
@@ -231,68 +230,65 @@ templ actionButtonsSection(id uint64, status eda.Student_Status, eligibleForSpon
 						class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
 					>Toggle status</a>
 				</div>
-				<div class="flex items-center space-x-2 bg-white p-4 rounded-lg border">
+				<div class="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border text-center">
 					if eligibleForSponsorship {
-						<span class="text-sm font-medium text-green-500">Eligible for Sponsorship</span>
+						<span class="text-sm font-medium text-green-500">Sponsored</span>
 					} else {
-						<span class="text-sm font-medium text-red-500">Not Eligible for Sponsorship</span>
+						<span class="text-sm font-medium text-red-500">Not Sponsored</span>
 					}
 					<a
 						hx-put={ fmt.Sprintf("/admin/student/%d/eligibility?ver=%d&eligible=%t", id, ver, !eligibleForSponsorship) }
 						class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
 					>Toggle</a>
 				</div>
-			}
-			@components.HiddenField("version", fmt.Sprintf("%d", ver))
-		</div>
-		if !isDeleted {
-			@components.PrimaryButton("Update", templ.Attributes{
-				"hx-post": fmt.Sprintf("/admin/student/%d", id),
-			})
+			</div>
 		}
+		@components.HiddenField("version", fmt.Sprintf("%d", ver))
 	</div>
 }
 
 templ schoolEnrollmentSection(params ViewParams, isDeleted bool) {
-	<div class="grid gap-2">
-		<label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">School</label>
-		if isDeleted {
-			<div class="grid gap-2 opacity-60 pointer-events-none">
-				@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
-				@components.TomSelect(components.SelectConfig{
-					Options:     params.SchoolMap,
-					MaxItems:    1,
-					Name:        "school_id",
-					Placeholder: "Select a school",
-					Value:       params.Student.SchoolId,
-				})
-				@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
-				<div class="grid gap-2">
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+		<div class="px-4 pt-4 pb-1">
+			<h3 class="text-lg font-semibold leading-none tracking-tight">School Enrollment</h3>
+		</div>
+		<div class="px-4 pb-6 pt-1 space-y-3">
+			if isDeleted {
+				<div class="space-y-3 opacity-60 pointer-events-none">
+					@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
+					@components.TomSelect(components.SelectConfig{
+						Options:     params.SchoolMap,
+						MaxItems:    1,
+						Name:        "school_id",
+						Placeholder: "Select a school",
+						Value:       params.Student.SchoolId,
+					})
+					@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
 					<span class="text-sm text-gray-500">Enrollment actions disabled for deleted student</span>
 				</div>
-			</div>
-		} else {
-			<form class="grid gap-2" hx-push-url="false">
-				@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
-				@components.TomSelect(components.SelectConfig{
-					Options:     params.SchoolMap,
-					MaxItems:    1,
-					Name:        "school_id",
-					Placeholder: "Select a school",
-					Value:       params.Student.SchoolId,
-				})
-				@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
-				<div class="grid gap-2">
-					@components.PrimaryButton("Enroll", templ.Attributes{
-						"hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
+			} else {
+				<form class="space-y-3" hx-push-url="false">
+					@components.HiddenField("version", fmt.Sprintf("%d", params.Version))
+					@components.TomSelect(components.SelectConfig{
+						Options:     params.SchoolMap,
+						MaxItems:    1,
+						Name:        "school_id",
+						Placeholder: "Select a school",
+						Value:       params.Student.SchoolId,
 					})
-					@components.Button("Unenroll", templ.Attributes{
-						"hx-delete":  fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
-						"hx-confirm": "Are you sure you want to unenroll this student?",
-					})
-				</div>
-			</form>
-		}
+					@components.DateField("Enrollment Date", "enrollment_date", dateToFormDate(params.Student.DateOfEnrollment))
+					<div class="flex gap-2 border-t pt-4 mt-1">
+						@components.PrimaryButton("Enroll", templ.Attributes{
+							"hx-post": fmt.Sprintf("/admin/student/%d/enroll", params.ID),
+						})
+						@components.Button("Unenroll", templ.Attributes{
+							"hx-delete":  fmt.Sprintf("/admin/student/%d/enrollment?version=%d", params.ID, params.Version),
+							"hx-confirm": "Are you sure you want to unenroll this student?",
+						})
+					</div>
+				</form>
+			}
+		</div>
 	</div>
 }
 
@@ -316,7 +312,7 @@ templ StudentHistorySection(evts []gosignal.Event) {
 				<div id="history-events-container" class="grid min-w-[400px] w-full divide-y">
 					for _, evt := range evts {
 						<div class="grid grid-cols-3 items-center p-3 bg-gray-100 history-event">
-							<div class="text-sm text-gray-500" hx-target="#content" hx-push-url="true">
+							<div class="text-sm text-gray-500">
 								switch evt.Type {
 									case student.EVENT_ADD_STUDENT:
 										Student created
@@ -334,9 +330,6 @@ templ StudentHistorySection(evts []gosignal.Event) {
 										Profile photo updated
 									case student.EVENT_FEED_STUDENT:
 										Student fed
-										@components.Button("View", templ.Attributes{
-											"hx-get": fmt.Sprintf("/admin/student/%s/feedingReport/%d", evt.AggregateID, evt.Version),
-										})
 									case student.EVENT_UPDATE_SPONSORSHIP:
 										Sponsorship updated
 									case student.EVENT_SET_ELIGIBILITY:
@@ -353,6 +346,13 @@ templ StudentHistorySection(evts []gosignal.Event) {
 										Student deleted
 									default:
 										Unknown event: { evt.Type }
+								}
+							</div>
+							<div class="text-center" hx-target="#content" hx-push-url="true">
+								if evt.Type == student.EVENT_FEED_STUDENT {
+									@components.Button("View", templ.Attributes{
+										"hx-get": fmt.Sprintf("/admin/student/%s/feedingReport/%d", evt.AggregateID, evt.Version),
+									})
 								}
 							</div>
 							<div class="text-sm text-gray-500 text-right">{ evt.Timestamp.Format("2006-01-02 15:04") }</div>
@@ -447,7 +447,7 @@ templ codeSection(p ViewParams, isDeleted bool) {
 			</div>
 		</div>
 		<div class="p-6 flex items-center justify-center">
-			<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+			<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800 overflow-hidden">
 				if len(p.Student.CodeUniqueId) == 0 {
 					<div class="items-center justify-center p-3">
 						No code. Click "Generate" to create a new one.
@@ -492,13 +492,13 @@ templ profilePhoto(p ViewParams, isDeleted bool) {
 				</div>
 			</div>
 			<div class="p-6 flex items-center justify-center">
-				<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+				<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800 overflow-hidden">
 					if p.Student.ProfilePhotoId == "" {
 						<div class="items-center justify-center p-3">
 							No photo
 						</div>
 					} else {
-						<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-max-full h-max-full my-auto align-middle"/>
+						<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="max-w-full"/>
 					}
 				</div>
 			</div>
@@ -515,13 +515,13 @@ templ profilePhoto(p ViewParams, isDeleted bool) {
 				</div>
 			</div>
 			<div class="p-6 flex items-center justify-center">
-				<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800">
+				<div class="border border-gray-200 w-[250px] h-[250px] dark:border-gray-800 overflow-hidden">
 					if p.Student.ProfilePhotoId == "" {
 						<div class="items-center justify-center p-3">
 							No photo
 						</div>
 					} else {
-						<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="w-max-full h-max-full my-auto align-middle"/>
+						<img src={ fmt.Sprintf("/student/profile/photo/%s", p.Student.ProfilePhotoId) } alt="Profile Photo" class="max-w-full"/>
 					}
 				</div>
 			</div>
@@ -540,7 +540,7 @@ templ profilePhoto(p ViewParams, isDeleted bool) {
 }
 
 templ gradeReportsSection(gradeReports []*eda.Student_GradeReport) {
-	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full mt-4" data-v0-t="card">
+	<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full" data-v0-t="card">
 		<div class="flex flex-col space-y-1.5 p-6">
 			<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
 				Grade Reports

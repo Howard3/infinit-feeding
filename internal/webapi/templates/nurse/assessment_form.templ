@@ -1,0 +1,74 @@
+package nursetempl
+
+import (
+	"geevly/internal/student"
+	"geevly/internal/webapi/templates/components"
+	"fmt"
+)
+
+templ AssessmentForm(studentAgg *student.Aggregate, returnTo string) {
+	<div class="container mx-auto px-4 py-8 max-w-sm">
+		<h1 class="text-2xl font-bold mb-6">Record Health Assessment</h1>
+		<div class="bg-white shadow rounded-lg p-6 mb-6">
+			<div class="flex items-center gap-4 mb-4">
+				<div class="rounded-full overflow-hidden border-2 border-gray-200">
+					<img
+						src={ fmt.Sprintf("/student/profile/photo/%s", studentAgg.GetStudent().ProfilePhotoId) }
+						alt="Profile Photo"
+						class="rounded-full"
+						style="aspect-ratio: 80 / 80; object-fit: cover;"
+						width="80"
+						height="80"
+					/>
+				</div>
+				<div>
+					<h2 class="text-lg font-semibold">{ studentAgg.GetFullName() }</h2>
+					<p class="text-sm text-gray-500">Student ID: { studentAgg.GetStudent().StudentSchoolId }</p>
+				</div>
+			</div>
+		</div>
+		<form class="bg-white shadow rounded-lg p-6 space-y-4" hx-post="/nurse/record" hx-push-url="false">
+			@components.HiddenField("student_id", studentAgg.GetID())
+			if returnTo != "" {
+				@components.HiddenField("return_to", returnTo)
+			}
+			<div class="space-y-2">
+				<label class="text-sm font-medium leading-none" for="height_cm">
+					Height (cm)
+				</label>
+				<input
+					class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					id="height_cm"
+					name="height_cm"
+					type="number"
+					step="0.1"
+					min="50"
+					max="250"
+					inputmode="decimal"
+					placeholder="e.g. 120.5"
+					required=""
+				/>
+			</div>
+			<div class="space-y-2">
+				<label class="text-sm font-medium leading-none" for="weight_kg">
+					Weight (kg)
+				</label>
+				<input
+					class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					id="weight_kg"
+					name="weight_kg"
+					type="number"
+					step="0.1"
+					min="5"
+					max="200"
+					inputmode="decimal"
+					placeholder="e.g. 25.3"
+					required=""
+				/>
+			</div>
+			<div class="pt-4">
+				@components.PrimaryButton("Record Assessment", nil)
+			</div>
+		</form>
+	</div>
+}

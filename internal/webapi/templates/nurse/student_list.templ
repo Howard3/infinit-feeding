@@ -1,0 +1,61 @@
+package nursetempl
+
+import (
+	"geevly/internal/student"
+	"geevly/internal/school"
+	"geevly/internal/webapi/templates/components"
+	"fmt"
+)
+
+type StudentWithHealthStatus struct {
+	Student             *student.ProjectedStudent
+	HasRecentAssessment bool
+	LastAssessmentDate  string
+}
+
+templ StudentList(schoolID string, school *school.Aggregate, students []StudentWithHealthStatus) {
+	<div class="container mx-auto px-4 py-8">
+		<div class="flex justify-between items-center mb-4">
+			<h1 class="text-2xl font-bold">Health Assessments - { school.GetData().Name }</h1>
+			@components.SecondaryButton("Back to Dashboard", templ.Attributes{
+				"hx-get": "/nurse",
+			})
+		</div>
+		<table class="w-full bg-white shadow rounded-lg">
+			<thead>
+				<tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+					<th class="py-3 px-6 text-left">Name</th>
+					<th class="py-3 px-6 text-left">Grade</th>
+					<th class="py-3 px-6 text-left">Student ID</th>
+					<th class="py-3 px-6 text-left">Last Assessment</th>
+					<th class="py-3 px-6 text-left">Action</th>
+				</tr>
+			</thead>
+			<tbody class="text-gray-600 text-sm font-light">
+				for _, s := range students {
+					<tr class={
+						templ.KV("border-b border-gray-200 hover:bg-gray-100", true),
+						templ.KV("bg-green-50", s.HasRecentAssessment),
+						templ.KV("bg-red-50", !s.HasRecentAssessment),
+					}>
+						<td class="py-3 px-6 text-left">{ s.Student.FirstName } { s.Student.LastName }</td>
+						<td class="py-3 px-6 text-left">{ fmt.Sprintf("%d", s.Student.Grade) }</td>
+						<td class="py-3 px-6 text-left">{ s.Student.StudentID }</td>
+						<td class="py-3 px-6 text-left">
+							if s.HasRecentAssessment {
+								<span class="text-green-600">{ s.LastAssessmentDate }</span>
+							} else {
+								<span class="text-red-600">Not assessed</span>
+							}
+						</td>
+						<td class="py-3 px-6 text-left">
+							@components.PrimaryButton("Assess", templ.Attributes{
+								"hx-get": fmt.Sprintf("/nurse/school/%s/student/%d?return_to=/nurse/school/%s", schoolID, s.Student.ID, schoolID),
+							})
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

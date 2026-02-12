@@ -40,6 +40,7 @@ func (s *Server) studentAdminRoutes(r chi.Router) {
 		r.Delete(`/{ID:(^\d+)}/enrollment`, s.adminUnenrollStudent)
 		r.Post(`/{ID:(^\d+)}/regenerateCode`, s.adminRegenerateCode)
 		r.Put(`/{ID:(^\d+)}/eligibility`, s.toggleStudentEligibility)
+		r.Delete(`/{ID:(^\d+)}/healthAssessment`, s.adminRemoveHealthAssessment)
 	})
 }
 
@@ -343,6 +344,23 @@ func (s *Server) toggleStudentEligibility(w http.ResponseWriter, r *http.Request
 	}
 
 	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Eligibility updated"))
+}
+
+func (s *Server) adminRemoveHealthAssessment(w http.ResponseWriter, r *http.Request) {
+	studentID := s.getStudentIDFromContext(r.Context())
+	bulkUploadID := r.URL.Query().Get("bulk_upload_id")
+	if bulkUploadID == "" {
+		s.errorPage(w, r, "Missing bulk upload ID", fmt.Errorf("bulk_upload_id is required"))
+		return
+	}
+
+	err := s.Services.StudentSvc.RemoveHealthAssessment(r.Context(), studentID, bulkUploadID)
+	if err != nil {
+		s.errorPage(w, r, "Error removing health assessment", err)
+		return
+	}
+
+	s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/student/%d", studentID), "Health assessment removed"))
 }
 
 // adminQRCode - render a qr code from an input value

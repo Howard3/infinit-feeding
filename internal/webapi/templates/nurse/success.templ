@@ -1,0 +1,38 @@
+package nursetempl
+
+import (
+	"geevly/internal/student"
+	"geevly/internal/webapi/templates/components"
+	"fmt"
+)
+
+templ Success(studentAgg *student.Aggregate, heightCm float32, weightKg float32, bulkUploadID string) {
+	<div class="container mx-auto px-4 py-8 max-w-lg">
+		<div class="bg-green-50 border border-green-200 shadow rounded-lg p-6 text-center">
+			<div class="text-green-600 text-4xl mb-4">&#10003;</div>
+			<h1 class="text-2xl font-bold text-green-800 mb-2">Assessment Recorded</h1>
+			<p class="text-gray-600 mb-4">Health assessment for <strong>{ studentAgg.GetFullName() }</strong> has been saved.</p>
+			<div class="bg-white rounded-lg p-4 mb-6 inline-block text-left">
+				<div class="grid grid-cols-2 gap-2 text-sm">
+					<span class="font-medium text-gray-500">Height:</span>
+					<span>{ fmt.Sprintf("%.1f cm", heightCm) }</span>
+					<span class="font-medium text-gray-500">Weight:</span>
+					<span>{ fmt.Sprintf("%.1f kg", weightKg) }</span>
+				</div>
+			</div>
+			<div class="flex justify-center gap-3">
+				@components.PrimaryButton("Assess Another Student", templ.Attributes{
+					"hx-get": "/nurse",
+				})
+				<form method="post" action="/nurse/record/undo">
+					@components.HiddenField("student_id", studentAgg.GetID())
+					@components.HiddenField("bulk_upload_id", bulkUploadID)
+					@components.DangerButton("Undo Assessment", templ.Attributes{
+						"type":       "submit",
+						"hx-confirm": "Are you sure you want to undo this assessment?",
+					})
+				</form>
+			</div>
+		</div>
+	</div>
+}
