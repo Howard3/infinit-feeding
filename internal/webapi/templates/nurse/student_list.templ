@@ -49,9 +49,13 @@ templ StudentList(schoolID string, school *school.Aggregate, students []StudentW
 							}
 						</td>
 						<td class="py-3 px-6 text-left">
-							@components.PrimaryButton("Assess", templ.Attributes{
-								"hx-get": fmt.Sprintf("/nurse/school/%s/student/%d?return_to=/nurse/school/%s", schoolID, s.Student.ID, schoolID),
-							})
+							if s.HasRecentAssessment {
+								<span class="text-green-600 text-xs font-medium">&#10003; Done</span>
+							} else {
+								@components.PrimaryButton("Assess", templ.Attributes{
+									"hx-get": fmt.Sprintf("/nurse/school/%s/student/%d?return_to=/nurse/school/%s", schoolID, s.Student.ID, schoolID),
+								})
+							}
 						</td>
 					</tr>
 				}

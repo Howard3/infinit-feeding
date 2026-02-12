@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"geevly/gen/go/eda"
+	"log/slog"
 	"time"
 
 	"github.com/Howard3/gosignal"
@@ -440,6 +441,11 @@ func (s *StudentService) AddHealthAssessment(ctx context.Context, id uint64, rep
 		return fmt.Errorf("failed to save student: %w", err)
 	}
 
+	// Update health projections synchronously so the class list reflects the change immediately
+	if err = s.repo.updateAllHealthProjectionsForStudent(studentAgg); err != nil {
+		slog.Error("failed to update health projections synchronously", "error", err)
+	}
+
 	return nil
 }
 
@@ -459,6 +465,11 @@ func (s *StudentService) RemoveHealthAssessment(ctx context.Context, id uint64, 
 	err = s.saveEvent(ctx, event)
 	if err != nil {
 		return fmt.Errorf("failed to save student: %w", err)
+	}
+
+	// Update health projections synchronously so the class list reflects the change immediately
+	if err = s.repo.updateAllHealthProjectionsForStudent(studentAgg); err != nil {
+		slog.Error("failed to update health projections synchronously", "error", err)
 	}
 
 	return nil

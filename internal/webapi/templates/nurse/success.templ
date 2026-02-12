@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-templ Success(studentAgg *student.Aggregate, heightCm float32, weightKg float32, bulkUploadID string) {
+templ Success(studentAgg *student.Aggregate, heightCm float32, weightKg float32, bulkUploadID string, returnTo string) {
 	<div class="container mx-auto px-4 py-8 max-w-lg">
 		<div class="bg-green-50 border border-green-200 shadow rounded-lg p-6 text-center">
 			<div class="text-green-600 text-4xl mb-4">&#10003;</div>
@@ -21,9 +21,15 @@ templ Success(studentAgg *student.Aggregate, heightCm float32, weightKg float32,
 				</div>
 			</div>
 			<div class="flex justify-center gap-3">
-				@components.PrimaryButton("Assess Another Student", templ.Attributes{
-					"hx-get": "/nurse",
-				})
+				if returnTo != "" {
+					@components.PrimaryButton("Back to Class List", templ.Attributes{
+						"hx-get": returnTo,
+					})
+				} else {
+					@components.PrimaryButton("Assess Another Student", templ.Attributes{
+						"hx-get": "/nurse",
+					})
+				}
 				<form method="post" action="/nurse/record/undo">
 					@components.HiddenField("student_id", studentAgg.GetID())
 					@components.HiddenField("bulk_upload_id", bulkUploadID)

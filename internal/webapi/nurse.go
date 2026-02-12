@@ -114,9 +114,8 @@ func (s *Server) nurseSchoolStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get health assessments for the current quarter
-	now := time.Now()
-	quarterStart := getQuarterStart(now)
-	healthAssessments, err := s.Services.StudentSvc.GetHealthAssessments(r.Context(), schoolID, quarterStart, now)
+	quarterStart := getQuarterStart(time.Now())
+	healthAssessments, err := s.Services.StudentSvc.GetHealthAssessments(r.Context(), schoolID, quarterStart, time.Time{})
 	if err != nil {
 		s.errorPage(w, r, "Error fetching health assessments", err)
 		return
@@ -276,11 +275,6 @@ func (s *Server) nurseRecordAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if returnTo != "" && strings.HasPrefix(returnTo, "/") {
-		http.Redirect(w, r, returnTo, http.StatusSeeOther)
-		return
-	}
-
 	// Load student for the success page
 	studentAgg, err := s.Services.StudentSvc.GetStudent(r.Context(), studentID)
 	if err != nil {
@@ -288,7 +282,7 @@ func (s *Server) nurseRecordAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderTempl(w, r, nursetempl.Success(studentAgg, float32(heightCm), float32(weightKg), bulkUploadID))
+	s.renderTempl(w, r, nursetempl.Success(studentAgg, float32(heightCm), float32(weightKg), bulkUploadID, returnTo))
 }
 
 func (s *Server) nurseUndoAssessment(w http.ResponseWriter, r *http.Request) {
