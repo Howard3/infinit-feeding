@@ -7,36 +7,45 @@ import (
 )
 
 templ Success(studentAgg *student.Aggregate, heightCm float32, weightKg float32, bulkUploadID string, returnTo string) {
-	<div class="container mx-auto px-4 py-8 max-w-lg">
-		<div class="bg-green-50 border border-green-200 shadow rounded-lg p-6 text-center">
-			<div class="text-green-600 text-4xl mb-4">&#10003;</div>
-			<h1 class="text-2xl font-bold text-green-800 mb-2">Assessment Recorded</h1>
-			<p class="text-gray-600 mb-4">Health assessment for <strong>{ studentAgg.GetFullName() }</strong> has been saved.</p>
-			<div class="bg-white rounded-lg p-4 mb-6 inline-block text-left">
-				<div class="grid grid-cols-2 gap-2 text-sm">
-					<span class="font-medium text-gray-500">Height:</span>
-					<span>{ fmt.Sprintf("%.1f cm", heightCm) }</span>
-					<span class="font-medium text-gray-500">Weight:</span>
-					<span>{ fmt.Sprintf("%.1f kg", weightKg) }</span>
+	<div class="container mx-auto px-4 py-6 max-w-md">
+		<div class="bg-green-50 border-2 border-green-200 shadow rounded-lg p-6 text-center">
+			<div class="text-green-600 mb-4" style="font-size: 64px; line-height: 1;">&#10003;</div>
+			<h1 class="text-3xl font-bold text-green-800 mb-2">Assessment Recorded</h1>
+			<p class="text-lg text-gray-600 mb-6">Health assessment for <strong>{ studentAgg.GetFullName() }</strong> has been saved.</p>
+			<div class="bg-white rounded-lg p-5 mb-6 w-full text-left">
+				<div class="grid grid-cols-2 gap-3 text-lg">
+					<span class="font-semibold text-gray-500">Height:</span>
+					<span class="font-bold">{ fmt.Sprintf("%.1f cm", heightCm) }</span>
+					<span class="font-semibold text-gray-500">Weight:</span>
+					<span class="font-bold">{ fmt.Sprintf("%.1f kg", weightKg) }</span>
 				</div>
 			</div>
-			<div class="flex justify-center gap-3">
+			<div class="flex flex-col gap-3 w-full">
 				if returnTo != "" {
-					@components.PrimaryButton("Back to Class List", templ.Attributes{
-						"hx-get": returnTo,
-					})
+					<button
+						class="w-full rounded-lg bg-indigo-600 px-6 py-4 text-lg font-semibold text-white shadow-sm hover:bg-indigo-500 active:bg-indigo-700"
+						hx-get={ returnTo }
+					>
+						Back to Class List
+					</button>
 				} else {
-					@components.PrimaryButton("Assess Another Student", templ.Attributes{
-						"hx-get": "/nurse",
-					})
+					<button
+						class="w-full rounded-lg bg-indigo-600 px-6 py-4 text-lg font-semibold text-white shadow-sm hover:bg-indigo-500 active:bg-indigo-700"
+						hx-get="/nurse"
+					>
+						Assess Another Student
+					</button>
 				}
-				<form method="post" action="/nurse/record/undo">
+				<form method="post" action="/nurse/record/undo" class="w-full">
 					@components.HiddenField("student_id", studentAgg.GetID())
 					@components.HiddenField("bulk_upload_id", bulkUploadID)
-					@components.DangerButton("Undo Assessment", templ.Attributes{
-						"type":       "submit",
-						"hx-confirm": "Are you sure you want to undo this assessment?",
-					})
+					<button
+						type="submit"
+						class="w-full rounded-lg bg-red-600 px-6 py-4 text-lg font-semibold text-white shadow-sm hover:bg-red-500 active:bg-red-700"
+						hx-confirm="Are you sure you want to undo this assessment?"
+					>
+						Undo Assessment
+					</button>
 				</form>
 			</div>
 		</div>

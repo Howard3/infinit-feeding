@@ -7,37 +7,30 @@ import (
 )
 
 templ AssessmentForm(studentAgg *student.Aggregate, returnTo string) {
-	<div class="container mx-auto px-4 py-8 max-w-sm">
-		<h1 class="text-2xl font-bold mb-6">Record Health Assessment</h1>
-		<div class="bg-white shadow rounded-lg p-6 mb-6">
-			<div class="flex items-center gap-4 mb-4">
-				<div class="rounded-full overflow-hidden border-2 border-gray-200">
-					<img
-						src={ fmt.Sprintf("/student/profile/photo/%s", studentAgg.GetStudent().ProfilePhotoId) }
-						alt="Profile Photo"
-						class="rounded-full"
-						style="aspect-ratio: 80 / 80; object-fit: cover;"
-						width="80"
-						height="80"
-					/>
-				</div>
-				<div>
-					<h2 class="text-lg font-semibold">{ studentAgg.GetFullName() }</h2>
-					<p class="text-sm text-gray-500">Student ID: { studentAgg.GetStudent().StudentSchoolId }</p>
-				</div>
+	<div class="container mx-auto px-4 py-6 max-w-md">
+		<h1 class="text-2xl font-bold mb-4">Record Health Assessment</h1>
+		<div class="relative rounded-lg overflow-hidden shadow mb-4">
+			<img
+				src={ fmt.Sprintf("/student/profile/photo/%s", studentAgg.GetStudent().ProfilePhotoId) }
+				alt="Profile Photo"
+				class="w-full rounded-lg"
+			/>
+			<div class="absolute bottom-0 left-0 right-0 px-4 py-3" style="background: rgba(0,0,0,0.3); backdrop-filter: blur(4px);">
+				<h2 class="text-2xl font-bold text-white" style="text-shadow: 0 0 6px black, 0 0 12px black;">{ studentAgg.GetFullName() }</h2>
+				<p class="text-base mt-0.5" style="color: rgba(255,255,255,0.8); text-shadow: 0 0 6px black, 0 0 12px black;">Student ID: { studentAgg.GetStudent().StudentSchoolId }</p>
 			</div>
 		</div>
-		<form class="bg-white shadow rounded-lg p-6 space-y-4" hx-post="/nurse/record" hx-push-url="false">
+		<form class="bg-white shadow rounded-lg p-5 space-y-5" hx-post="/nurse/record" hx-push-url="false">
 			@components.HiddenField("student_id", studentAgg.GetID())
 			if returnTo != "" {
 				@components.HiddenField("return_to", returnTo)
 			}
 			<div class="space-y-2">
-				<label class="text-sm font-medium leading-none" for="height_cm">
+				<label class="text-base font-semibold leading-none" for="height_cm">
 					Height (cm)
 				</label>
 				<input
-					class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					class="flex w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-4 text-lg ring-offset-background placeholder:text-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
 					id="height_cm"
 					name="height_cm"
 					type="number"
@@ -50,11 +43,11 @@ templ AssessmentForm(studentAgg *student.Aggregate, returnTo string) {
 				/>
 			</div>
 			<div class="space-y-2">
-				<label class="text-sm font-medium leading-none" for="weight_kg">
+				<label class="text-base font-semibold leading-none" for="weight_kg">
 					Weight (kg)
 				</label>
 				<input
-					class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					class="flex w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-4 text-lg ring-offset-background placeholder:text-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
 					id="weight_kg"
 					name="weight_kg"
 					type="number"
@@ -66,8 +59,12 @@ templ AssessmentForm(studentAgg *student.Aggregate, returnTo string) {
 					required=""
 				/>
 			</div>
-			<div class="pt-4">
-				@components.PrimaryButton("Record Assessment", nil)
+			<div class="pt-2">
+				<button
+					class="w-full rounded-lg bg-indigo-600 px-6 py-4 text-lg font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 active:bg-indigo-700"
+				>
+					Record Assessment
+				</button>
 			</div>
 		</form>
 	</div>

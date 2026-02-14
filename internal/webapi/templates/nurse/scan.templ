@@ -3,6 +3,38 @@ package nursetempl
 templ Scan() {
 	<div class="container mx-auto px-4 py-8 max-w-lg">
 		<h1 class="text-2xl font-bold mb-6 text-center">Scan Student QR Code</h1>
+		<p class="text-center text-gray-500 mb-4">Point your camera at a student's QR code</p>
+		<style>
+			#reader { border: none !important; }
+			#html5-qrcode-button-camera-permission {
+				display: block !important; width: 100% !important;
+				padding: 18px 24px !important; font-size: 20px !important; font-weight: 600 !important;
+				background-color: #4f46e5 !important; color: white !important;
+				border: none !important; border-radius: 12px !important;
+				cursor: pointer !important; margin: 16px 0 !important; min-height: 60px !important;
+			}
+			#html5-qrcode-button-camera-permission:hover { background-color: #4338ca !important; }
+			#html5-qrcode-button-camera-start, #html5-qrcode-button-camera-stop {
+				display: block !important; width: 100% !important;
+				padding: 14px 24px !important; font-size: 18px !important; font-weight: 600 !important;
+				background-color: #4f46e5 !important; color: white !important;
+				border: none !important; border-radius: 10px !important;
+				cursor: pointer !important; margin: 12px 0 !important; min-height: 52px !important;
+			}
+			#html5-qrcode-button-camera-start:hover, #html5-qrcode-button-camera-stop:hover { background-color: #4338ca !important; }
+			#html5-qrcode-select-camera { display: none !important; }
+			#html5-qrcode-anchor-scan-type-change { display: none !important; }
+			.camera-cards { display: grid; gap: 8px; margin: 8px 0; }
+			.camera-card {
+				padding: 16px 12px; font-size: 16px; font-weight: 600;
+				border-radius: 10px; cursor: pointer; text-align: center;
+				transition: all 0.15s; border: 2px solid #d1d5db;
+				background: #f9fafb; color: #6b7280;
+			}
+			.camera-card.active {
+				border-color: #4f46e5; background: #eef2ff; color: #4f46e5;
+			}
+		</style>
 		<div id="reader" width="600px"></div>
 		@startNurseQRCamera()
 	</div>
@@ -14,12 +46,101 @@ script startNurseQRCamera() {
 	}
 
 	function onScanFailure(error) {
-		// ignore scan failures, keep scanning
 	}
 
-	let html5QrcodeScanner = new Html5QrcodeScanner(
+	function cameraLabel(text) {
+		if (/back|rear|environment/i.test(text)) return 'Back Camera';
+		if (/front|user|selfie|facetime/i.test(text)) return 'Front Camera';
+		return text || 'Camera';
+	}
+
+	var CAMERA_STORAGE_KEY = 'preferred_camera_id';
+
+	function upgradeCameraSelect(select) {
+		if (select.dataset.upgraded) return;
+		select.dataset.upgraded = 'true';
+
+		// Restore saved camera selection
+		var savedCameraId = localStorage.getItem(CAMERA_STORAGE_KEY);
+		if (savedCameraId) {
+			for (var k = 0; k < select.options.length; k++) {
+				if (select.options[k].value === savedCameraId) {
+					select.selectedIndex = k;
+					select.dispatchEvent(new Event('change'));
+					break;
+				}
+			}
+		}
+
+		var cards = document.createElement('div');
+		cards.className = 'camera-cards';
+		cards.style.gridTemplateColumns = 'repeat(' + Math.min(select.options.length, 3) + ', 1fr)';
+
+		for (var i = 0; i < select.options.length; i++) {
+			(function(idx) {
+				var opt = select.options[idx];
+				var card = document.createElement('button');
+				card.type = 'button';
+				card.className = 'camera-card' + (select.selectedIndex === idx ? ' active' : '');
+				card.textContent = cameraLabel(opt.text);
+				card.addEventListener('click', function() {
+					select.selectedIndex = idx;
+					select.dispatchEvent(new Event('change'));
+					localStorage.setItem(CAMERA_STORAGE_KEY, select.options[idx].value);
+					var all = cards.querySelectorAll('.camera-card');
+					for (var j = 0; j < all.length; j++) all[j].className = 'camera-card';
+					card.className = 'camera-card active';
+
+					// If scanning is active, stop and restart with new camera
+					var stopBtn = document.getElementById('html5-qrcode-button-camera-stop');
+					if (stopBtn) {
+						stopBtn.click();
+						setTimeout(function() {
+							var startBtn = document.getElementById('html5-qrcode-button-camera-start');
+							if (startBtn) startBtn.click();
+						}, 300);
+					}
+				});
+				cards.appendChild(card);
+			})(i);
+		}
+
+		select.parentNode.insertBefore(cards, select.nextSibling);
+	}
+
+	var html5QrcodeScanner = new Html5QrcodeScanner(
 		"reader",
-		{ fps: 10 },
+		{
+			fps: 10,
+			rememberLastUsedCamera: true,
+			supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+		},
 		/* verbose= */ false);
 	html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+	// Auto-click permission button if browser already has camera permission
+	if (navigator.permissions) {
+		navigator.permissions.query({ name: 'camera' }).then(function(result) {
+			if (result.state === 'granted') {
+				var permBtn = document.getElementById('html5-qrcode-button-camera-permission');
+				if (permBtn) permBtn.click();
+			}
+		}).catch(function() {});
+	}
+
+	var observer = new MutationObserver(function() {
+		// Auto-click permission button if it appears and we already have permission
+		var permBtn = document.getElementById('html5-qrcode-button-camera-permission');
+		if (permBtn && navigator.permissions) {
+			navigator.permissions.query({ name: 'camera' }).then(function(result) {
+				if (result.state === 'granted') permBtn.click();
+			}).catch(function() {});
+		}
+
+		var select = document.getElementById('html5-qrcode-select-camera');
+		if (select && select.options.length > 0) {
+			upgradeCameraSelect(select);
+		}
+	});
+	observer.observe(document.getElementById('reader'), { childList: true, subtree: true });
 }
