@@ -57,13 +57,12 @@ script startQRCamera() {
       if (select.dataset.upgraded) return;
       select.dataset.upgraded = 'true';
 
-      // Restore saved camera selection
+      // Restore saved camera selection (no change event - start button reads it)
       var savedCameraId = localStorage.getItem(CAMERA_STORAGE_KEY);
       if (savedCameraId) {
         for (var k = 0; k < select.options.length; k++) {
           if (select.options[k].value === savedCameraId) {
             select.selectedIndex = k;
-            select.dispatchEvent(new Event('change'));
             break;
           }
         }
@@ -125,6 +124,7 @@ script startQRCamera() {
       }).catch(function() {});
     }
 
+    var autoStarted = false;
     var observer = new MutationObserver(function() {
       // Auto-click permission button if it appears and we already have permission
       var permBtn = document.getElementById('html5-qrcode-button-camera-permission');
@@ -137,6 +137,15 @@ script startQRCamera() {
       var select = document.getElementById('html5-qrcode-select-camera');
       if (select && select.options.length > 0) {
         upgradeCameraSelect(select);
+      }
+
+      // Auto-click start button once after camera select is ready
+      if (!autoStarted) {
+        var startBtn = document.getElementById('html5-qrcode-button-camera-start');
+        if (startBtn) {
+          autoStarted = true;
+          startBtn.click();
+        }
       }
     });
     observer.observe(document.getElementById('reader'), { childList: true, subtree: true });
