@@ -24,10 +24,10 @@ templ StudentList(schoolID string, school *school.Aggregate, students []StudentW
 			</button>
 		</div>
 		<p class="text-sm text-gray-500 mb-4">{ school.GetData().Name }</p>
-		<div class="space-y-3">
+		<div class="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
 			for _, s := range students {
 				if s.HasRecentAssessment {
-					<div class="bg-green-50 border border-green-200 rounded-lg p-4">
+					<div class="bg-green-50 p-4">
 						<div class="flex items-center justify-between">
 							<div>
 								<p class="font-semibold text-gray-800">{ s.Student.FirstName } { s.Student.LastName }</p>
@@ -41,7 +41,7 @@ templ StudentList(schoolID string, school *school.Aggregate, students []StudentW
 					</div>
 				} else {
 					<a
-						class="block bg-red-50 border border-red-200 rounded-lg p-4 active:bg-red-100 cursor-pointer"
+						class="block bg-red-50 p-4 active:bg-red-100 cursor-pointer"
 						hx-get={ fmt.Sprintf("/nurse/school/%s/student/%d?return_to=/nurse/school/%s", schoolID, s.Student.ID, schoolID) }
 					>
 						<div class="flex items-center justify-between">
@@ -50,7 +50,7 @@ templ StudentList(schoolID string, school *school.Aggregate, students []StudentW
 								<p class="text-sm text-gray-500">Grade { fmt.Sprintf("%d", s.Student.Grade) } · { s.Student.StudentID }</p>
 							</div>
 							<div class="flex items-center">
-								<span class="inline-flex items-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm">Assess</span>
+								<span class="inline-flex items-center rounded-lg bg-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-sm">Assess</span>
 							</div>
 						</div>
 					</a>
