@@ -22,9 +22,33 @@ templ SignIn() {
     </script>
 }
 
-templ PermissionDenied() {
-    <div>
-        <h1>Permission Denied</h1>
-        <p>You do not have permission to access this page.</p>
+type PermissionDeniedParams struct {
+    IsAdmin  bool
+    IsFeeder bool
+    IsNurse  bool
+}
+
+templ PermissionDenied(params PermissionDeniedParams) {
+    <div class="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div class="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+            <h1 class="text-2xl font-bold text-red-600 mb-2">Permission Denied</h1>
+            <p class="text-gray-600 mb-6">You do not have permission to access this page.</p>
+            if params.IsAdmin || params.IsFeeder || params.IsNurse {
+                <div class="border-t pt-4">
+                    <p class="text-sm text-gray-500 mb-3">You can go to a page you have access to:</p>
+                    <div class="flex flex-col gap-2">
+                        if params.IsAdmin {
+                            <a href="/admin" class="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">Go to Admin Dashboard</a>
+                        }
+                        if params.IsNurse {
+                            <a href="/nurse" class="inline-block px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600">Go to Nurse Dashboard</a>
+                        }
+                        if params.IsFeeder {
+                            <a href="/staff" class="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Go to Feeding Dashboard</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
     </div>
 }

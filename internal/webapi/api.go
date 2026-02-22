@@ -285,7 +285,7 @@ func (s *Server) requireAdmin(next http.Handler) http.Handler {
 		roles, ok := r.Context().Value("roles").(Roles)
 		if !ok || !roles.Admin {
 			w.WriteHeader(http.StatusForbidden)
-			s.renderTempl(w, r, templates.PermissionDenied())
+			s.renderTempl(w, r, templates.PermissionDenied(s.permissionDeniedParams(roles, ok)))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -296,7 +296,8 @@ func (s *Server) requireFeeder(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		roles, ok := r.Context().Value("roles").(Roles)
 		if !ok || !roles.IsFeeder {
-			s.renderTempl(w, r, templates.PermissionDenied())
+			w.WriteHeader(http.StatusForbidden)
+			s.renderTempl(w, r, templates.PermissionDenied(s.permissionDeniedParams(roles, ok)))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -308,11 +309,22 @@ func (s *Server) requireNurse(next http.Handler) http.Handler {
 		roles, ok := r.Context().Value("roles").(Roles)
 		if !ok || !roles.IsNurse {
 			w.WriteHeader(http.StatusForbidden)
-			s.renderTempl(w, r, templates.PermissionDenied())
+			s.renderTempl(w, r, templates.PermissionDenied(s.permissionDeniedParams(roles, ok)))
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) permissionDeniedParams(roles Roles, ok bool) templates.PermissionDeniedParams {
+	if !ok {
+		return templates.PermissionDeniedParams{}
+	}
+	return templates.PermissionDeniedParams{
+		IsAdmin:  roles.Admin,
+		IsFeeder: roles.IsFeeder,
+		IsNurse:  roles.IsNurse,
+	}
 }
 
 func getMetadataValue[T any](metadata any, key string) (out T, err error) {
