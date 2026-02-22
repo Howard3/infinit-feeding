@@ -223,10 +223,14 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 		if cu.LastName != nil {
 			lastName = *cu.LastName
 		}
+		username := ""
+		if cu.Username != nil {
+			username = *cu.Username
+		}
 
 		users[i] = usertempl.User{
 			ID:       cu.ID,
-			Username: *cu.Username,
+			Username: username,
 			Active:   !cu.Banned,
 			Name:     firstName + " " + lastName,
 			IsAdmin:  isAdmin,

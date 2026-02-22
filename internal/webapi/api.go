@@ -205,9 +205,23 @@ func (s *Server) Start(ctx context.Context) {
 	// Prometheus metrics endpoint
 	c.Handle("/metrics", MetricsHandler())
 
-	// Redirect root to admin since this is an admin-only system
+	// Redirect root based on user role
 	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusTemporaryRedirect)
+		roles, ok := r.Context().Value("roles").(Roles)
+		if !ok || !roles.IsSignedIn {
+			http.Redirect(w, r, "/sign-in", http.StatusTemporaryRedirect)
+			return
+		}
+		switch {
+		case roles.Admin:
+			http.Redirect(w, r, "/admin", http.StatusTemporaryRedirect)
+		case roles.IsNurse:
+			http.Redirect(w, r, "/nurse", http.StatusTemporaryRedirect)
+		case roles.IsFeeder:
+			http.Redirect(w, r, "/staff", http.StatusTemporaryRedirect)
+		default:
+			http.Redirect(w, r, "/sign-in", http.StatusTemporaryRedirect)
+		}
 	})
 
 	c.Route("/student", func(r chi.Router) {
