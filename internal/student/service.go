@@ -505,3 +505,8 @@ func (s *StudentService) GetEventTypes(ctx context.Context) ([]string, error) {
 func (s *StudentService) GetEventStatistics(ctx context.Context) (*EventStatistics, error) {
 	return s.repo.GetEventStatistics(ctx)
 }
+
+// GetTotalFeedingCount returns the total number of feeding events across all students
+func (s *StudentService) GetTotalFeedingCount(ctx context.Context) (int64, error) {
+	return s.repo.CountAllFeedingEvents(ctx)
+}

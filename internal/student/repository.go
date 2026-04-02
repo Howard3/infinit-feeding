@@ -99,6 +99,7 @@ type Repository interface {
 	GetDomainEvents(ctx context.Context, limit, offset uint, eventTypeFilter, aggregateIDFilter string, startDate, endDate *time.Time) ([]DomainEvent, uint, error)
 	GetEventTypes(ctx context.Context) ([]string, error)
 	GetEventStatistics(ctx context.Context) (*EventStatistics, error)
+	CountAllFeedingEvents(ctx context.Context) (int64, error)
 }
 
 // source schema:
@@ -1548,6 +1549,15 @@ func (r *sqlRepository) CountFeedingEventsInPeriod(ctx context.Context, studentI
 		return 0, fmt.Errorf("failed to count feeding events: %w", err)
 	}
 
+	return count, nil
+}
+
+func (r *sqlRepository) CountAllFeedingEvents(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM student_feeding_projections`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count all feeding events: %w", err)
+	}
 	return count, nil
 }
 

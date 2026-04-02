@@ -185,6 +185,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Get("/sponsors/{id}/students", s.apiListSponsoredStudents)
 		r.Get("/sponsors/{id}/impact", s.apiGetSponsorImpact)
 		r.Get("/sponsors/{id}/events", s.apiListSponsorFeedingEvents)
+		r.Get("/stats/feeding-count", s.apiGetFeedingCount)
 	})
 }
 
@@ -658,6 +659,29 @@ func (s *Server) apiListSponsorFeedingEvents(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	s.respondWithJSON(w, http.StatusOK, response)
+}
+
+// FeedingCountResponse represents the total feeding event count
+type FeedingCountResponse struct {
+	Count int64 `json:"count"`
+}
+
+// @Summary     Get total feeding event count
+// @Description Get the total number of feeding events recorded in the system
+// @Tags        stats
+// @Produce     json
+// @Success     200  {object}  FeedingCountResponse
+// @Failure     500  {object}  ErrorResponse
+// @Router      /stats/feeding-count [get]
+// @Security    ApiKeyAuth
+func (s *Server) apiGetFeedingCount(w http.ResponseWriter, r *http.Request) {
+	count, err := s.Services.StudentSvc.GetTotalFeedingCount(r.Context())
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to get feeding count")
+		return
+	}
+
+	s.respondWithJSON(w, http.StatusOK, FeedingCountResponse{Count: count})
 }
 
 // Helper method for JSON responses
