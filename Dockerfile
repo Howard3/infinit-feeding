@@ -12,7 +12,7 @@ RUN npm i
 COPY . .
 RUN task build:info
 RUN task build:dependencies
-RUN go build -v -o /run-app .
+RUN CGO_ENABLED=1 go build -v -o /run-app .
 
 
 FROM debian:bookworm

@@ -42,15 +42,6 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	// libsql-client-go uses HTTP "batons" to track session state across
-	// requests. Pooled connections frequently end up with stale/invalid
-	// batons, producing "error code 400: Received an invalid baton" — most
-	// visibly on multi-statement writes like the bulk upload event store.
-	// Serializing on a single connection avoids reusing dead sessions.
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(0)
-
 	c.db = db
 
 	return db, nil

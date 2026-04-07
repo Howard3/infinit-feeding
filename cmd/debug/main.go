@@ -12,8 +12,7 @@ import (
 
 	"github.com/Howard3/gosignal/drivers/queue"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3"
-	_ "github.com/tursodatabase/libsql-client-go/libsql"
+	_ "github.com/tursodatabase/go-libsql"
 )
 
 func main() {
