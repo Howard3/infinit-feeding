@@ -568,6 +568,25 @@ func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *
 		return errors
 	}
 
+	// Pre-load the set of existing LRNs for this school in a single
+	// query instead of hitting the DB once per CSV row. Per-row lookups
+	// over Turso/Hrana were taking ~500ms each, pushing validate past
+	// the 2 minute mark for a few hundred students.
+	existingLRNs := make(map[string]struct{})
+	if d.services != nil && d.services.StudentService != nil && schoolID != "" {
+		existing, err := d.services.StudentService.ListForSchool(ctx, schoolID)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("error loading existing students for school %s: %w", schoolID, err))
+			return errors
+		}
+		for _, s := range existing {
+			if s == nil || s.StudentID == "" {
+				continue
+			}
+			existingLRNs[s.StudentID] = struct{}{}
+		}
+	}
+
 	for {
 		record, err := newStudentReader.csvReader.Read()
 		if err == io.EOF {
@@ -580,9 +599,8 @@ func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *
 
 		lrn := newStudentReader.headerIndexes.getLRN(record)
 
-		slog.Info("validating student w/ lrn", "lrn", lrn)
-		// Check for duplicate LRNs
-		if _, err := d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, lrn, schoolID); err == nil {
+		// Check for duplicate LRNs against the pre-loaded set.
+		if _, dup := existingLRNs[lrn]; dup {
 			errors = append(errors, fmt.Errorf("duplicate LRN: %s for school %s", lrn, schoolID))
 			continue
 		}
