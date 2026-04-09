@@ -25,7 +25,9 @@ func MigrateSQLDatabase(domain, dialect string, db *sql.DB, fs fs.FS) error {
 
 	goose.SetTableName(domain + "_goose_db_version")
 
-	if err := goose.Up(db, "migrations"); err != nil {
+	if err := RetryOnBaton(6, func() error {
+		return goose.Up(db, "migrations")
+	}); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 

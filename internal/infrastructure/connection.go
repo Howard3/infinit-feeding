@@ -1,17 +1,16 @@
 package infrastructure
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/drivers/eventstore"
-	"github.com/tursodatabase/go-libsql"
+	"github.com/Howard3/gosignal/sourcing"
 )
 
 type ConnectionType string
@@ -26,8 +25,12 @@ type SQLConnection struct {
 	db   *sql.DB
 }
 
-// GetSourcingConnection returns a connection to the sourcing database
-func (c SQLConnection) GetSourcingConnection(db *sql.DB, tableName string) eventstore.SQLStore {
+// GetSourcingConnection returns an EventStore implementation backed by the
+// gosignal SQLStore, wrapped in a retry layer that recovers from libsql
+// "invalid baton" errors. The Hrana HTTP protocol used by libsql remote
+// drivers periodically invalidates session batons mid-transaction; the
+// fix is to retry the entire failed operation on a fresh connection.
+func (c SQLConnection) GetSourcingConnection(db *sql.DB, tableName string) sourcing.EventStore {
 	es := eventstore.SQLStore{
 		DB:        db,
 		TableName: tableName,
@@ -36,13 +39,13 @@ func (c SQLConnection) GetSourcingConnection(db *sql.DB, tableName string) event
 		},
 	}
 
-	return es
+	return retryEventStore{inner: es}
 }
 
-// Process-wide singleton cache. The app constructs SQLConnection by value in
-// several places, but every domain points at the same logical database — we
-// must hand them the same *sql.DB so the embedded replica file isn't opened
-// multiple times concurrently.
+// Process-wide singleton cache. SQLConnection is constructed by value in
+// several places, but every domain points at the same logical database —
+// hand them all the same *sql.DB so we don't open the remote connection
+// once per domain.
 var (
 	dbCacheMu sync.Mutex
 	dbCache   = map[string]*sql.DB{}
@@ -61,84 +64,23 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 		return cached, nil
 	}
 
-	db, err := openDB(string(c.Type), c.URI)
+	db, err := sql.Open(string(c.Type), c.URI)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	// libsql's Hrana HTTP protocol keeps per-connection session state
+	// (batons, streams) that the server frequently invalidates on idle
+	// connections. When database/sql hands a stale connection back out of
+	// the pool, the next query fails with "invalid baton" or "stream not
+	// found". Evict idle connections aggressively so we get a fresh
+	// session instead of a dead one.
+	db.SetConnMaxIdleTime(1 * time.Second)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
 	dbCache[c.URI] = db
 	c.db = db
 	return db, nil
-}
-
-// openDB opens a database connection. For libsql remote URIs we use an
-// embedded replica so reads/writes go through the local file (sidestepping
-// the Hrana HTTP "baton" session protocol that has been the source of
-// "invalid baton" errors). Local file:// URIs fall through to the standard
-// driver path.
-func openDB(driver, uri string) (*sql.DB, error) {
-	if driver != "libsql" || !isRemoteLibsqlURI(uri) {
-		return sql.Open(driver, uri)
-	}
-
-	primaryURL, authToken, err := splitLibsqlURI(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	dbPath, err := localReplicaPath()
-	if err != nil {
-		return nil, err
-	}
-
-	connector, err := libsql.NewEmbeddedReplicaConnector(
-		dbPath,
-		primaryURL,
-		libsql.WithAuthToken(authToken),
-		libsql.WithSyncInterval(30*time.Second),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create embedded replica connector: %w", err)
-	}
-
-	return sql.OpenDB(connector), nil
-}
-
-func isRemoteLibsqlURI(uri string) bool {
-	return strings.HasPrefix(uri, "libsql://") ||
-		strings.HasPrefix(uri, "https://") ||
-		strings.HasPrefix(uri, "http://")
-}
-
-// splitLibsqlURI extracts the auth token from the URI's query string and
-// returns the bare primary URL plus the token.
-func splitLibsqlURI(uri string) (primaryURL, authToken string, err error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", "", fmt.Errorf("parse libsql uri: %w", err)
-	}
-	q := u.Query()
-	authToken = q.Get("authToken")
-	q.Del("authToken")
-	u.RawQuery = q.Encode()
-	return u.String(), authToken, nil
-}
-
-// localReplicaPath returns the on-disk path for the embedded replica file.
-// Honors LIBSQL_REPLICA_PATH; otherwise defaults to a path under the OS
-// temp dir so the container doesn't require a mounted volume to boot.
-func localReplicaPath() (string, error) {
-	if p := os.Getenv("LIBSQL_REPLICA_PATH"); p != "" {
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			return "", fmt.Errorf("create replica dir: %w", err)
-		}
-		return p, nil
-	}
-	dir := filepath.Join(os.TempDir(), "geevly-libsql")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("create replica dir: %w", err)
-	}
-	return filepath.Join(dir, "replica.db"), nil
 }
 
 func (c SQLConnection) Close() error {
@@ -147,4 +89,71 @@ func (c SQLConnection) Close() error {
 	}
 
 	return nil
+}
+
+// IsBatonError reports whether err is a transient libsql Hrana session
+// error — "invalid baton", "stream not found", or similar — that can be
+// recovered by retrying the operation on a fresh connection. The Hrana
+// HTTP protocol holds per-connection session state that the server
+// periodically invalidates; the fix is always the same (retry on a new
+// conn), so we match all known variants here.
+func IsBatonError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "invalid baton") ||
+		strings.Contains(msg, "stream not found") ||
+		strings.Contains(msg, "stream expired") ||
+		strings.Contains(msg, "baton expired")
+}
+
+// RetryOnBaton retries fn up to maxAttempts times if it fails with a baton
+// error, with a short backoff between attempts. Use this to wrap any DB
+// operation (migrations, projection upserts, etc.) that runs against the
+// remote libsql connection and is safe to re-run on failure.
+func RetryOnBaton(maxAttempts int, fn func() error) error {
+	var err error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err = fn()
+		if err == nil || !IsBatonError(err) {
+			return err
+		}
+		// Sleep longer than ConnMaxIdleTime so the failed connection
+		// is reaped from the pool before we ask for another one.
+		time.Sleep(time.Duration(1200+200*attempt) * time.Millisecond)
+	}
+	return err
+}
+
+// retryEventStore wraps an EventStore and retries the whole operation when
+// it fails with a libsql baton error. Each method is idempotent at the
+// gosignal layer (Store uses an explicit version, Load is read-only,
+// Replace is keyed by id+version), so retrying is safe.
+type retryEventStore struct {
+	inner sourcing.EventStore
+}
+
+const batonRetryAttempts = 4
+
+func (r retryEventStore) Store(ctx context.Context, events []gosignal.Event) error {
+	return RetryOnBaton(batonRetryAttempts, func() error {
+		return r.inner.Store(ctx, events)
+	})
+}
+
+func (r retryEventStore) Load(ctx context.Context, aggID string, opts sourcing.LoadEventsOptions) ([]gosignal.Event, error) {
+	var out []gosignal.Event
+	err := RetryOnBaton(batonRetryAttempts, func() error {
+		var err error
+		out, err = r.inner.Load(ctx, aggID, opts)
+		return err
+	})
+	return out, err
+}
+
+func (r retryEventStore) Replace(ctx context.Context, id string, version uint64, event gosignal.Event) error {
+	return RetryOnBaton(batonRetryAttempts, func() error {
+		return r.inner.Replace(ctx, id, version, event)
+	})
 }
