@@ -240,14 +240,13 @@ func (s *Server) bulkUploadAdminValidateUpload(w http.ResponseWriter, r *http.Re
 
 	validationResult := domain.ValidateUpload(r.Context(), agg, data)
 	if len(validationResult.Errors) > 0 {
+		// SaveValidationErrors emits an AddValidationErrors event whose
+		// handler already sets status to VALIDATION_FAILED, so we must
+		// not call SetStatus(VALIDATION_FAILED) here — it would be a
+		// rejected self-transition.
 		if err := s.Services.BulkUploadSvc.SaveValidationErrors(r.Context(), id, validationResult.Errors); err != nil {
 			log.Error("error saving validation errors", "err", err)
 			http.Error(w, "Error saving validation errors: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATION_FAILED); err != nil {
-			log.Error("error setting status to VALIDATION_FAILED", "err", err)
-			http.Error(w, "Error setting status to VALIDATION_FAILED: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 

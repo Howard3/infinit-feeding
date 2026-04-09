@@ -188,9 +188,11 @@ func (s *Server) Start(ctx context.Context) {
 	c := chi.NewRouter()
 	c.Use(middleware.Logger)
 	c.Use(middleware.Recoverer)
-	c.Use(logServerErrors)
 	c.Use(PrometheusMiddleware)
+	// logServerErrors must run after Compress so it captures the
+	// pre-compression body; otherwise 5xx bodies get logged as gzip.
 	c.Use(middleware.Compress(5))
+	c.Use(logServerErrors)
 	c.Use(clerk.WithSessionV2(s.Clerk))
 	c.Use(s.AddRolesToContext)
 
