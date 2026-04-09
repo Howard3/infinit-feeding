@@ -457,7 +457,12 @@ func canInvalidate(status string) bool {
 }
 
 func canValidate(status string) bool {
-	return status == "PENDING" || status == "VALIDATION_FAILED" || status == "VALIDATED"
+	// VALIDATING is included so an upload stuck mid-validation (e.g. from
+	// a transient 500) can be re-kicked without manual intervention.
+	return status == "PENDING" ||
+		status == "VALIDATION_FAILED" ||
+		status == "VALIDATED" ||
+		status == "VALIDATING"
 }
 
 func canStartProcessing(status string) bool {
