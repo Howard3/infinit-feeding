@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/fs"
@@ -187,6 +188,7 @@ func (s *Server) Start(ctx context.Context) {
 	c := chi.NewRouter()
 	c.Use(middleware.Logger)
 	c.Use(middleware.Recoverer)
+	c.Use(logServerErrors)
 	c.Use(PrometheusMiddleware)
 	c.Use(middleware.Compress(5))
 	c.Use(clerk.WithSessionV2(s.Clerk))
@@ -406,4 +408,65 @@ func (s *Server) AddRolesToContext(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "roles", roles)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// logServerErrors captures handler responses and emits a slog.Error for any
+// 5xx status, including the first chunk of the response body. Handlers that
+// use http.Error to surface failures tend to write the real error message
+// into the body without ever calling slog themselves, so middleware.Logger
+// only gives us the status line. This fills in the gap so we never have to
+// guess what caused a 500 again.
+func logServerErrors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := &errorCapturingWriter{ResponseWriter: w}
+		next.ServeHTTP(rec, r)
+		if rec.status >= 500 {
+			body := rec.body.String()
+			if len(body) > 1024 {
+				body = body[:1024] + "...(truncated)"
+			}
+			slog.Error("server error response",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", rec.status,
+				"body", body,
+			)
+		}
+	})
+}
+
+type errorCapturingWriter struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+	body        bytes.Buffer
+}
+
+func (w *errorCapturingWriter) WriteHeader(status int) {
+	if w.wroteHeader {
+		return
+	}
+	w.status = status
+	w.wroteHeader = true
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *errorCapturingWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	// Only retain the body for error responses so we don't bloat memory on
+	// large successful payloads.
+	if w.status >= 500 && w.body.Len() < 2048 {
+		w.body.Write(b)
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+// Flush, Hijack, Push passthroughs so the wrapper doesn't break HTMX
+// streaming / websocket upgrades.
+func (w *errorCapturingWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }

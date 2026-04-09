@@ -208,41 +208,54 @@ func (s *Server) bulkUploadAdminLockUpload(w http.ResponseWriter, r *http.Reques
 
 func (s *Server) bulkUploadAdminValidateUpload(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	log := slog.With("handler", "bulkUploadAdminValidateUpload", "bulk_upload_id", id)
+
 	agg, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
 	if err != nil {
-		slog.Error("error getting bulk upload for processing", "err", err)
+		log.Error("error getting bulk upload for processing", "err", err)
 		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
-	s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATING)
+	if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATING); err != nil {
+		log.Error("error setting status to VALIDATING", "err", err)
+		http.Error(w, "Error setting status to VALIDATING: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Get domain handler based on the domain name
 	domain, exists := s.bulkDomainRegistry.GetDomain(agg.GetDomain())
 	if !exists {
+		log.Error("invalid domain in bulk upload", "domain", agg.GetDomain())
 		http.Error(w, "Invalid domain in bulk upload", http.StatusBadRequest)
 		return
 	}
 
 	data, err := s.getFile(r.Context(), agg.GetFileID())
 	if err != nil {
-		http.Error(w, "Error getting file", http.StatusInternalServerError)
+		log.Error("error getting file for validation", "err", err, "file_id", agg.GetFileID())
+		http.Error(w, "Error getting file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	validationResult := domain.ValidateUpload(r.Context(), agg, data)
 	if len(validationResult.Errors) > 0 {
 		if err := s.Services.BulkUploadSvc.SaveValidationErrors(r.Context(), id, validationResult.Errors); err != nil {
+			log.Error("error saving validation errors", "err", err)
 			http.Error(w, "Error saving validation errors: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATION_FAILED)
+		if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATION_FAILED); err != nil {
+			log.Error("error setting status to VALIDATION_FAILED", "err", err)
+			http.Error(w, "Error setting status to VALIDATION_FAILED: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		s.renderTempl(w, r, layouts.HTMXRedirect(fmt.Sprintf("/admin/bulk-upload/%s/view", id), "Validation error"))
 		return
 	} else {
-		err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATED)
-		if err != nil {
+		if err := s.Services.BulkUploadSvc.SetStatus(r.Context(), id, eda.BulkUpload_VALIDATED); err != nil {
+			log.Error("error setting status to VALIDATED", "err", err)
 			http.Error(w, "Error setting status: "+err.Error(), http.StatusInternalServerError)
 			return
 		}

@@ -24,7 +24,11 @@ const (
 var permittedStatusChanges = map[eda.BulkUpload_Status][]eda.BulkUpload_Status{
 	eda.BulkUpload_UNKNOWN:           {eda.BulkUpload_PENDING},
 	eda.BulkUpload_PENDING:           {eda.BulkUpload_VALIDATING, eda.BulkUpload_LOCKED},
-	eda.BulkUpload_VALIDATING:        {eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
+	// VALIDATING is allowed as a self-transition so an upload that got
+	// stuck mid-validation (e.g. because of a transient 500) can be
+	// re-kicked without having to reach VALIDATED or VALIDATION_FAILED
+	// first.
+	eda.BulkUpload_VALIDATING:        {eda.BulkUpload_VALIDATING, eda.BulkUpload_VALIDATED, eda.BulkUpload_VALIDATION_FAILED},
 	eda.BulkUpload_VALIDATED:         {eda.BulkUpload_VALIDATING, eda.BulkUpload_LOCKED, eda.BulkUpload_PROCESSING},
 	eda.BulkUpload_PROCESSING:        {eda.BulkUpload_COMPLETED, eda.BulkUpload_ERROR, eda.BulkUpload_INVALIDATING},
 	eda.BulkUpload_COMPLETED:         {eda.BulkUpload_INVALIDATING, eda.BulkUpload_LOCKED},
