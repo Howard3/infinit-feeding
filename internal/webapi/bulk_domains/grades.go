@@ -387,45 +387,40 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 		svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), actions)
 	}()
 
-	// Phase 1: Fetch all students concurrently
-	var mu sync.Mutex
-	g, gctx := errgroup.WithContext(ctx)
-	semaphore := make(chan struct{}, gradesWorkerPoolSize)
-
-	for _, row := range rows {
-		row := row // capture loop variable
-
-		semaphore <- struct{}{} // acquire
-		g.Go(func() error {
-			defer func() { <-semaphore }() // release
-
-			// Parse the grade value
-			gradeVal, err := row.GradeInt()
-			if err != nil {
-				return fmt.Errorf("failed to parse grade value: %w", err)
-			}
-
-			// Find the student by LRN and school ID
-			student, err := d.services.StudentService.GetStudentByStudentAndSchoolID(gctx, row.LRN, schoolID)
-			if err != nil {
-				return fmt.Errorf("failed to find student with LRN %s and school ID %s: %w", row.LRN, schoolID, err)
-			}
-
-			mu.Lock()
-			toProcessIDs = append(toProcessIDs, student.GetID())
-			toProcess = append(toProcess, studentGrade{
-				studentID:    student.GetIDUint64(),
-				studentIDStr: student.GetID(),
-				gradeVal:     gradeVal,
-			})
-			mu.Unlock()
-
-			return nil
-		})
+	// Phase 1: Look up every row's student via a single ListForSchool
+	// call instead of N concurrent GetStudentByStudentAndSchoolID calls.
+	// Each of those did two Turso round-trips (ID lookup + aggregate
+	// load); over Hrana that's the main contributor to slow processing.
+	existing, err := d.services.StudentService.ListForSchool(ctx, schoolID)
+	if err != nil {
+		return fmt.Errorf("failed to list students for school %s: %w", schoolID, err)
+	}
+	lrnToStudent := make(map[string]*student.ProjectedStudent, len(existing))
+	for _, s := range existing {
+		if s == nil || s.StudentID == "" {
+			continue
+		}
+		lrnToStudent[s.StudentID] = s
 	}
 
-	if err := g.Wait(); err != nil {
-		return err
+	for _, row := range rows {
+		gradeVal, err := row.GradeInt()
+		if err != nil {
+			return fmt.Errorf("failed to parse grade value: %w", err)
+		}
+
+		s, ok := lrnToStudent[row.LRN]
+		if !ok {
+			return fmt.Errorf("failed to find student with LRN %s and school ID %s", row.LRN, schoolID)
+		}
+
+		idStr := strconv.FormatUint(uint64(s.ID), 10)
+		toProcessIDs = append(toProcessIDs, idStr)
+		toProcess = append(toProcess, studentGrade{
+			studentID:    uint64(s.ID),
+			studentIDStr: idStr,
+			gradeVal:     gradeVal,
+		})
 	}
 
 	// Mark records for processing
@@ -440,6 +435,7 @@ func (d *GradesDomain) ProcessUpload(ctx context.Context, aggregate *bulk_upload
 	}
 
 	// Phase 2: Process grade reports concurrently
+	var mu sync.Mutex
 	g2, gctx2 := errgroup.WithContext(ctx)
 	semaphore2 := make(chan struct{}, gradesWorkerPoolSize)
 
