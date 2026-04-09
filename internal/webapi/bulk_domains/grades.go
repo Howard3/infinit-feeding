@@ -202,6 +202,33 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 		}
 	}
 
+	// Pre-load the set of existing LRNs for this school in a single
+	// query instead of hitting the DB once per CSV row. Per-row lookups
+	// over Turso/Hrana were pushing validate past the 2 minute mark and
+	// masking real failures as hangs.
+	existingLRNs := make(map[string]struct{})
+	if d.services != nil && d.services.StudentService != nil && schoolID != "" {
+		existing, lerr := d.services.StudentService.ListForSchool(ctx, schoolID)
+		if lerr != nil {
+			result.IsValid = false
+			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+				Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
+				Field:   "school_id",
+				Message: fmt.Sprintf("Failed to load students for school %s: %s", schoolID, lerr.Error()),
+			})
+			// Bail out early — without this set every row's LRN check
+			// below would otherwise fall back to false-positive "invalid
+			// LRN" errors.
+			return result
+		}
+		for _, s := range existing {
+			if s == nil || s.StudentID == "" {
+				continue
+			}
+			existingLRNs[s.StudentID] = struct{}{}
+		}
+	}
+
 	// Track LRNs to check for duplicates
 	lrnMap := make(map[string]int)
 
@@ -246,9 +273,8 @@ func (d *GradesDomain) ValidateUpload(ctx context.Context, aggregate *bulk_uploa
 			})
 		}
 
-		// Validate the LRN's against the student service
-		_, err = d.services.StudentService.GetStudentByStudentAndSchoolID(ctx, lrn, schoolID)
-		if err != nil {
+		// Validate the LRN against the pre-loaded set.
+		if _, ok := existingLRNs[lrn]; !ok {
 			result.IsValid = false
 			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 				Context:   eda.BulkUpload_ValidationError_ROW_NUMBER,
