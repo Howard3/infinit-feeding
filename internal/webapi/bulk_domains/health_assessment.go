@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	healthAssessmentWorkerPoolSize = 50
+	healthAssessmentWorkerPoolSize = 5
 )
 
 type HealthAssessmentRow struct {

@@ -55,7 +55,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 					})
 				}
 				<!-- Danger actions -->
-				if canInvalidate(getStatus(agg)) {
+				if canInvalidate(agg) {
 					@components.DangerButton("Invalidate", templ.Attributes{
 						"hx-get":    fmt.Sprintf("/admin/bulk-upload/%s/confirm-invalidate", agg.ID),
 						"hx-target": "#content",
@@ -140,7 +140,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 								if canCancel(getStatus(agg)) {
 									<li>Click <strong>Cancel</strong> to stop the current operation</li>
 								}
-								if canInvalidate(getStatus(agg)) {
+								if canInvalidate(agg) {
 									<li>Click the red <strong>Invalidate</strong> button to revert all changes made by this upload</li>
 								}
 								<li>Click <strong>View File</strong> to view the uploaded file</li>
@@ -452,8 +452,25 @@ func isProcessing(status string) bool {
 }
 
 // Helper function to check if invalidation is possible
-func canInvalidate(status string) bool {
-	return status == "COMPLETED"
+func canInvalidate(agg *bulk_upload.Aggregate) bool {
+	status := getStatus(agg)
+	if status == "COMPLETED" {
+		return true
+	}
+
+	// Allow invalidating stuck PROCESSING uploads older than 10 minutes
+	if status == "PROCESSING" {
+		timestamps := bulk_upload.GetStatusTimestamps(agg)
+		for _, ts := range timestamps {
+			if ts.Status == eda.BulkUpload_PROCESSING {
+				if time.Since(ts.Timestamp.AsTime()) > 10*time.Minute {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func canValidate(status string) bool {
