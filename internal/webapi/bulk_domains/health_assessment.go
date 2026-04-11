@@ -311,8 +311,28 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 	}
 
 	// Phase 2: Process health assessments concurrently
+	const progressFlushSize = 10
 	g2, gctx2 := errgroup.WithContext(ctx)
 	semaphore2 := make(chan struct{}, healthAssessmentWorkerPoolSize)
+
+	// flushProgress sends the current batch of processed IDs to the bulk
+	// upload aggregate so the UI reflects progress in near-real-time.
+	// Caller must hold mu.
+	flushProgress := func() {
+		if len(recentlyProcessed) == 0 {
+			return
+		}
+		batch := make([]string, len(recentlyProcessed))
+		copy(batch, recentlyProcessed)
+		recentlyProcessed = recentlyProcessed[:0]
+
+		actions := bulk_upload.RecordActions{
+			RecordIds:  batch,
+			RecordType: eda.BulkUpload_STUDENT,
+			Reason:     eda.BulkUpload_RecordAction_PROCESSING,
+		}
+		svc.MarkRecordsAsUpdated(ctx, aggregate.GetID(), actions)
+	}
 
 	for id, assessment := range toProcess {
 		id := id                 // capture loop variable
@@ -329,6 +349,9 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 
 			mu.Lock()
 			recentlyProcessed = append(recentlyProcessed, fmt.Sprintf("%d", id))
+			if len(recentlyProcessed) >= progressFlushSize {
+				flushProgress()
+			}
 			mu.Unlock()
 
 			return nil
@@ -338,6 +361,11 @@ func (d *HealthAssessmentDomain) ProcessUpload(ctx context.Context, aggregate *b
 	if err := g2.Wait(); err != nil {
 		return err
 	}
+
+	// Flush any remaining
+	mu.Lock()
+	flushProgress()
+	mu.Unlock()
 
 	return nil
 }
