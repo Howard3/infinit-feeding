@@ -60,6 +60,26 @@ func (a *Aggregate) GetRecordStates() map[string]*eda.BulkUpload_RecordActions {
 	return a.data.RecordActions
 }
 
+// LastActivityTime returns the most recent timestamp across all status
+// changes and record actions. Useful for determining if a processing
+// upload is stuck.
+func (a *Aggregate) LastActivityTime() time.Time {
+	var latest time.Time
+	for _, ts := range a.data.StatusTimestamps {
+		if t := ts.Timestamp.AsTime(); t.After(latest) {
+			latest = t
+		}
+	}
+	for _, ra := range a.data.RecordActions {
+		for _, action := range ra.RecordActions {
+			if t := action.Timestamp.AsTime(); t.After(latest) {
+				latest = t
+			}
+		}
+	}
+	return latest
+}
+
 func (a *Aggregate) GetValidationErrors() []*eda.BulkUpload_ValidationError {
 	if a.data == nil {
 		return nil

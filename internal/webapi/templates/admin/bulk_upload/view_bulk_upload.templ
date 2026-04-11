@@ -458,15 +458,11 @@ func canInvalidate(agg *bulk_upload.Aggregate) bool {
 		return true
 	}
 
-	// Allow invalidating stuck PROCESSING uploads older than 10 minutes
+	// Allow invalidating PROCESSING uploads with no activity for 10+ minutes
 	if status == "PROCESSING" {
-		timestamps := bulk_upload.GetStatusTimestamps(agg)
-		for _, ts := range timestamps {
-			if ts.Status == eda.BulkUpload_PROCESSING {
-				if time.Since(ts.Timestamp.AsTime()) > 10*time.Minute {
-					return true
-				}
-			}
+		lastActivity := agg.LastActivityTime()
+		if !lastActivity.IsZero() && time.Since(lastActivity) > 10*time.Minute {
+			return true
 		}
 	}
 
