@@ -31,7 +31,6 @@ func (s *Server) bulkUploadAdminRoutes(r chi.Router) {
 	r.Post("/{id}/validate", s.bulkUploadAdminValidateUpload)
 	r.Post("/{id}/start-processing", s.bulkUploadAdminProcessUpload)
 	r.Get("/{id}/download", s.bulkUploadAdminDownload)
-	r.Post("/{id}/clone", s.bulkUploadAdminClone)
 }
 
 func (s *Server) bulkUploadAdminList(w http.ResponseWriter, r *http.Request) {
@@ -170,31 +169,6 @@ func (s *Server) bulkUploadAdminStoreUpload(w http.ResponseWriter, r *http.Reque
 
 	// Redirect to the view page
 	s.handleBulkUploadSuccess(w, r, agg.ID)
-}
-
-func (s *Server) bulkUploadAdminClone(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	existing, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
-	if err != nil {
-		slog.Error("error loading bulk upload for clone", "err", err)
-		http.Error(w, "Error: "+err.Error(), http.StatusNotFound)
-		return
-	}
-
-	newAgg, err := s.Services.BulkUploadSvc.Create(r.Context(), &eda.BulkUpload_Create{
-		TargetDomain:   existing.GetDomain(),
-		FileId:         existing.GetFileID(),
-		UploadMetadata: existing.GetUploadMetadata(),
-	})
-	if err != nil {
-		slog.Error("error cloning bulk upload", "err", err)
-		http.Error(w, "Error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	slog.Info("bulk upload cloned", "source_id", id, "new_id", newAgg.ID)
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"cloned_id":"%s","view":"/admin/bulk-upload/%s/view"}`, newAgg.ID, newAgg.ID)
 }
 
 func (s *Server) bulkUploadAdminConfirmLock(w http.ResponseWriter, r *http.Request) {

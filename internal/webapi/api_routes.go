@@ -186,6 +186,7 @@ func (s *Server) apiRoutes(r chi.Router) {
 		r.Get("/sponsors/{id}/impact", s.apiGetSponsorImpact)
 		r.Get("/sponsors/{id}/events", s.apiListSponsorFeedingEvents)
 		r.Get("/stats/feeding-count", s.apiGetFeedingCount)
+		r.Post("/bulk-upload/{id}/clone", s.apiBulkUploadClone)
 	})
 }
 
@@ -706,4 +707,29 @@ func (s *Server) respondWithError(w http.ResponseWriter, code int, message strin
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+func (s *Server) apiBulkUploadClone(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	existing, err := s.Services.BulkUploadSvc.GetBulkUpload(r.Context(), id)
+	if err != nil {
+		s.respondWithError(w, http.StatusNotFound, "bulk upload not found: "+err.Error())
+		return
+	}
+
+	newAgg, err := s.Services.BulkUploadSvc.Create(r.Context(), &eda.BulkUpload_Create{
+		TargetDomain:   existing.GetDomain(),
+		FileId:         existing.GetFileID(),
+		UploadMetadata: existing.GetUploadMetadata(),
+	})
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "failed to clone: "+err.Error())
+		return
+	}
+
+	log.Printf("bulk upload cloned: %s -> %s", id, newAgg.ID)
+	s.respondWithJSON(w, http.StatusOK, map[string]string{
+		"cloned_id": newAgg.ID,
+		"view":      fmt.Sprintf("/admin/bulk-upload/%s/view", newAgg.ID),
+	})
 }
