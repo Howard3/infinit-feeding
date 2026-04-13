@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -75,6 +76,13 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	// Turso's server-side Hrana streams expire after 10s of inactivity
+	// (see go-libsql#13). Close idle connections before that threshold
+	// so database/sql never hands out a connection with a dead stream.
+	db.SetConnMaxIdleTime(9 * time.Second)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(20)
+
 	dbCache[c.URI] = db
 	c.db = db
 	return db, nil
@@ -122,7 +130,10 @@ func openDB(driver, uri string) (*sql.DB, error) {
 	// Track for cleanup
 	connectors = append(connectors, connector)
 
-	return sql.OpenDB(connector), nil
+	// Wrap the connector so baton/stream errors become driver.ErrBadConn,
+	// allowing database/sql to auto-recover by discarding the broken
+	// connection and opening a fresh one.
+	return sql.OpenDB(recoveryConnector{inner: connector}), nil
 }
 
 func isRemoteLibsqlURI(uri string) bool {
@@ -178,6 +189,115 @@ func CloseAllConnectors() {
 		c.Close()
 	}
 	connectors = nil
+}
+
+// PingAll pings every cached *sql.DB. Returns the first error encountered,
+// or nil if all databases are reachable. Used by the health check endpoint
+// so that Docker/autoheal can detect a dead database connection.
+func PingAll(ctx context.Context) error {
+	dbCacheMu.Lock()
+	dbs := make([]*sql.DB, 0, len(dbCache))
+	for _, db := range dbCache {
+		dbs = append(dbs, db)
+	}
+	dbCacheMu.Unlock()
+
+	for _, db := range dbs {
+		if err := db.PingContext(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// driver-level recovery: convert Hrana stream/baton errors to
+// driver.ErrBadConn so database/sql automatically discards the broken
+// connection and retries with a fresh one from the pool (which calls
+// Connector.Connect → fresh C connection → fresh Hrana stream).
+// This lets bulk uploads survive dead streams without a process restart.
+// ---------------------------------------------------------------------------
+
+// recoveryConnector wraps a driver.Connector. Connections it hands out
+// translate baton errors into driver.ErrBadConn.
+type recoveryConnector struct {
+	inner driver.Connector
+}
+
+func (rc recoveryConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	c, err := rc.inner.Connect(ctx)
+	if err != nil {
+		if IsBatonError(err) {
+			return nil, driver.ErrBadConn
+		}
+		return nil, err
+	}
+	return &recoveryConn{inner: c}, nil
+}
+
+func (rc recoveryConnector) Driver() driver.Driver { return rc.inner.Driver() }
+
+// recoveryConn wraps a driver.Conn. Any operation that fails with a
+// baton/stream error returns driver.ErrBadConn instead, causing
+// database/sql to discard this connection and retry on a new one.
+type recoveryConn struct {
+	inner driver.Conn
+}
+
+func batonOrOrig(err error) error {
+	if err != nil && IsBatonError(err) {
+		slog.Warn("converting Hrana stream error to ErrBadConn for automatic recovery", "original_error", err)
+		return driver.ErrBadConn
+	}
+	return err
+}
+
+func (c *recoveryConn) Prepare(query string) (driver.Stmt, error) {
+	s, err := c.inner.Prepare(query)
+	return s, batonOrOrig(err)
+}
+
+func (c *recoveryConn) Close() error { return c.inner.Close() }
+
+func (c *recoveryConn) Begin() (driver.Tx, error) {
+	tx, err := c.inner.Begin() //nolint:staticcheck // required by driver.Conn
+	return tx, batonOrOrig(err)
+}
+
+// PrepareContext implements driver.ConnPrepareContext.
+func (c *recoveryConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if pc, ok := c.inner.(driver.ConnPrepareContext); ok {
+		s, err := pc.PrepareContext(ctx, query)
+		return s, batonOrOrig(err)
+	}
+	return c.Prepare(query)
+}
+
+// ExecContext implements driver.ExecerContext.
+func (c *recoveryConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if ec, ok := c.inner.(driver.ExecerContext); ok {
+		r, err := ec.ExecContext(ctx, query, args)
+		return r, batonOrOrig(err)
+	}
+	return nil, driver.ErrSkip
+}
+
+// QueryContext implements driver.QueryerContext.
+func (c *recoveryConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if qc, ok := c.inner.(driver.QueryerContext); ok {
+		rows, err := qc.QueryContext(ctx, query, args)
+		return rows, batonOrOrig(err)
+	}
+	return nil, driver.ErrSkip
+}
+
+// BeginTx implements driver.ConnBeginTx.
+func (c *recoveryConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if bt, ok := c.inner.(driver.ConnBeginTx); ok {
+		tx, err := bt.BeginTx(ctx, opts)
+		return tx, batonOrOrig(err)
+	}
+	return c.Begin()
 }
 
 // IsBatonError reports whether err is a transient libsql Hrana session

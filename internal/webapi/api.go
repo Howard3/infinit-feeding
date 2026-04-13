@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/clerkinc/clerk-sdk-go/clerk"
@@ -16,6 +17,7 @@ import (
 
 	"geevly/internal/bulk_upload"
 	"geevly/internal/file"
+	"geevly/internal/infrastructure"
 	"geevly/internal/school"
 	"geevly/internal/student"
 	"geevly/internal/webapi/bulk_domains"
@@ -199,9 +201,19 @@ func (s *Server) Start(ctx context.Context) {
 	// serve static files
 	c.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(s.StaticFS))))
 
-	// Health check endpoint - no auth required
+	// Health check endpoint - no auth required.
+	// Must actually test the database so Docker/autoheal can detect
+	// dead connections and restart the container.
 	c.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		if err := infrastructure.PingAll(ctx); err != nil {
+			slog.Error("health check failed: database unreachable", "error", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"unhealthy","reason":"database unreachable"}`))
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
