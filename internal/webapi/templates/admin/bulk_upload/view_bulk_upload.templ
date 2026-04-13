@@ -458,8 +458,8 @@ func canInvalidate(agg *bulk_upload.Aggregate) bool {
 		return true
 	}
 
-	// Allow invalidating PROCESSING uploads with no activity for 10+ minutes
-	if status == "PROCESSING" {
+	// Allow invalidating PROCESSING or INVALIDATING uploads stuck for 10+ minutes
+	if status == "PROCESSING" || status == "INVALIDATING" {
 		lastActivity := agg.LastActivityTime()
 		if !lastActivity.IsZero() && time.Since(lastActivity) > 10*time.Minute {
 			return true
