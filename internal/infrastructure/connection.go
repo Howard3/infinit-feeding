@@ -130,10 +130,18 @@ func openDB(driver, uri string) (*sql.DB, error) {
 	// Track for cleanup
 	connectors = append(connectors, connector)
 
-	// Wrap the connector so baton/stream errors become driver.ErrBadConn,
-	// allowing database/sql to auto-recover by discarding the broken
-	// connection and opening a fresh one.
-	return sql.OpenDB(recoveryConnector{inner: connector}), nil
+	// Compose connector wrappers:
+	// 1. recoveryConnector: convert dead-stream errors to driver.ErrBadConn
+	// 2. pragmaConnector: set busy_timeout on every new connection so SQLite
+	//    waits for locks instead of failing immediately with "database is locked"
+	recovery := recoveryConnector{inner: connector}
+	withPragmas := pragmaConnector{
+		inner: recovery,
+		pragmas: []string{
+			"PRAGMA busy_timeout = 5000",
+		},
+	}
+	return sql.OpenDB(withPragmas), nil
 }
 
 func isRemoteLibsqlURI(uri string) bool {
@@ -211,6 +219,40 @@ func PingAll(ctx context.Context) error {
 }
 
 // ---------------------------------------------------------------------------
+// pragmaConnector: execute PRAGMAs on every new connection from the pool.
+// go-libsql doesn't support PRAGMAs in the connection string, so we run
+// them in Connect() before handing the connection to database/sql.
+// ---------------------------------------------------------------------------
+
+type pragmaConnector struct {
+	inner   driver.Connector
+	pragmas []string
+}
+
+func (pc pragmaConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := pc.inner.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, pragma := range pc.pragmas {
+		stmt, err := conn.Prepare(pragma)
+		if err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("prepare pragma %q: %w", pragma, err)
+		}
+		if _, err := stmt.Exec(nil); err != nil { //nolint:staticcheck
+			stmt.Close()
+			conn.Close()
+			return nil, fmt.Errorf("exec pragma %q: %w", pragma, err)
+		}
+		stmt.Close()
+	}
+	return conn, nil
+}
+
+func (pc pragmaConnector) Driver() driver.Driver { return pc.inner.Driver() }
+
+// ---------------------------------------------------------------------------
 // driver-level recovery: convert Hrana stream/baton errors to
 // driver.ErrBadConn so database/sql automatically discards the broken
 // connection and retries with a fresh one from the pool (which calls
@@ -245,7 +287,7 @@ type recoveryConn struct {
 }
 
 func batonOrOrig(err error) error {
-	if err != nil && IsBatonError(err) {
+	if err != nil && isConnectionDead(err) {
 		slog.Warn("converting Hrana stream error to ErrBadConn for automatic recovery", "original_error", err)
 		return driver.ErrBadConn
 	}
@@ -300,12 +342,10 @@ func (c *recoveryConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driv
 	return c.Begin()
 }
 
-// IsBatonError reports whether err is a transient libsql Hrana session
-// error — "invalid baton", "stream not found", or similar — that can be
-// recovered by retrying the operation on a fresh connection. Also matches
-// the "invalid state" error that occurs when a transaction's underlying
-// connection was discarded mid-flight (e.g. stream died after BEGIN).
-func IsBatonError(err error) bool {
+// isConnectionDead reports whether err indicates the connection itself is
+// broken (Hrana stream died, transaction poisoned). These warrant
+// discarding the connection via driver.ErrBadConn.
+func isConnectionDead(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -315,6 +355,12 @@ func IsBatonError(err error) bool {
 		strings.Contains(msg, "stream expired") ||
 		strings.Contains(msg, "baton expired") ||
 		strings.Contains(msg, "invalid state")
+}
+
+// IsBatonError reports whether err is a transient libsql error that can
+// be recovered by retrying the operation on a fresh connection.
+func IsBatonError(err error) bool {
+	return isConnectionDead(err)
 }
 
 // RetryOnBaton retries fn up to maxAttempts times if it fails with a baton
