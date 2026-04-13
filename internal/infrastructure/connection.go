@@ -76,12 +76,14 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	// Turso's server-side Hrana streams expire after 10s of inactivity
-	// (see go-libsql#13). Close idle connections before that threshold
-	// so database/sql never hands out a connection with a dead stream.
-	db.SetConnMaxIdleTime(9 * time.Second)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetMaxOpenConns(10)
+	// With the synced database connector, writes go to local SQLite —
+	// no Hrana streams to expire. Keep connections alive in the pool
+	// to avoid reopening them (which can fail with "database is locked"
+	// if a sync checkpoint is in progress). SQLite is single-writer,
+	// so limit open connections to reduce contention.
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
 
 	dbCache[c.URI] = db
 	c.db = db
