@@ -34,7 +34,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 			</div>
 			<div class="flex flex-wrap gap-2">
 				<!-- Primary actions -->
-				if canValidate(getStatus(agg)) {
+				if canValidate(agg) {
 					@components.PrimaryButton("Validate", templ.Attributes{
 						"hx-post":     fmt.Sprintf("/admin/bulk-upload/%s/validate", agg.ID),
 						"hx-confirm":  "Are you sure you want to validate this upload?",
@@ -131,7 +131,7 @@ templ ViewBulkUpload(agg *bulk_upload.Aggregate) {
 								<div class="text-red-600 mb-2">⚠️ Error detected. See error message section below.</div>
 							}
 							<ul class="list-disc list-inside space-y-1">
-								if canValidate(getStatus(agg)) {
+								if canValidate(agg) {
 									<li>Click the blue <strong>Validate</strong> button to validate the upload</li>
 								}
 								if canStartProcessing(getStatus(agg)) {
@@ -469,17 +469,28 @@ func canInvalidate(agg *bulk_upload.Aggregate) bool {
 	return false
 }
 
-func canValidate(status string) bool {
+func canValidate(agg *bulk_upload.Aggregate) bool {
+	status := getStatus(agg)
 	// VALIDATING is included so an upload stuck mid-validation (e.g. from
 	// a transient 500) can be re-kicked without manual intervention.
-	// PROCESSING and INVALIDATED are included so uploads that failed
-	// mid-processing or were invalidated can be re-validated and reprocessed.
-	return status == "PENDING" ||
+	// INVALIDATED is included so invalidated uploads can be reprocessed.
+	if status == "PENDING" ||
 		status == "VALIDATION_FAILED" ||
 		status == "VALIDATED" ||
 		status == "VALIDATING" ||
-		status == "PROCESSING" ||
-		status == "INVALIDATED"
+		status == "INVALIDATED" {
+		return true
+	}
+
+	// Only show validate for PROCESSING uploads that are stuck (no activity for 10+ minutes)
+	if status == "PROCESSING" {
+		lastActivity := agg.LastActivityTime()
+		if !lastActivity.IsZero() && time.Since(lastActivity) > 10*time.Minute {
+			return true
+		}
+	}
+
+	return false
 }
 
 func canStartProcessing(status string) bool {

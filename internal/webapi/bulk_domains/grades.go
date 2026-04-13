@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	gradesWorkerPoolSize = 50
+	gradesWorkerPoolSize = 5
 )
 
 // GradesDomain implements BulkUploadDomain for grades uploads

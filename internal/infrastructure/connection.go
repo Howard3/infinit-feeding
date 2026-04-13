@@ -81,7 +81,7 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 	// so database/sql never hands out a connection with a dead stream.
 	db.SetConnMaxIdleTime(9 * time.Second)
 	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetMaxOpenConns(20)
+	db.SetMaxOpenConns(10)
 
 	dbCache[c.URI] = db
 	c.db = db
