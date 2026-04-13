@@ -302,7 +302,9 @@ func (c *recoveryConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driv
 
 // IsBatonError reports whether err is a transient libsql Hrana session
 // error — "invalid baton", "stream not found", or similar — that can be
-// recovered by retrying the operation on a fresh connection.
+// recovered by retrying the operation on a fresh connection. Also matches
+// the "invalid state" error that occurs when a transaction's underlying
+// connection was discarded mid-flight (e.g. stream died after BEGIN).
 func IsBatonError(err error) bool {
 	if err == nil {
 		return false
@@ -311,7 +313,8 @@ func IsBatonError(err error) bool {
 	return strings.Contains(msg, "invalid baton") ||
 		strings.Contains(msg, "stream not found") ||
 		strings.Contains(msg, "stream expired") ||
-		strings.Contains(msg, "baton expired")
+		strings.Contains(msg, "baton expired") ||
+		strings.Contains(msg, "invalid state")
 }
 
 // RetryOnBaton retries fn up to maxAttempts times if it fails with a baton

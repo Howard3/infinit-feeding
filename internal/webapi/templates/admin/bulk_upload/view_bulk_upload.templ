@@ -472,10 +472,14 @@ func canInvalidate(agg *bulk_upload.Aggregate) bool {
 func canValidate(status string) bool {
 	// VALIDATING is included so an upload stuck mid-validation (e.g. from
 	// a transient 500) can be re-kicked without manual intervention.
+	// PROCESSING and INVALIDATED are included so uploads that failed
+	// mid-processing or were invalidated can be re-validated and reprocessed.
 	return status == "PENDING" ||
 		status == "VALIDATION_FAILED" ||
 		status == "VALIDATED" ||
-		status == "VALIDATING"
+		status == "VALIDATING" ||
+		status == "PROCESSING" ||
+		status == "INVALIDATED"
 }
 
 func canStartProcessing(status string) bool {
