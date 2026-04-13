@@ -109,16 +109,16 @@ func openDB(driver, uri string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	slog.Info("opening embedded replica", "primary", primaryURL, "replica_path", dbPath)
+	slog.Info("opening synced database (offline writes)", "primary", primaryURL, "replica_path", dbPath)
 
-	connector, err := libsql.NewEmbeddedReplicaConnector(
+	connector, err := libsql.NewSyncedDatabaseConnector(
 		dbPath,
 		primaryURL,
 		libsql.WithAuthToken(authToken),
 		libsql.WithSyncInterval(30*time.Second),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create embedded replica connector: %w", err)
+		return nil, fmt.Errorf("create synced database connector: %w", err)
 	}
 
 	// Initial sync to pull data from the primary before we start serving.
