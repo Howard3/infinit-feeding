@@ -235,16 +235,30 @@ func (pc pragmaConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 	for _, pragma := range pc.pragmas {
+		// PRAGMAs return rows (the current/new value), so we must use
+		// Query rather than Exec — go-libsql rejects Exec on statements
+		// that produce result sets.
+		if qc, ok := conn.(driver.QueryerContext); ok {
+			rows, err := qc.QueryContext(context.Background(), pragma, nil)
+			if err != nil {
+				conn.Close()
+				return nil, fmt.Errorf("query pragma %q: %w", pragma, err)
+			}
+			rows.Close()
+			continue
+		}
 		stmt, err := conn.Prepare(pragma)
 		if err != nil {
 			conn.Close()
 			return nil, fmt.Errorf("prepare pragma %q: %w", pragma, err)
 		}
-		if _, err := stmt.Exec(nil); err != nil { //nolint:staticcheck
+		rows, err := stmt.Query(nil) //nolint:staticcheck
+		if err != nil {
 			stmt.Close()
 			conn.Close()
-			return nil, fmt.Errorf("exec pragma %q: %w", pragma, err)
+			return nil, fmt.Errorf("query pragma %q: %w", pragma, err)
 		}
+		rows.Close()
 		stmt.Close()
 	}
 	return conn, nil
