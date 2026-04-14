@@ -1396,10 +1396,21 @@ func (r *sqlRepository) QueryFeedingHistory(ctx context.Context, query FeedingHi
 		projection.Student.Grade = uint(grade.Int64)
 		projection.Student.Age = uint(age.Int64)
 
-		// parse feeding timestamp from 2024-05-05 19:59:48-05:00
-		t, err := time.Parse("2006-01-02 15:04:05-07:00", feedingTimestamp.String)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse feeding timestamp: %w", err)
+		// parse feeding timestamp — handle both SQLite and ISO 8601 formats
+		var t time.Time
+		for _, layout := range []string{
+			"2006-01-02 15:04:05-07:00",
+			time.RFC3339,
+			"2006-01-02 15:04:05Z07:00",
+			"2006-01-02",
+		} {
+			if parsed, err := time.Parse(layout, feedingTimestamp.String); err == nil {
+				t = parsed
+				break
+			}
+		}
+		if t.IsZero() && feedingTimestamp.String != "" {
+			return nil, fmt.Errorf("failed to parse feeding timestamp: %s", feedingTimestamp.String)
 		}
 
 		projection.FeedingEvent.FeedingDateTime = t
