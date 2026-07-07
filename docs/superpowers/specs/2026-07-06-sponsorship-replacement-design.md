@@ -113,6 +113,10 @@ the replacement student becomes unavailable.
 
 ## Edge cases
 
+- **Ambiguous record match:** all pre-fix sponsorships have no `payment_id`, so matching
+  by `sponsor_id` + `start_date` is the common path for existing data. If more than one
+  record matches the key, refuse with an explicit error (manual repair) rather than
+  guessing.
 - Sponsorship already ended (`end_date` ≤ today): refuse with a clear error.
 - Replacement student equals old student: refuse.
 - Replacement student became ineligible/sponsored between picker and submit: command
@@ -122,11 +126,30 @@ the replacement student becomes unavailable.
 ## Testing
 
 - Aggregate: truncate happy path; record not found; record already ended;
-  `new_end_date` before `start_date`; reason/pointers stored on both record shapes.
+  `new_end_date` before `start_date`; ambiguous match (two records, same
+  sponsor + start_date) refused; reason/pointers stored on both record shapes.
+- Replay: rehydrating an aggregate from a stream containing
+  `UpdateSponsorship → TruncateSponsorship` yields the truncated state; events
+  serialized before the new proto fields existed still deserialize and replay
+  correctly.
+- Legacy data: replacing a pre-fix sponsorship (no `payment_id`) works via the
+  sponsor_id + start_date match, and the transfer carries empty payment fields without
+  error.
 - Service: full swap moves the window correctly and carries payment fields; validation
   rejections (ineligible, already sponsored, same student, ended sponsorship);
   compensation path when the second command fails.
+- Concurrency: a second replacement of the same sponsorship (double-submit or second
+  admin) fails cleanly via version conflict / already-truncated detection; two
+  concurrent swaps choosing the same replacement student cannot double-book them.
+- Sponsor-facing queries: after the swap, `GetCurrentSponsorships` returns exactly one
+  current student for the sponsor; impact metrics / feeding-event listings attribute
+  the old student through the truncation date and the new student after it.
+- Date boundaries: end_date tomorrow → replaceable; end_date today → refused;
+  same-day start-and-replace produces a zero-length truncated record that does not
+  break "current" queries. Dates compared as midnight-UTC, consistent with the
+  projections.
 - Projection: after swap, old student is available again
   (`max_sponsorship_date` in the past) and new student is unavailable; payment columns
   populated.
-- Web: replace flow end-to-end via the report entry point; reason required.
+- Web: replace flow end-to-end via both entry points (report and student page);
+  reason required; new routes reject non-admin users.
