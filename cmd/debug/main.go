@@ -24,6 +24,7 @@ func main() {
 		fmt.Println("Commands:")
 		fmt.Println("  health <student_id>     - Show health assessment status for a student")
 		fmt.Println("  search <name>           - Search for students by name")
+		fmt.Println("  reproject-students      - Rebuild all student_projections from event aggregates")
 		os.Exit(1)
 	}
 
@@ -56,6 +57,9 @@ func main() {
 		}
 		name := strings.Join(os.Args[2:], " ")
 		searchStudents(ctx, studentRepo, name)
+
+	case "reproject-students":
+		reprojectStudents(ctx, studentRepo)
 
 	default:
 		fmt.Printf("Unknown command: %s\n", cmd)
@@ -135,6 +139,16 @@ func searchStudents(ctx context.Context, repo student.Repository, name string) {
 		)
 	}
 	fmt.Println("--------------------------------------------------------------------------------")
+}
+
+func reprojectStudents(ctx context.Context, repo student.Repository) {
+	fmt.Println("Rebuilding all student_projections from event aggregates...")
+	svc := student.NewStudentService(repo, &noopACL{})
+	if err := svc.RebuildStudentProjections(ctx); err != nil {
+		fmt.Printf("Error rebuilding student projections: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Done.")
 }
 
 type noopACL struct{}

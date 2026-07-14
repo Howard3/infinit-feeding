@@ -6,7 +6,8 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	// Use libsql (same as production) — mattn/go-sqlite3 duplicates SQLite symbols with go-libsql.
+	_ "github.com/tursodatabase/go-libsql"
 )
 
 func TestCountAllFeedingEvents_Integration(t *testing.T) {
@@ -19,7 +20,7 @@ func TestCountAllFeedingEvents_Integration(t *testing.T) {
 		t.Skip("dev.db not found, skipping integration test")
 	}
 
-	db, err := sql.Open("sqlite3", dbPath+"?mode=ro")
+	db, err := sql.Open("libsql", "file:"+dbPath+"?mode=ro")
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

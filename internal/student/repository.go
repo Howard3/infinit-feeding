@@ -100,6 +100,7 @@ type Repository interface {
 	GetEventTypes(ctx context.Context) ([]string, error)
 	GetEventStatistics(ctx context.Context) (*EventStatistics, error)
 	CountAllFeedingEvents(ctx context.Context) (int64, error)
+	RebuildStudentProjections(ctx context.Context) error
 }
 
 // source schema:
@@ -742,20 +743,44 @@ func (r *sqlRepository) upsertFeedingEventProjection(student *Aggregate) error {
 }
 
 func (r *sqlRepository) updateStudentProjections() {
-	slog.Info("updating student projections")
+	if err := r.RebuildStudentProjections(context.Background()); err != nil {
+		panic(err)
+	}
+}
+
+// RebuildStudentProjections reloads every student aggregate from the event store
+// and force-upserts student_projections. Safe to run as maintenance after bulk
+// import races or schema/projection logic changes.
+func (r *sqlRepository) RebuildStudentProjections(ctx context.Context) error {
+	slog.Info("rebuilding student projections")
 
 	ids := r.getUniqueIDsForAggregates()
+	slog.Info("rebuilding student projections", "count", len(ids))
+
+	var firstErr error
+	repaired := 0
 	for _, id := range ids {
-		slog.Info("updating student projection for ID", "id", id)
-		student, err := r.loadStudent(context.Background(), id)
+		student, err := r.loadStudent(ctx, id)
 		if err != nil {
-			panic(fmt.Errorf("failed to load student: %w", err))
+			slog.Error("failed to load student during projection rebuild", "id", id, "error", err)
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed to load student %d: %w", id, err)
+			}
+			continue
 		}
 
-		if err := r.upsertStudent(student); err != nil {
-			panic(fmt.Errorf("failed to upsert student: %w", err))
+		if err := r.upsertStudentForced(student); err != nil {
+			slog.Error("failed to upsert student during projection rebuild", "id", id, "error", err)
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed to upsert student %d: %w", id, err)
+			}
+			continue
 		}
+		repaired++
 	}
+
+	slog.Info("finished rebuilding student projections", "repaired", repaired, "total", len(ids))
+	return firstErr
 }
 
 func (r *sqlRepository) getUniqueIDsForAggregates() []uint64 {
@@ -1046,17 +1071,26 @@ func (r *sqlRepository) deleteStudentProjection(id string) error {
 	return nil
 }
 
-// upsertStudent - persists the student projection to the database
+// upsertStudent - persists the student projection to the database.
+// Skips overwriting when an existing projection already has a newer version,
+// so stale async handlers from bulk create/enroll cannot clobber a later SetStatus.
 func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
+	return r.upsertStudentProjection(agg, false)
+}
+
+// upsertStudentForced overwrites the projection regardless of stored version.
+// Used by full rebuilds/maintenance so corrupt same-version rows can be repaired.
+func (r *sqlRepository) upsertStudentForced(agg *Aggregate) error {
+	return r.upsertStudentProjection(agg, true)
+}
+
+func (r *sqlRepository) upsertStudentProjection(agg *Aggregate, force bool) error {
 	if agg.data.IsDeleted {
 		// ensure these projections are deleted
 		return r.deleteStudentProjection(agg.GetID())
 	}
 
-	query := `INSERT INTO student_projections
-		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade, eligible_for_sponsorship, max_sponsorship_date)
-		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade, :eligible_for_sponsorship, :max_sponsorship_date)
-		ON CONFLICT (id) DO UPDATE SET
+	conflictClause := `ON CONFLICT (id) DO UPDATE SET
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
 			school_id = excluded.school_id,
@@ -1068,8 +1102,29 @@ func (r *sqlRepository) upsertStudent(agg *Aggregate) error {
 			grade = excluded.grade,
 			eligible_for_sponsorship = excluded.eligible_for_sponsorship,
 			max_sponsorship_date = excluded.max_sponsorship_date,
-			updated_at = CURRENT_TIMESTAMP;
-	`
+			updated_at = CURRENT_TIMESTAMP
+		WHERE student_projections.version < excluded.version`
+
+	if force {
+		conflictClause = `ON CONFLICT (id) DO UPDATE SET
+			first_name = excluded.first_name,
+			last_name = excluded.last_name,
+			school_id = excluded.school_id,
+			date_of_birth = excluded.date_of_birth,
+			version = excluded.version,
+			active = excluded.active,
+			student_id = excluded.student_id,
+			age = excluded.age,
+			grade = excluded.grade,
+			eligible_for_sponsorship = excluded.eligible_for_sponsorship,
+			max_sponsorship_date = excluded.max_sponsorship_date,
+			updated_at = CURRENT_TIMESTAMP`
+	}
+
+	query := `INSERT INTO student_projections
+		(id, first_name, last_name, school_id, date_of_birth, version, active, student_id, age, grade, eligible_for_sponsorship, max_sponsorship_date)
+		VALUES (:id, :first_name, :last_name, :school_id, :date_of_birth, :version, :active, :student_id, :age, :grade, :eligible_for_sponsorship, :max_sponsorship_date)
+		` + conflictClause + `;`
 
 	active := agg.data.Status == eda.Student_ACTIVE
 	dob := agg.data.DateOfBirth

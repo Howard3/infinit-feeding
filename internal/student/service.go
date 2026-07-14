@@ -510,3 +510,10 @@ func (s *StudentService) GetEventStatistics(ctx context.Context) (*EventStatisti
 func (s *StudentService) GetTotalFeedingCount(ctx context.Context) (int64, error) {
 	return s.repo.CountAllFeedingEvents(ctx)
 }
+
+// RebuildStudentProjections reloads all student aggregates and force-writes
+// student_projections. Use this to repair rows left stale by concurrent
+// async projection handlers (e.g. after bulk import).
+func (s *StudentService) RebuildStudentProjections(ctx context.Context) error {
+	return s.repo.RebuildStudentProjections(ctx)
+}
