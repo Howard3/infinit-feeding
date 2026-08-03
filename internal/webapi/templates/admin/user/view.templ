@@ -74,6 +74,25 @@ templ View(params ViewParams) {
 					</div>
 				</div>
 			</form>
+			<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto" data-v0-t="card">
+				<div class="flex flex-col space-y-1.5 p-6 pb-0">
+					<h3 class="text-2xl font-semibold whitespace-nowrap leading-none tracking-tight">
+						Reset password
+					</h3>
+					<p class="text-sm text-muted-foreground">
+						Create a new temporary password for this user. They will need to sign in again with it.
+					</p>
+				</div>
+				<div class="p-6" id="password-reset-result">
+					@components.DangerButton("Create new password", templ.Attributes{
+						"hx-confirm": "Create a new password for this user? They will be signed out everywhere and will need this new password to sign in again.",
+						"hx-post": fmt.Sprintf("/admin/user/%s/reset-password", params.ID),
+						"hx-target": "#password-reset-result",
+						"hx-swap": "innerHTML",
+						"hx-push-url": "false",
+					})
+				</div>
+			</div>
 			<form>
 				<div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto" data-v0-t="card">
 					<div class="flex flex-col space-y-1.5 p-6 pb-0">
@@ -140,5 +159,62 @@ templ View(params ViewParams) {
 				</div>
 			</form>
 		</div>
+	</div>
+}
+
+templ PasswordResetResult(password string) {
+	<div class="space-y-3">
+		<p class="text-sm text-green-700 font-medium">
+			New password ready. Copy it and share it with the user now — you won’t see it again after you leave this page.
+		</p>
+		<div class="flex items-center gap-2">
+			<code
+				id="temp-password"
+				class="flex-1 rounded-md border bg-gray-50 px-3 py-2 font-mono text-sm select-all"
+			>{ password }</code>
+			<button
+				type="button"
+				class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-indigo-600 shadow-sm ring-1 ring-inset ring-indigo-300 hover:bg-indigo-50"
+				data-password={ password }
+				onclick="copyTempPassword(this)"
+				title="Copy password"
+			>
+				Copy
+			</button>
+		</div>
+		<p class="text-xs text-muted-foreground">
+			The user is signed out everywhere and must use this password to sign in.
+		</p>
+	</div>
+	<script>
+		function copyTempPassword(btn) {
+			const password = btn.getAttribute('data-password');
+			navigator.clipboard.writeText(password).then(() => {
+				const original = btn.textContent;
+				btn.textContent = 'Copied';
+				btn.classList.add('text-green-600');
+				setTimeout(() => {
+					btn.textContent = original;
+					btn.classList.remove('text-green-600');
+				}, 2000);
+			}).catch(err => {
+				console.error('Failed to copy password:', err);
+			});
+		}
+	</script>
+}
+
+templ PasswordResetError(userID string) {
+	<div class="space-y-3">
+		<p class="text-sm text-red-700 font-medium">
+			We couldn’t create a new password. Please try again.
+		</p>
+		@components.DangerButton("Try again", templ.Attributes{
+			"hx-confirm": "Create a new password for this user? They will be signed out everywhere and will need this new password to sign in again.",
+			"hx-post": fmt.Sprintf("/admin/user/%s/reset-password", userID),
+			"hx-target": "#password-reset-result",
+			"hx-swap": "innerHTML",
+			"hx-push-url": "false",
+		})
 	</div>
 }

@@ -2,8 +2,10 @@ package webapi
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"slices"
 	"strconv"
@@ -16,6 +18,46 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// tempPasswordCharset omits ambiguous characters (0/O, 1/l/I).
+const tempPasswordCharset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+
+const tempPasswordLength = 20
+const passwordResetMaxAttempts = 5
+
+func generateTempPassword() (string, error) {
+	max := big.NewInt(int64(len(tempPasswordCharset)))
+	password := make([]byte, tempPasswordLength)
+	for i := range password {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", err
+		}
+		password[i] = tempPasswordCharset[n.Int64()]
+	}
+	return string(password), nil
+}
+
+// setUserPassword attempts to set the password via the provided updater, regenerating
+// and retrying on failure so rare password-policy rejections are transparent to admins.
+func setUserPasswordWithRetry(userID string, update func(userID, password string) error) (string, error) {
+	var lastErr error
+	for attempt := 0; attempt < passwordResetMaxAttempts; attempt++ {
+		password, err := generateTempPassword()
+		if err != nil {
+			return "", err
+		}
+		if err := update(userID, password); err != nil {
+			lastErr = err
+			continue
+		}
+		return password, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("password reset failed after %d attempts", passwordResetMaxAttempts)
+	}
+	return "", lastErr
+}
+
 func (s *Server) userAdminRouter(r chi.Router) {
 	r.Get("/", s.adminListUsers)
 	r.Get("/create", s.adminCreateUserForm)
@@ -25,6 +67,7 @@ func (s *Server) userAdminRouter(r chi.Router) {
 		r.Use(s.setUserIDMiddleware)
 		r.Get(`/{ID}`, s.adminViewUser)
 		r.Post(`/{ID}`, s.adminUpdateUser)
+		r.Post(`/{ID}/reset-password`, s.adminResetPassword)
 		r.Put(`/{ID}/setRole`, s.setUserRole)
 		r.Put(`/{ID}/school/{schoolID}/feederEnrollment`, s.setUserFeederInSchool)
 		r.Put(`/{ID}/school/{schoolID}/nurseEnrollment`, s.setUserNurseInSchool)
@@ -328,6 +371,26 @@ func (s *Server) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect back to the user's view page
 	http.Redirect(w, r, fmt.Sprintf("/admin/user/%s", userID), http.StatusSeeOther)
+}
+
+func (s *Server) adminResetPassword(w http.ResponseWriter, r *http.Request) {
+	userID := s.getUserIDFromContext(r.Context())
+
+	password, err := setUserPasswordWithRetry(userID, func(userID, password string) error {
+		signOut := true
+		_, err := s.Clerk.Users().Update(userID, &clerk.UpdateUser{
+			Password:               &password,
+			SignOutOfOtherSessions: &signOut,
+		})
+		return err
+	})
+	if err != nil {
+		log.Printf("password reset failed for user %s: %v", userID, err)
+		s.renderTempl(w, r, usertempl.PasswordResetError(userID))
+		return
+	}
+
+	s.renderTempl(w, r, usertempl.PasswordResetResult(password))
 }
 
 func (s *Server) setUserFeederInSchool(w http.ResponseWriter, r *http.Request) {
