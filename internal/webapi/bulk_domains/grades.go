@@ -2,7 +2,6 @@ package bulk_domains
 
 import (
 	"context"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"geevly/internal/student"
@@ -10,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -117,7 +115,7 @@ func (row *GradeRow) GradeInt() (int, error) {
 // parseCSV parses the CSV file bytes and returns rows as GradeRow structs
 func (d *GradesDomain) parseCSV(fileBytes []byte) (header []string, rows []GradeRow, err error) {
 	// Parse the CSV data
-	reader := csv.NewReader(strings.NewReader(string(fileBytes)))
+	reader := newCSVReader(fileBytes)
 
 	// Read header row
 	header, err = reader.Read()

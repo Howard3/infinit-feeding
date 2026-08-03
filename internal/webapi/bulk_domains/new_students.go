@@ -54,7 +54,7 @@ func (nsr *newStudentReader) getCSVFromFS(zipFS fs.FS) (*csv.Reader, error) {
 		return nil, err
 	}
 
-	return csv.NewReader(bytes.NewReader(data)), nil
+	return newCSVReader(data), nil
 }
 
 func (newStudentReader) getStudentPhotoPath(lrn string) string {

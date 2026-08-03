@@ -2,7 +2,6 @@ package bulk_domains
 
 import (
 	"context"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"geevly/gen/go/eda"
@@ -159,7 +158,7 @@ func (d *HealthAssessmentDomain) ValidateUpload(ctx context.Context, aggregate *
 }
 
 func (d *HealthAssessmentDomain) parseCSV(data []byte) (header []string, rows []HealthAssessmentRow, errors []error) {
-	reader := csv.NewReader(strings.NewReader(string(data)))
+	reader := newCSVReader(data)
 
 	header, err := reader.Read()
 	if err != nil {
