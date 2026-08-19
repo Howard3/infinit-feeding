@@ -318,15 +318,17 @@ func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request) {
 	// Extract user details from form
 	firstName := r.FormValue("first_name")
 	lastName := r.FormValue("last_name")
+	email := r.FormValue("email")
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
 	// Create user params
 	params := clerk.CreateUserParams{
-		Username:  &username,
-		FirstName: &firstName,
-		LastName:  &lastName,
-		Password:  &password,
+		EmailAddresses: []string{email},
+		Username:       &username,
+		FirstName:      &firstName,
+		LastName:       &lastName,
+		Password:       &password,
 	}
 
 	// Create user in Clerk
