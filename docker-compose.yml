@@ -24,8 +24,8 @@ services:
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - S3_REGION=${S3_REGION}
       
-      # Turso Database URI (includes embedded auth token)
-      - DB_URI=${DB_URI}
+      # Local libSQL file. Do not point this at Turso.
+      - DB_URI=file:/var/lib/libsql/feeding.db
       
       # Clerk Authentication
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
@@ -36,20 +36,19 @@ services:
       
       # Environment Mode (production/development)
       - GO_ENV=${GO_ENV:-production}
-    
-    # Optional: Mount volumes for persistent data
-    # Uncomment if you need to override static files
-#    volumes:
-      # - ./static:/static
-    
+
+    volumes:
+      - libsql_data:/var/lib/libsql
+
     # Health check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
-      timeout: 10s
+      # Must be greater than the /health handler timeout (15s).
+      timeout: 20s
       retries: 3
       start_period: 10m
-    
+
     # Resource limits (optional but recommended)
     deploy:
       resources:
@@ -59,3 +58,18 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+
+  db-backup:
+    image: alpine:3.20
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - libsql_data:/var/lib/libsql
+      - libsql_backups:/backups
+      - ./deploy/libsql-backup.sh:/usr/local/bin/libsql-backup.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/libsql-backup.sh"]
+
+volumes:
+  libsql_data:
+  libsql_backups:

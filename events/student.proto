@@ -89,10 +89,24 @@ message Student {
     uint64 version = 2;
     string file_id = 3;
     uint64 id = 4;
+    // School calendar date YYYY-MM-DD derived from unix_timestamp. A client value is ignored.
+    string local_calendar_date = 5;
+    string recorded_by_feeder_id = 6;
+    string submitted_by_feeder_id = 7;
+    string device_id = 8;
+    string client_feed_id = 9;
+    string school_id = 10;
 
     message Event {
       uint64 unix_timestamp = 1;
       string file_id = 2;
+      // School calendar date YYYY-MM-DD derived from unix_timestamp.
+      string local_calendar_date = 3;
+      string recorded_by_feeder_id = 4;
+      string submitted_by_feeder_id = 5;
+      string device_id = 6;
+      string client_feed_id = 7;
+      string school_id = 8;
     }
   }
 

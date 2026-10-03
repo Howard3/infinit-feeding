@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +16,6 @@ import (
 	"github.com/Howard3/gosignal"
 	"github.com/Howard3/gosignal/drivers/eventstore"
 	"github.com/Howard3/gosignal/sourcing"
-	"github.com/tursodatabase/go-libsql"
 )
 
 type ConnectionType string
@@ -32,10 +31,8 @@ type SQLConnection struct {
 }
 
 // GetSourcingConnection returns an EventStore implementation backed by the
-// gosignal SQLStore, wrapped in a retry layer that recovers from libsql
-// "invalid baton" errors. With embedded replicas the retry layer is rarely
-// needed, but it provides defense in depth for writes that are forwarded
-// to the Turso primary.
+// gosignal SQLStore, wrapped in a retry layer for transient SQLite lock
+// errors. The database is a local libSQL file; there is no remote primary.
 func (c SQLConnection) GetSourcingConnection(db *sql.DB, tableName string) sourcing.EventStore {
 	es := eventstore.SQLStore{
 		DB:        db,
@@ -53,9 +50,11 @@ func (c SQLConnection) GetSourcingConnection(db *sql.DB, tableName string) sourc
 // hand them all the same *sql.DB so we don't open the replica file or
 // remote connection multiple times.
 var (
-	dbCacheMu  sync.Mutex
-	dbCache    = map[string]*sql.DB{}
-	connectors []interface{ Close() error } // track connectors for cleanup
+	dbCacheMu sync.Mutex
+	dbCache   = map[string]*sql.DB{}
+
+	checkpointLoopCancel context.CancelFunc
+	checkpointLoopDone   chan struct{}
 )
 
 func (c *SQLConnection) Open() (*sql.DB, error) {
@@ -76,13 +75,10 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	// With the synced database connector, writes go to local SQLite —
-	// no Hrana streams to expire. Keep connections alive in the pool
-	// to avoid reopening them (which can fail with "database is locked"
-	// if a sync checkpoint is in progress). SQLite is single-writer,
-	// so limit open connections to reduce contention.
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(5)
+	// SQLite is single-writer. The checkpoint loop also takes a lock,
+	// so keep the pool small.
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(30 * time.Minute)
 
 	dbCache[c.URI] = db
@@ -90,60 +86,58 @@ func (c *SQLConnection) Open() (*sql.DB, error) {
 	return db, nil
 }
 
-// openDB opens a database connection. For remote libsql URIs, it creates
-// an embedded replica so reads hit the local file and writes are forwarded
-// to the Turso primary. This sidesteps the Hrana HTTP session protocol
-// entirely. Local file:// URIs fall through to the standard driver.
-func openDB(driver, uri string) (*sql.DB, error) {
-	if driver != "libsql" || !isRemoteLibsqlURI(uri) {
-		return sql.Open(driver, uri)
+// openDB opens a local libSQL file. Remote libsql:// and http(s):// URIs are
+// refused so a deploy cannot attach this process to Turso. In production
+// (GO_ENV is not development) that refusal is a hard boot error.
+func openDB(driverName, uri string) (*sql.DB, error) {
+	if isRemoteLibsqlURI(uri) {
+		if os.Getenv("GO_ENV") != "development" {
+			return nil, fmt.Errorf("refusing remote database URI in production; set DB_URI=file:/var/lib/libsql/feeding.db")
+		}
+		return nil, fmt.Errorf("remote database URIs are not supported; set DB_URI to a file: path")
 	}
-
-	primaryURL, authToken, err := splitLibsqlURI(uri)
-	if err != nil {
+	if driverName != "libsql" {
+		return sql.Open(driverName, uri)
+	}
+	if err := ensureLibsqlDir(uri); err != nil {
 		return nil, err
 	}
 
-	dbPath, err := localReplicaPath()
+	probe, err := sql.Open("libsql", ":memory:")
 	if err != nil {
 		return nil, err
 	}
+	drv := probe.Driver()
+	_ = probe.Close()
 
-	slog.Info("opening synced database (offline writes)", "primary", primaryURL, "replica_path", dbPath)
-
-	connector, err := libsql.NewSyncedDatabaseConnector(
-		dbPath,
-		primaryURL,
-		libsql.WithAuthToken(authToken),
-		libsql.WithSyncInterval(30*time.Second),
-	)
+	dc, ok := drv.(driver.DriverContext)
+	if !ok {
+		return nil, fmt.Errorf("libsql driver does not implement OpenConnector")
+	}
+	inner, err := dc.OpenConnector(uri)
 	if err != nil {
-		return nil, fmt.Errorf("create synced database connector: %w", err)
+		return nil, fmt.Errorf("open local libsql: %w", err)
 	}
-
-	// Initial sync to pull data from the primary before we start serving.
-	slog.Info("performing initial sync from Turso primary")
-	if _, err := connector.Sync(); err != nil {
-		connector.Close()
-		return nil, fmt.Errorf("initial replica sync: %w", err)
-	}
-	slog.Info("initial sync complete")
-
-	// Track for cleanup
-	connectors = append(connectors, connector)
-
-	// Compose connector wrappers:
-	// 1. recoveryConnector: convert dead-stream errors to driver.ErrBadConn
-	// 2. pragmaConnector: set busy_timeout on every new connection so SQLite
-	//    waits for locks instead of failing immediately with "database is locked"
-	recovery := recoveryConnector{inner: connector}
-	withPragmas := pragmaConnector{
-		inner: recovery,
+	db := sql.OpenDB(pragmaConnector{
+		inner: inner,
 		pragmas: []string{
-			"PRAGMA busy_timeout = 5000",
+			"PRAGMA busy_timeout = 10000",
 		},
+	})
+
+	var mode string
+	if err := db.QueryRow(`PRAGMA journal_mode = WAL`).Scan(&mode); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("set journal_mode=WAL: %w", err)
 	}
-	return sql.OpenDB(withPragmas), nil
+	if !strings.EqualFold(mode, "wal") {
+		_ = db.Close()
+		return nil, fmt.Errorf("journal_mode = %s, want wal", mode)
+	}
+
+	slog.Info("opening local libsql database", "uri", uri)
+	startCheckpointLoop(db)
+	return db, nil
 }
 
 func isRemoteLibsqlURI(uri string) bool {
@@ -152,35 +146,83 @@ func isRemoteLibsqlURI(uri string) bool {
 		strings.HasPrefix(uri, "http://")
 }
 
-// splitLibsqlURI extracts the auth token from the URI's query string and
-// returns the bare primary URL plus the token.
-func splitLibsqlURI(uri string) (primaryURL, authToken string, err error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", "", fmt.Errorf("parse libsql uri: %w", err)
+// ensureLibsqlDir creates the parent directory of a file: database path.
+func ensureLibsqlDir(uri string) error {
+	path := strings.TrimPrefix(uri, "file:")
+	if i := strings.Index(path, "?"); i >= 0 {
+		path = path[:i]
 	}
-	q := u.Query()
-	authToken = q.Get("authToken")
-	q.Del("authToken")
-	u.RawQuery = q.Encode()
-	return u.String(), authToken, nil
+	path = strings.TrimPrefix(path, "//localhost")
+	if path == "" || strings.HasPrefix(path, ":memory:") {
+		return nil
+	}
+	dir := filepath.Dir(path)
+	if dir == "" || dir == "." {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create database dir: %w", err)
+	}
+	return nil
 }
 
-// localReplicaPath returns the on-disk path for the embedded replica file.
-// Honors LIBSQL_REPLICA_PATH env var; otherwise defaults to a path under
-// the OS temp dir so the container boots without a mounted volume.
-func localReplicaPath() (string, error) {
-	if p := os.Getenv("LIBSQL_REPLICA_PATH"); p != "" {
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			return "", fmt.Errorf("create replica dir: %w", err)
+const checkpointInterval = 30 * time.Second
+
+// startCheckpointLoop runs PRAGMA wal_checkpoint(PASSIVE) on one goroutine.
+// It does not sync to a remote primary.
+func startCheckpointLoop(db *sql.DB) {
+	if checkpointLoopCancel != nil {
+		checkpointLoopCancel()
+		if checkpointLoopDone != nil {
+			<-checkpointLoopDone
 		}
-		return p, nil
 	}
-	dir := filepath.Join(os.TempDir(), "geevly-libsql")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("create replica dir: %w", err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	checkpointLoopCancel = cancel
+	checkpointLoopDone = done
+
+	go func() {
+		defer close(done)
+		runCheckpoint(db)
+		ticker := time.NewTicker(checkpointInterval)
+		defer ticker.Stop()
+		consecutiveBusy := 0
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := runCheckpoint(db); err != nil {
+					if IsBusyError(err) {
+						consecutiveBusy++
+						if consecutiveBusy >= 3 {
+							slog.Error("wal_checkpoint repeatedly busy", "consecutive", consecutiveBusy, "error", err)
+						}
+					} else {
+						consecutiveBusy = 0
+					}
+					continue
+				}
+				consecutiveBusy = 0
+			}
+		}
+	}()
+}
+
+func runCheckpoint(db *sql.DB) error {
+	var busy, logPages, checkpointed int
+	err := db.QueryRow(`PRAGMA wal_checkpoint(PASSIVE)`).Scan(&busy, &logPages, &checkpointed)
+	if err != nil {
+		slog.Warn("wal_checkpoint(PASSIVE) failed", "error", err)
+		return err
 	}
-	return filepath.Join(dir, "replica.db"), nil
+	slog.Info("wal_checkpoint", "busy", busy, "log", logPages, "checkpointed", checkpointed)
+	if busy != 0 {
+		return fmt.Errorf("wal_checkpoint busy=1 log=%d checkpointed=%d", logPages, checkpointed)
+	}
+	return nil
 }
 
 func (c SQLConnection) Close() error {
@@ -191,19 +233,35 @@ func (c SQLConnection) Close() error {
 	return nil
 }
 
-// CloseAllConnectors cleans up any embedded replica connectors.
+// CloseAllConnectors stops the checkpoint loop, then closes cached databases.
+// Call on process shutdown so a checkpoint cannot run against a closing DB.
 func CloseAllConnectors() {
 	dbCacheMu.Lock()
-	defer dbCacheMu.Unlock()
-	for _, c := range connectors {
-		c.Close()
+	cancel := checkpointLoopCancel
+	done := checkpointLoopDone
+	checkpointLoopCancel = nil
+	checkpointLoopDone = nil
+	dbs := make([]*sql.DB, 0, len(dbCache))
+	for _, db := range dbCache {
+		dbs = append(dbs, db)
 	}
-	connectors = nil
+	dbCache = map[string]*sql.DB{}
+	dbCacheMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+	for _, db := range dbs {
+		_ = db.Close()
+	}
 }
 
-// PingAll pings every cached *sql.DB. Returns the first error encountered,
-// or nil if all databases are reachable. Used by the health check endpoint
-// so that Docker/autoheal can detect a dead database connection.
+// PingAll pings every cached *sql.DB once. Does not retry SQLITE_BUSY —
+// a locked database during checkpoint must not stretch the Docker health
+// window into autoheal restarts. Returns the first error encountered.
 func PingAll(ctx context.Context) error {
 	dbCacheMu.Lock()
 	dbs := make([]*sql.DB, 0, len(dbCache))
@@ -246,6 +304,11 @@ func (pc pragmaConnector) Connect(ctx context.Context) (driver.Conn, error) {
 				conn.Close()
 				return nil, fmt.Errorf("query pragma %q: %w", pragma, err)
 			}
+			if err := drainRows(rows); err != nil {
+				rows.Close()
+				conn.Close()
+				return nil, fmt.Errorf("read pragma %q: %w", pragma, err)
+			}
 			rows.Close()
 			continue
 		}
@@ -267,6 +330,19 @@ func (pc pragmaConnector) Connect(ctx context.Context) (driver.Conn, error) {
 }
 
 func (pc pragmaConnector) Driver() driver.Driver { return pc.inner.Driver() }
+
+func drainRows(rows driver.Rows) error {
+	dest := make([]driver.Value, len(rows.Columns()))
+	for {
+		err := rows.Next(dest)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
 
 // ---------------------------------------------------------------------------
 // driver-level recovery: convert Hrana stream/baton errors to
@@ -379,18 +455,56 @@ func IsBatonError(err error) bool {
 	return isConnectionDead(err)
 }
 
-// RetryOnBaton retries fn up to maxAttempts times if it fails with a baton
-// error, with a short backoff between attempts.
-func RetryOnBaton(maxAttempts int, fn func() error) error {
+// IsBusyError reports whether err is SQLite SQLITE_BUSY / "database is locked".
+// The checkpoint loop and app queries share one file; this is expected
+// under contention and should be retried, not surfaced to the user.
+func IsBusyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "database is locked") ||
+		strings.Contains(msg, "SQLITE_BUSY")
+}
+
+// RetryTransient retries fn up to maxAttempts times on baton or SQLITE_BUSY
+// errors. Honors ctx cancellation between attempts and does not sleep after
+// the last attempt.
+func RetryTransient(ctx context.Context, maxAttempts int, fn func() error) error {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		err = fn()
-		if err == nil || !IsBatonError(err) {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-		time.Sleep(time.Duration(1200+200*attempt) * time.Millisecond)
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		if !IsBatonError(err) && !IsBusyError(err) {
+			return err
+		}
+		if IsBusyError(err) {
+			slog.Warn("retrying after database is locked", "attempt", attempt+1, "max_attempts", maxAttempts)
+		}
+		if attempt == maxAttempts-1 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(1200+200*attempt) * time.Millisecond):
+		}
 	}
 	return err
+}
+
+// RetryOnBaton is kept for call sites that do not yet pass a context.
+// Prefer RetryTransient.
+func RetryOnBaton(maxAttempts int, fn func() error) error {
+	return RetryTransient(context.Background(), maxAttempts, fn)
 }
 
 // retryEventStore wraps an EventStore and retries the whole operation when
@@ -402,14 +516,14 @@ type retryEventStore struct {
 const batonRetryAttempts = 4
 
 func (r retryEventStore) Store(ctx context.Context, events []gosignal.Event) error {
-	return RetryOnBaton(batonRetryAttempts, func() error {
+	return RetryTransient(ctx, batonRetryAttempts, func() error {
 		return r.inner.Store(ctx, events)
 	})
 }
 
 func (r retryEventStore) Load(ctx context.Context, aggID string, opts sourcing.LoadEventsOptions) ([]gosignal.Event, error) {
 	var out []gosignal.Event
-	err := RetryOnBaton(batonRetryAttempts, func() error {
+	err := RetryTransient(ctx, batonRetryAttempts, func() error {
 		var err error
 		out, err = r.inner.Load(ctx, aggID, opts)
 		return err
@@ -418,7 +532,7 @@ func (r retryEventStore) Load(ctx context.Context, aggID string, opts sourcing.L
 }
 
 func (r retryEventStore) Replace(ctx context.Context, id string, version uint64, event gosignal.Event) error {
-	return RetryOnBaton(batonRetryAttempts, func() error {
+	return RetryTransient(ctx, batonRetryAttempts, func() error {
 		return r.inner.Replace(ctx, id, version, event)
 	})
 }
