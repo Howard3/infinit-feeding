@@ -241,13 +241,19 @@ func (s *Server) exportFeedingReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Form dates are YYYY-MM-DD calendar days in the school timezone (Manila).
+	// Convert to UTC instants so SQLite text compares against stored RFC3339 match
+	// early-morning PHT feeds. endDate is exclusive for both the query and columns.
+	from := student.StartOfFeedingCalendarDate(startDate.Year(), startDate.Month(), startDate.Day()).UTC()
+	to := student.StartOfFeedingCalendarDate(endDate.Year(), endDate.Month(), endDate.Day()).UTC()
+
 	studentList, err := s.Services.StudentSvc.ListForSchool(r.Context(), schoolID)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching students", err)
 		return
 	}
 
-	students, err := s.Services.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, startDate, endDate)
+	students, err := s.Services.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, from, to)
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding events", err)
 		return
@@ -255,7 +261,7 @@ func (s *Server) exportFeedingReport(w http.ResponseWriter, r *http.Request) {
 
 	dateColumns := make([]time.Time, 0)
 	for d := startDate; d.Before(endDate); d = d.AddDate(0, 0, 1) {
-		dateColumns = append(dateColumns, d)
+		dateColumns = append(dateColumns, student.StartOfFeedingCalendarDate(d.Year(), d.Month(), d.Day()))
 	}
 
 	students = s.addMissingStudentsToReport(studentList, students)

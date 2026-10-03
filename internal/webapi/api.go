@@ -206,7 +206,7 @@ func (s *Server) Start(ctx context.Context) {
 	// dead connections and restart the container.
 	c.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 		defer cancel()
 		if err := infrastructure.PingAll(ctx); err != nil {
 			slog.Error("health check failed: database unreachable", "error", err)

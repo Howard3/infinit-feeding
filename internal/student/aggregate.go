@@ -360,35 +360,35 @@ func (sd *Aggregate) handleAddGradeReport(evt wrappedEvent) error {
 // feed - handles the feeding of a student
 func (sd *Aggregate) Feed(cmd *eda.Student_Feeding) (*gosignal.Event, error) {
 	timestamp := cmd.GetUnixTimestamp()
-	if len(sd.data.FeedingReport) > 0 {
-		lastFeeding := sd.data.FeedingReport[len(sd.data.FeedingReport)-1]
-		lastFeedingTimestamp := int64(lastFeeding.UnixTimestamp)
-		thisFeedingTimestamp := int64(timestamp)
-		now := time.Now().Unix()
+	thisFeedingTimestamp := int64(timestamp)
+	now := time.Now().Unix()
 
-		newerThanLastFeeding := thisFeedingTimestamp > lastFeedingTimestamp
+	if thisFeedingTimestamp > now {
+		return nil, fmt.Errorf("feeding timestamp is in the future")
+	}
 
-		isNotInFuture := thisFeedingTimestamp <= now
+	// Canonical day comes only from unix in the school timezone. Ignore any
+	// client-supplied local_calendar_date (including values on old events).
+	thisDate := FeedingCalendarDate(timestamp)
 
-		lastFeedingDay := time.Unix(lastFeedingTimestamp, 0).Day()
-		thisFeedingDay := time.Unix(thisFeedingTimestamp, 0).Day()
-		isNotSameDayAsLastFeeding := lastFeedingDay != thisFeedingDay
-
-		switch {
-		case !newerThanLastFeeding:
-			return nil, fmt.Errorf("feeding timestamp is not newer than the last feeding")
-		case !isNotInFuture:
-			return nil, fmt.Errorf("feeding timestamp is in the future")
-		case !isNotSameDayAsLastFeeding:
-			return nil, fmt.Errorf("feeding timestamp is on the same day as the last feeding")
+	for _, existing := range sd.data.FeedingReport {
+		existingDate := FeedingCalendarDate(existing.GetUnixTimestamp())
+		if existingDate == thisDate {
+			return nil, fmt.Errorf("feeding timestamp is on the same day as an existing feeding")
 		}
 	}
 
 	return sd.ApplyEvent(StudentEvent{
 		eventType: EVENT_FEED_STUDENT,
 		data: &eda.Student_Feeding_Event{
-			UnixTimestamp: uint64(timestamp),
-			FileId:        cmd.GetFileId(),
+			UnixTimestamp:       uint64(timestamp),
+			FileId:              cmd.GetFileId(),
+			LocalCalendarDate:   thisDate,
+			RecordedByFeederId:  cmd.GetRecordedByFeederId(),
+			SubmittedByFeederId: cmd.GetSubmittedByFeederId(),
+			DeviceId:            cmd.GetDeviceId(),
+			ClientFeedId:        cmd.GetClientFeedId(),
+			SchoolId:            cmd.GetSchoolId(),
 		},
 		version: cmd.GetVersion(),
 	})

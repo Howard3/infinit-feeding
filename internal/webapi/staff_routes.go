@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"geevly/internal/student"
 	stafftempl "geevly/internal/webapi/templates/staff"
 )
 
@@ -94,8 +95,9 @@ func (s *Server) staffSchoolStudents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get feeding events for the school
-	feedingEvents, err := s.Services.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, time.Now().Add(time.Hour*-12), time.Now())
+	now := time.Now()
+	from := student.StartOfFeedingDay(now).UTC()
+	feedingEvents, err := s.Services.StudentSvc.GetSchoolFeedingEvents(r.Context(), schoolID, from, now.UTC())
 	if err != nil {
 		s.errorPage(w, r, "Error fetching feeding events", err)
 		return

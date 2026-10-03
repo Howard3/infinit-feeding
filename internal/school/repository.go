@@ -169,54 +169,65 @@ func (r *sqlRepository) listSchools(ctx context.Context, limit uint, page uint) 
 
 	page--
 
-	rows, err := r.db.Query(query, limit, limit*page)
+	var schools []*ProjectedSchool
+	err := infrastructure.RetryTransient(ctx, 4, func() error {
+		rows, qerr := r.db.QueryContext(ctx, query, limit, limit*page)
+		if qerr != nil {
+			return qerr
+		}
+		defer rows.Close()
+
+		out := []*ProjectedSchool{}
+		for rows.Next() {
+			school := &ProjectedSchool{}
+			var country, city sql.NullString
+			var schoolStartMonth, schoolStartDay, schoolEndMonth, schoolEndDay sql.NullInt32
+			if err := rows.Scan(
+				&school.ID,
+				&school.Name,
+				&school.Active,
+				&school.Version,
+				&school.UpdatedAt,
+				&country,
+				&city,
+				&schoolStartMonth,
+				&schoolStartDay,
+				&schoolEndMonth,
+				&schoolEndDay,
+			); err != nil {
+				return fmt.Errorf("failed to scan school: %w", err)
+			}
+
+			school.Country = country.String
+			school.City = city.String
+
+			if schoolStartMonth.Valid {
+				month := uint32(schoolStartMonth.Int32)
+				school.SchoolStartMonth = &month
+			}
+			if schoolStartDay.Valid {
+				day := uint32(schoolStartDay.Int32)
+				school.SchoolStartDay = &day
+			}
+			if schoolEndMonth.Valid {
+				month := uint32(schoolEndMonth.Int32)
+				school.SchoolEndMonth = &month
+			}
+			if schoolEndDay.Valid {
+				day := uint32(schoolEndDay.Int32)
+				school.SchoolEndDay = &day
+			}
+
+			out = append(out, school)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		schools = out
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schools: %w", err)
-	}
-	defer rows.Close()
-
-	schools := []*ProjectedSchool{}
-	for rows.Next() {
-		school := &ProjectedSchool{}
-		var country, city sql.NullString
-		var schoolStartMonth, schoolStartDay, schoolEndMonth, schoolEndDay sql.NullInt32
-		if err := rows.Scan(
-			&school.ID,
-			&school.Name,
-			&school.Active,
-			&school.Version,
-			&school.UpdatedAt,
-			&country,
-			&city,
-			&schoolStartMonth,
-			&schoolStartDay,
-			&schoolEndMonth,
-			&schoolEndDay,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan school: %w", err)
-		}
-
-		school.Country = country.String
-		school.City = city.String
-
-		if schoolStartMonth.Valid {
-			month := uint32(schoolStartMonth.Int32)
-			school.SchoolStartMonth = &month
-		}
-		if schoolStartDay.Valid {
-			day := uint32(schoolStartDay.Int32)
-			school.SchoolStartDay = &day
-		}
-		if schoolEndMonth.Valid {
-			month := uint32(schoolEndMonth.Int32)
-			school.SchoolEndMonth = &month
-		}
-		if schoolEndDay.Valid {
-			day := uint32(schoolEndDay.Int32)
-			school.SchoolEndDay = &day
-		}
-
-		schools = append(schools, school)
 	}
 
 	return schools, nil
@@ -248,7 +259,10 @@ func (r *sqlRepository) mapSchoolsByID(ctx context.Context) (map[uint64]string, 
 func (r *sqlRepository) countSchools(ctx context.Context) (uint, error) {
 	var count uint
 	query := `SELECT COUNT(*) FROM schools;`
-	if err := r.db.QueryRow(query).Scan(&count); err != nil {
+	err := infrastructure.RetryTransient(ctx, 4, func() error {
+		return r.db.QueryRowContext(ctx, query).Scan(&count)
+	})
+	if err != nil {
 		return 0, fmt.Errorf("failed to count schools: %w", err)
 	}
 
