@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -121,7 +122,7 @@ func createNewStudentReader(data []byte) (*newStudentReader, *ValidationResult) 
 		result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
 			Context: eda.BulkUpload_ValidationError_METADATA_FIELD,
 			Field:   "headers",
-			Message: fmt.Sprintf("Missing required columns: %s", strings.Join(missingColumns, ", ")),
+			Message: fmt.Sprintf("Missing required columns: %s. Found columns: %s", strings.Join(missingColumns, ", "), formatFoundColumns(header)),
 		})
 	}
 
@@ -183,6 +184,39 @@ func (h *newStudentHeaderIndexes) ValidateHeaders(headers []string) []string {
 	}
 
 	return missingHeaders
+}
+
+func formatFoundColumns(header []string) string {
+	if len(header) == 0 {
+		return "(none)"
+	}
+	return strings.Join(header, ", ")
+}
+
+func (h *newStudentHeaderIndexes) missingRequired() bool {
+	if h == nil {
+		return true
+	}
+	for _, idx := range []int{h.firstName, h.lastName, h.lrn, h.gradeLevel, h.dob, h.gender, h.status, h.sponsorship} {
+		if idx < 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *newStudentHeaderIndexes) minRowWidth() int {
+	width := 0
+	for _, idx := range []int{h.firstName, h.lastName, h.lrn, h.gradeLevel, h.dob, h.gender, h.status, h.sponsorship} {
+		if idx+1 > width {
+			width = idx + 1
+		}
+	}
+	return width
+}
+
+func newStudentRowsReady(nsr *newStudentReader) bool {
+	return nsr != nil && nsr.csvReader != nil && nsr.headerIndexes != nil && !nsr.headerIndexes.missingRequired()
 }
 
 func (h *newStudentHeaderIndexes) getFirstName(row []string) string {
@@ -343,14 +377,16 @@ func (d *NewStudentsDomain) ValidateUpload(ctx context.Context, aggregate *bulk_
 		}
 	}
 
-	if errs := d.validateRows(ctx, newStudentReader, schoolIDStr); len(errs) > 0 {
-		result.IsValid = false
-		for _, err := range errs {
-			result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
-				Context: eda.BulkUpload_ValidationError_CSV_DATA,
-				Field:   "rows",
-				Message: err.Error(),
-			})
+	if newStudentRowsReady(newStudentReader) {
+		if errs := d.validateRows(ctx, newStudentReader, schoolIDStr); len(errs) > 0 {
+			result.IsValid = false
+			for _, err := range errs {
+				result.Errors = append(result.Errors, &eda.BulkUpload_ValidationError{
+					Context: eda.BulkUpload_ValidationError_CSV_DATA,
+					Field:   "rows",
+					Message: err.Error(),
+				})
+			}
 		}
 	}
 
@@ -557,15 +593,18 @@ func (d *NewStudentsDomain) UndoUpload(ctx context.Context, aggregate *bulk_uplo
 }
 
 func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *newStudentReader, schoolID string) []error {
-	errors := make([]error, 0)
+	rowErrs := make([]error, 0)
 
 	switch {
 	case newStudentReader == nil:
-		errors = append(errors, fmt.Errorf("newStudentReader is nil"))
-		return errors
+		rowErrs = append(rowErrs, fmt.Errorf("newStudentReader is nil"))
+		return rowErrs
 	case newStudentReader.csvReader == nil:
-		errors = append(errors, fmt.Errorf("newStudentReader.csvReader is nil"))
-		return errors
+		rowErrs = append(rowErrs, fmt.Errorf("newStudentReader.csvReader is nil"))
+		return rowErrs
+	case newStudentReader.headerIndexes == nil || newStudentReader.headerIndexes.missingRequired():
+		rowErrs = append(rowErrs, fmt.Errorf("missing required columns"))
+		return rowErrs
 	}
 
 	// Pre-load the set of existing LRNs for this school in a single
@@ -576,8 +615,8 @@ func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *
 	if d.services != nil && d.services.StudentService != nil && schoolID != "" {
 		existing, err := d.services.StudentService.ListForSchool(ctx, schoolID)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("error loading existing students for school %s: %w", schoolID, err))
-			return errors
+			rowErrs = append(rowErrs, fmt.Errorf("error loading existing students for school %s: %w", schoolID, err))
+			return rowErrs
 		}
 		for _, s := range existing {
 			if s == nil || s.StudentID == "" {
@@ -587,13 +626,24 @@ func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *
 		}
 	}
 
+	need := newStudentReader.headerIndexes.minRowWidth()
+	rowNum := 1
 	for {
+		rowNum++
 		record, err := newStudentReader.csvReader.Read()
 		if err == io.EOF {
 			break
 		}
+		if err != nil && !errors.Is(err, csv.ErrFieldCount) {
+			rowErrs = append(rowErrs, fmt.Errorf("error reading csv file: %w", err))
+			continue
+		}
+		if len(record) < need {
+			rowErrs = append(rowErrs, fmt.Errorf("row %d has %d columns, need at least %d", rowNum, len(record), need))
+			continue
+		}
 		if err != nil {
-			errors = append(errors, fmt.Errorf("error reading csv file: %w", err))
+			rowErrs = append(rowErrs, fmt.Errorf("error reading csv file: %w", err))
 			continue
 		}
 
@@ -601,23 +651,23 @@ func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *
 
 		// Check for duplicate LRNs against the pre-loaded set.
 		if _, dup := existingLRNs[lrn]; dup {
-			errors = append(errors, fmt.Errorf("duplicate LRN: %s for school %s", lrn, schoolID))
+			rowErrs = append(rowErrs, fmt.Errorf("duplicate LRN: %s for school %s", lrn, schoolID))
 			continue
 		}
 
 		if newStudentReader.headerIndexes.getDOB(record) == nil {
-			errors = append(errors, fmt.Errorf("missing or invalid date of birth for student with LRN %s", lrn))
+			rowErrs = append(rowErrs, fmt.Errorf("missing or invalid date of birth for student with LRN %s", lrn))
 			continue
 		}
 
 		sex := newStudentReader.headerIndexes.getGender(record)
 		if sex == eda.Student_UNKNOWN_SEX {
-			errors = append(errors, fmt.Errorf("missing or invalid sex for student with LRN %s", lrn))
+			rowErrs = append(rowErrs, fmt.Errorf("missing or invalid sex for student with LRN %s", lrn))
 			continue
 		}
 
 		if newStudentReader.headerIndexes.getGradeLevel(record) == 0 {
-			errors = append(errors, fmt.Errorf("missing or invalid grade level for student with LRN %s", lrn))
+			rowErrs = append(rowErrs, fmt.Errorf("missing or invalid grade level for student with LRN %s", lrn))
 			continue
 		}
 
@@ -626,12 +676,12 @@ func (d *NewStudentsDomain) validateRows(ctx context.Context, newStudentReader *
 		photoFileName := newStudentReader.getStudentPhotoPath(lrn)
 		photoStat, err := fs.Stat(newStudentReader.zipReader, photoFileName)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("error checking photo file: %w", err))
+			rowErrs = append(rowErrs, fmt.Errorf("error checking photo file: %w", err))
 			continue
 		}
 
 		slog.Info("bulk upload: found photo for new student", "lrn", lrn, "photo", photoStat.Name(), "size", photoStat.Size())
 	}
 
-	return errors
+	return rowErrs
 }
